@@ -119,7 +119,7 @@
       <section id="tch-tab-dashboard">
         
         <!-- 4 Metric KPI Cards -->
-        <div class="bpes-stat-grid mb-4">
+        <div class="bpes-stat-grid bpes-stat-grid--even mb-4">
           <div class="bpes-stat-card">
             <div class="bpes-stat-icon">
               <i class="fas fa-users"></i>
@@ -222,6 +222,20 @@
 
           <!-- Right: recent-scans-card -->
           <div class="col-xl-7 col-12">
+            <div class="bpes-card mb-4" id="tch-mix-card">
+              <div class="bpes-card-header">
+                <div>
+                  <h3 class="bpes-card-title">Today's attendance mix</h3>
+                  <div class="bpes-card-subtitle">Across all your classes today.</div>
+                </div>
+              </div>
+              <div class="bpes-chart bpes-chart-sm">
+                <canvas id="tch-mix-chart" role="img" aria-label="Today's attendance mix"></canvas>
+                <div class="bpes-chart-empty d-none">No attendance records in your classes yet today.</div>
+              </div>
+              <ul class="bpes-legend" id="tch-mix-legend"></ul>
+            </div>
+
             <div class="bpes-card" id="recent-scans-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -443,7 +457,7 @@
       <section id="tch-tab-leave" class="d-none">
         
         <!-- 4 Summary Cards -->
-        <div class="bpes-stat-grid mb-4">
+        <div class="bpes-stat-grid bpes-stat-grid--even mb-4">
           <div class="bpes-stat-card">
             <div class="bpes-stat-icon warning">
               <i class="fas fa-clock"></i>

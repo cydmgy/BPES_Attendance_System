@@ -33,6 +33,8 @@ function initAdminPortal() {
   populateAdminRoomDropdowns();
   populateAdminSectionFilter();
 
+  const greeting = document.getElementById('admin-greeting');
+  if (greeting) greeting.textContent = `${greetingWord()}, Admin!`;
   showAdminTab('dashboard');
   loadAdminSections();
   loadAdminStudents();
@@ -126,34 +128,31 @@ const DASH_COUNTS = {
   rooms: 'dash-rooms', active_schedules: 'dash-schedules', pending_leave: 'dash-leave',
 };
 
+// Overview numbers, today's mix and the 14-day trend load side by side; each part fails on its own,
+// showing "—" or an empty chart instead of a fake zero.
 async function loadAdminDashboard() {
   const set = (id, value) => { const el = byId(id); if (el) el.textContent = value; };
-  try {
-    const { data } = await axios.get(`${API_BASE}/api/stats/overview`);
+  const [overview, today, trend] = await Promise.allSettled([
+    axios.get(`${API_BASE}/api/stats/overview`),
+    axios.get(`${API_BASE}/api/attendance/daily`),
+    axios.get(`${API_BASE}/api/attendance/trend`, { params: { days: 14 } }),
+  ]);
+
+  if (overview.status === 'fulfilled') {
+    const data = overview.value.data;
     Object.entries(DASH_COUNTS).forEach(([key, id]) => set(id, data[key] ?? '—'));
-  } catch (err) {
+    BpesCharts.barList('dash-sections-chart', (data.students_per_section || []).map(x => ({ label: x.section, value: x.count })), 'Students');
+  } else {
     Object.values(DASH_COUNTS).forEach(id => set(id, '—')); // unknown, not zero
-    notify('admin', errMsg(err, 'Could not load dashboard numbers'), 'danger');
+    BpesCharts.barList('dash-sections-chart', []);
+    notify('admin', errMsg(overview.reason, 'Could not load dashboard numbers'), 'danger');
   }
 
-  const box = byId('dash-attendance');
-  if (!box) return;
-  try {
-    const { data } = await axios.get(`${API_BASE}/api/attendance/daily`);
-    const c = data.summary || {};
-    const item = (label, value) => `
-      <div class="bpes-stat-card"><div>
-        <div class="bpes-stat-label">${label}</div>
-        <div class="bpes-stat-value">${value}</div>
-      </div></div>`;
-    box.innerHTML = [
-      item('Present', c.present ?? 0), item('Late', c.late ?? 0), item('Excused', c.excused ?? 0),
-      item('Absent', c.absent ?? 0),
-      item('Attendance rate', c.attendance_rate == null ? '—' : `${c.attendance_rate}%`),
-    ].join('');
-  } catch (err) {
-    box.innerHTML = '<div class="text-muted small">Could not load today\'s attendance.</div>';
-  }
+  const summary = today.status === 'fulfilled' ? today.value.data.summary : null;
+  set('dash-rate', summary?.attendance_rate == null ? '—' : `${summary.attendance_rate}%`);
+  BpesCharts.statusDonut('dash-today-chart', summary || {}, 'dash-today-legend', 'No attendance records yet today.');
+
+  BpesCharts.trendBars('dash-trend-chart', trend.status === 'fulfilled' ? trend.value.data.days : []);
 }
 
 function startAutoRefreshLogs() {
@@ -599,7 +598,7 @@ function renderTeachersTable(list) {
         </td>
         <td><span class="small fw-medium text-dark">${escapeHtml(t.role || 'Teacher I')}</span></td>
         <td><span class="small text-muted">${escapeHtml(t.email)}</span></td>
-        <td><span class="badge bg-light text-dark border">Regular</span></td>
+        <td class="d-none d-xxl-table-cell"><span class="badge bg-light text-dark border">Regular</span></td>
         <td>${t.rfid_uid
           ? `<span class="fw-bold text-success small">${escapeHtml(t.rfid_uid)}</span>
              <button class="btn btn-link btn-sm p-0 ms-1 text-muted" title="Replace card" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-rotate"></i></button>`
@@ -813,9 +812,9 @@ function renderSectionsTable() {
   }
   tbody.innerHTML = sections.map(sec => {
     const count = students.filter(s => s.section_id === sec.id).length;
-    const gradeSelect = `<select class="bpes-select" style="height: 34px; font-size: 13px; min-width: 110px;" onchange="changeSectionGrade('${sec.id}', this.value)">
+    const gradeSelect = `<select class="bpes-select" style="height: 34px; font-size: 13px; min-width: 112px;" onchange="changeSectionGrade('${sec.id}', this.value)">
         <option value="">No grade</option>${[1, 2, 3, 4, 5, 6].map(g => `<option value="${g}"${g === sec.grade_level ? ' selected' : ''}>Grade ${g}</option>`).join('')}</select>`;
-    const roomSelect = `<select class="bpes-select" style="height: 34px; font-size: 13px; min-width: 150px;" onchange="changeSectionRoom('${sec.id}', this.value)">
+    const roomSelect = `<select class="bpes-select" style="height: 34px; font-size: 13px; min-width: 132px;" onchange="changeSectionRoom('${sec.id}', this.value)">
         ${sec.home_room_id ? '' : '<option value="">No home room</option>'}${roomOptions(sec.home_room_id)}</select>`;
     return `
       <tr>

@@ -34,4 +34,17 @@ function parseGradeLevel(value) {
   return Number.isInteger(n) && n >= 1 && n <= 6 ? n : undefined;
 }
 
-module.exports = { sectionFields, withSectionName, parseGradeLevel };
+// Students per section for the dashboard: rows are students with their embedded sections(section_name).
+// Natural order ("Grade 2" before "Grade 10"); students without a section are skipped.
+function countBySection(rows) {
+  const counts = new Map();
+  for (const r of rows || []) {
+    const name = r?.sections?.section_name;
+    if (name) counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([section, count]) => ({ section, count }));
+}
+
+module.exports = { sectionFields, withSectionName, parseGradeLevel, countBySection };

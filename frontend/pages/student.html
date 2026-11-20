@@ -115,7 +115,7 @@
       <section id="std-tab-overview">
         
         <!-- 4 Summary Cards -->
-        <div class="bpes-stat-grid mb-4">
+        <div class="bpes-stat-grid bpes-stat-grid--even mb-4">
           <div class="bpes-stat-card">
             <div class="bpes-stat-icon">
               <i class="fas fa-calendar-check"></i>
@@ -157,6 +157,39 @@
               <div class="bpes-stat-label">Attendance rate</div>
               <div class="bpes-stat-value" id="std-stat-rate">0%</div>
               <div class="bpes-stat-sub" id="std-stat-rate-sub">0 of 0 classes attended</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendance charts -->
+        <div class="row g-4 mb-4">
+          <div class="col-12 col-xl-5">
+            <div class="bpes-card h-100">
+              <div class="bpes-card-header">
+                <div>
+                  <h3 class="bpes-card-title">My attendance mix</h3>
+                  <div class="bpes-card-subtitle">Held classes in the last 90 days.</div>
+                </div>
+              </div>
+              <div class="bpes-chart bpes-chart-sm">
+                <canvas id="std-mix-chart" role="img" aria-label="My attendance mix"></canvas>
+                <div class="bpes-chart-empty d-none">No classes held yet.</div>
+              </div>
+              <ul class="bpes-legend" id="std-mix-legend"></ul>
+            </div>
+          </div>
+          <div class="col-12 col-xl-7">
+            <div class="bpes-card h-100">
+              <div class="bpes-card-header">
+                <div>
+                  <h3 class="bpes-card-title">My last 14 days</h3>
+                  <div class="bpes-card-subtitle">Each school day, by class period.</div>
+                </div>
+              </div>
+              <div class="bpes-chart">
+                <canvas id="std-trend-chart" role="img" aria-label="My attendance over the last 14 days"></canvas>
+                <div class="bpes-chart-empty d-none">No classes held in the last 14 days.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -207,7 +240,7 @@
         <div class="row g-4">
           
           <!-- Left: attendance-card  -->
-          <div class="col-xl-4 col-lg-5">
+          <div class="col-12 col-xl-4">
             <div class="bpes-card mb-4" id="attendance-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div>
@@ -252,7 +285,7 @@
           </div>
 
           <!-- Right: history-card -->
-          <div class="col-xl-8 col-lg-7">
+          <div class="col-12 col-xl-8">
             <div class="bpes-card" id="history-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div>
@@ -410,7 +443,7 @@
         <div class="row g-4">
           
           <!-- Left: file-leave-card -->
-          <div class="col-xl-5 col-lg-6">
+          <div class="col-12 col-xl-5">
             <div class="bpes-card mb-4" id="file-leave-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div>
@@ -424,13 +457,13 @@
 
               <form id="std-leave-form" onsubmit="submitStudentLeave(event)">
                 <div class="row g-2">
-                  <div class="col-6">
+                  <div class="col-12 col-sm-6">
                     <div class="bpes-form-group">
                       <label class="bpes-label">LRN</label>
                       <input type="text" id="leave-form-lrn" class="bpes-input" placeholder="LRN" readonly>
                     </div>
                   </div>
-                  <div class="col-6">
+                  <div class="col-12 col-sm-6">
                     <div class="bpes-form-group">
                       <label class="bpes-label">Full name</label>
                       <input type="text" id="leave-form-name" class="bpes-input" placeholder="Full name" readonly>
@@ -484,7 +517,7 @@
           </div>
 
           <!-- Right: request-history-card -->
-          <div class="col-xl-7 col-lg-6">
+          <div class="col-12 col-xl-7">
             <div class="bpes-card" id="request-history-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div>

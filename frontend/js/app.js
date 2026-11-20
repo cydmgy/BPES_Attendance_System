@@ -28,6 +28,54 @@ function manilaDate(value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(value));
 }
 
+// 'Good morning' / 'Good afternoon' / 'Good evening' by the school's (Manila) clock.
+function greetingWord() {
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', hour12: false }).format(new Date())) % 24;
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+// Sidebar and drawer entries are <div onclick>: make them reachable and usable from the keyboard.
+function enhanceNavAccessibility() {
+  document.querySelectorAll('.bpes-sidebar-item, .bpes-mobile-drawer-item').forEach(el => {
+    if (el.dataset.kb) return;
+    el.dataset.kb = '1';
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+    });
+  });
+}
+
+// Phones show table rows as cards: every cell carries its column name (the CSS reads data-label).
+function labelTableCells() {
+  document.querySelectorAll('table.bpes-table').forEach(table => {
+    const heads = [...table.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach(tr => {
+      if (tr.firstElementChild?.hasAttribute('colspan')) return; // empty-state row
+      [...tr.children].forEach((td, i) => {
+        if (heads[i] !== undefined && td.dataset.label !== heads[i]) td.dataset.label = heads[i];
+      });
+    });
+  });
+}
+
+(function watchTables() {
+  const start = () => {
+    const app = document.getElementById('app');
+    if (!app) return;
+    let queued = false;
+    new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => { queued = false; labelTableCells(); });
+    }).observe(app, { childList: true, subtree: true }); // childList only: setting data-label cannot retrigger it
+    labelTableCells();
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+
 let activePortal = 'welcome';
 let isBackendOnline = false;
 
@@ -766,6 +814,8 @@ async function loadPage(page) {
 
     // Scroll to top smoothly
     window.scrollTo({ top: 0, behavior: 'instant' });
+
+    enhanceNavAccessibility();
 
     // Initialize specific page controllers
     if (targetPage === 'login') {

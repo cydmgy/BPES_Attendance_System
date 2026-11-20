@@ -247,7 +247,7 @@ test('stats overview returns a count per table, 0 for an empty one', async () =>
   Object.assign(stub, fakeDb({ students: [1, 2, 3], instructors: [1], sections: [], subjects: [1, 2], rooms: [1], schedules: [1, 2, 3, 4], leave_requests: [1] }));
   const res = await callJson('GET', '/api/stats/overview', tokens.admin);
   assert.equal(res.status, 200);
-  assert.deepEqual(res.json, { students: 3, teachers: 1, sections: 0, subjects: 2, rooms: 1, active_schedules: 4, pending_leave: 1 });
+  assert.deepEqual(res.json, { students: 3, teachers: 1, sections: 0, subjects: 2, rooms: 1, active_schedules: 4, pending_leave: 1, students_per_section: [] });
 });
 
 // ── Section grade level ─────────────────────────────────────────────────
@@ -258,4 +258,25 @@ test('sections: an invalid grade level is 400; a valid or blank one is accepted'
   assert.equal(await call('POST', '/api/sections', tokens.admin, { section_name: 'Diamond' }), 201);
   assert.equal(await call('PUT', `/api/sections/${OTHER_ID}`, tokens.admin, { grade_level: 'x' }), 400);
   assert.equal(await call('PUT', `/api/sections/${OTHER_ID}`, tokens.admin, { grade_level: 4 }), 200);
+});
+
+// ── Attendance trend (dashboard charts) ──────────────────────────────────
+test('attendance trend: every role may ask; an empty term is an empty list; days is capped at the report limit', async () => {
+  Object.assign(stub, fakeDb({ attendance_logs: [] }));
+  for (const role of ['student', 'teacher', 'admin']) {
+    const res = await callJson('GET', '/api/attendance/trend?days=7', tokens[role]);
+    assert.equal(res.status, 200, role);
+    assert.deepEqual(res.json.days, [], role);
+  }
+  const { addDays } = require('../src/utils/report');
+  const week = (await callJson('GET', '/api/attendance/trend?days=7', tokens.admin)).json;
+  assert.equal(week.from, addDays(week.to, -6));
+  const capped = (await callJson('GET', '/api/attendance/trend?days=9999', tokens.admin)).json;
+  assert.equal(capped.from, addDays(capped.to, -92));
+  const dflt = (await callJson('GET', '/api/attendance/trend', tokens.admin)).json;
+  assert.equal(dflt.from, addDays(dflt.to, -13));
+});
+
+test('attendance trend: no login is 401', async () => {
+  assert.equal(await call('GET', '/api/attendance/trend'), 401);
 });

@@ -114,7 +114,7 @@
       <!-- Welcome bar -->
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
         <div>
-          <h1 class="fs-3 fw-bold text-dark mb-1">Good morning, Admin!</h1>
+          <h1 class="fs-3 fw-bold text-dark mb-1" id="admin-greeting">Good morning, Admin!</h1>
           <p class="text-muted small mb-0" id="admin-welcome-desc">
             Manage student enrollment, review enrolled students, and monitor system health.
           </p>
@@ -129,70 +129,115 @@
       <!-- TAB 0: Dashboard -->
       <!-- ============================================================ -->
       <section id="adm-tab-dashboard">
-        <div class="bpes-stat-grid mb-4">
+        <div class="bpes-stat-grid bpes-stat-grid--even mb-4">
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-users"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-users" aria-hidden="true"></i></div>
             <div>
-              <div class="bpes-stat-label">Registered students</div>
+              <div class="bpes-stat-label">Students</div>
               <div class="bpes-stat-value" id="dash-students">&mdash;</div>
-              <div class="bpes-stat-sub">Enrolled with an RFID card</div>
+              <div class="bpes-stat-sub">Enrolled with a card</div>
             </div>
           </div>
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-user"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-user" aria-hidden="true"></i></div>
             <div>
-              <div class="bpes-stat-label">Registered teachers</div>
+              <div class="bpes-stat-label">Teachers</div>
               <div class="bpes-stat-value" id="dash-teachers">&mdash;</div>
-              <div class="bpes-stat-sub">DepEd faculty members</div>
+              <div class="bpes-stat-sub">Faculty members</div>
             </div>
           </div>
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-layer-group"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-layer-group" aria-hidden="true"></i></div>
             <div>
               <div class="bpes-stat-label">Sections</div>
               <div class="bpes-stat-value" id="dash-sections">&mdash;</div>
-              <div class="bpes-stat-sub">Classes with a home room</div>
+              <div class="bpes-stat-sub">With a home room</div>
             </div>
           </div>
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-book"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-book" aria-hidden="true"></i></div>
             <div>
               <div class="bpes-stat-label">Subjects</div>
               <div class="bpes-stat-value" id="dash-subjects">&mdash;</div>
-              <div class="bpes-stat-sub">Offered by the school</div>
+              <div class="bpes-stat-sub">Offered</div>
             </div>
           </div>
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-door-open"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-door-open" aria-hidden="true"></i></div>
             <div>
               <div class="bpes-stat-label">Rooms</div>
               <div class="bpes-stat-value" id="dash-rooms">&mdash;</div>
-              <div class="bpes-stat-sub">Each can have a reader</div>
+              <div class="bpes-stat-sub">Can host a reader</div>
             </div>
           </div>
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-calendar-days"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-calendar-days" aria-hidden="true"></i></div>
             <div>
-              <div class="bpes-stat-label">Active schedules</div>
+              <div class="bpes-stat-label">Schedules</div>
               <div class="bpes-stat-value" id="dash-schedules">&mdash;</div>
-              <div class="bpes-stat-sub">Weekly periods in use</div>
+              <div class="bpes-stat-sub">Active weekly periods</div>
             </div>
           </div>
           <div class="bpes-stat-card">
-            <div class="bpes-stat-icon"><i class="fas fa-file-text"></i></div>
+            <div class="bpes-stat-icon"><i class="fas fa-file-text" aria-hidden="true"></i></div>
             <div>
-              <div class="bpes-stat-label">Pending leave requests</div>
+              <div class="bpes-stat-label">Pending leave</div>
               <div class="bpes-stat-value" id="dash-leave">&mdash;</div>
-              <div class="bpes-stat-sub">Waiting for a teacher</div>
+              <div class="bpes-stat-sub">Awaiting review</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-chart-pie" aria-hidden="true"></i></div>
+            <div>
+              <div class="bpes-stat-label">Attendance today</div>
+              <div class="bpes-stat-value" id="dash-rate">&mdash;</div>
+              <div class="bpes-stat-sub">Per class period</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+          <div class="col-xl-8">
+            <div class="bpes-card h-100">
+              <div class="bpes-card-header">
+                <div>
+                  <h3 class="bpes-card-title">Attendance, last 14 days</h3>
+                  <div class="bpes-card-subtitle">Held classes only, counted per student per class period.</div>
+                </div>
+              </div>
+              <div class="bpes-chart bpes-chart-lg">
+                <canvas id="dash-trend-chart" role="img" aria-label="Attendance trend"></canvas>
+                <div class="bpes-chart-empty d-none">No classes have been held in this period yet.</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-xl-4">
+            <div class="bpes-card h-100">
+              <div class="bpes-card-header">
+                <div>
+                  <h3 class="bpes-card-title">Today</h3>
+                  <div class="bpes-card-subtitle">Absent fills in as each period closes.</div>
+                </div>
+              </div>
+              <div class="bpes-chart bpes-chart-sm">
+                <canvas id="dash-today-chart" role="img" aria-label="Today's attendance mix"></canvas>
+                <div class="bpes-chart-empty d-none">No attendance records yet today.</div>
+              </div>
+              <ul class="bpes-legend" id="dash-today-legend"></ul>
             </div>
           </div>
         </div>
 
         <div class="bpes-card">
-          <h6 class="fw-bold mb-1"><i class="fas fa-chart-simple text-success me-2"></i>Today's attendance</h6>
-          <div class="small text-muted mb-3">Counted per student per class period, so a student in 5 periods counts 5 times. Absent fills in as each period closes.</div>
-          <div class="bpes-stat-grid" id="dash-attendance">
-            <div class="text-muted small">Loading...</div>
+          <div class="bpes-card-header">
+            <div>
+              <h3 class="bpes-card-title">Students per section</h3>
+              <div class="bpes-card-subtitle">Enrolled students in each section.</div>
+            </div>
+          </div>
+          <div class="bpes-chart">
+            <canvas id="dash-sections-chart" role="img" aria-label="Students per section"></canvas>
+            <div class="bpes-chart-empty d-none">No students are enrolled in a section yet.</div>
           </div>
         </div>
       </section>
@@ -204,7 +249,7 @@
         <div class="row g-4">
           
           <!-- Left: enrollment-card  -->
-          <div class="col-xl-4 col-lg-5">
+          <div class="col-12 col-xl-4">
             <div class="bpes-card mb-4" id="enrollment-card">
               
               <!-- rfid-scanner sub-panel -->
@@ -232,7 +277,7 @@
                 </div>
 
                 <div class="row g-2">
-                  <div class="col-6">
+                  <div class="col-12">
                     <div class="bpes-form-group">
                       <label for="enroll-section-input" class="bpes-label">Section</label>
                       <select id="enroll-section-input" class="bpes-select" required>
@@ -240,7 +285,7 @@
                       </select>
                     </div>
                   </div>
-                  <div class="col-6">
+                  <div class="col-12">
                     <div class="bpes-form-group">
                       <label for="enroll-room-input" class="bpes-label">Classroom</label>
                       <select id="enroll-room-input" class="bpes-select">
@@ -254,12 +299,12 @@
 
                 <div class="bpes-form-group">
                   <label for="enroll-rfid-input" class="bpes-label">RFID card</label>
-                  <input type="text" id="enroll-rfid-input" class="bpes-input" placeholder="Scan the card, or type e.g. F3:06:24:38" required>
+                  <input type="text" id="enroll-rfid-input" class="bpes-input" placeholder="Scan or type UID" required>
                 </div>
 
                 <div class="bpes-form-group">
                   <label for="enroll-pin-input" class="bpes-label">Login PIN</label>
-                  <input type="text" id="enroll-pin-input" class="bpes-input" placeholder="At least 4 characters; the student logs in with it" minlength="4" autocomplete="off" required>
+                  <input type="text" id="enroll-pin-input" class="bpes-input" placeholder="At least 4 characters" minlength="4" autocomplete="off" required>
                 </div>
 
                 <div class="bpes-form-group">
@@ -280,13 +325,13 @@
                   </div>
 
                   <div class="row g-2">
-                    <div class="col-6">
+                    <div class="col-12">
                       <div class="bpes-form-group">
                         <label for="enroll-guardian-phone" class="bpes-label">Phone number</label>
                         <input type="tel" id="enroll-guardian-phone" class="bpes-input" placeholder="0912 345 6789" required>
                       </div>
                     </div>
-                    <div class="col-6">
+                    <div class="col-12">
                       <div class="bpes-form-group">
                         <label for="enroll-guardian-relation" class="bpes-label">Relationship</label>
                         <select id="enroll-guardian-relation" class="bpes-select">
@@ -311,7 +356,7 @@
           </div>
 
           <!-- Right: enrolled-students-card -->
-          <div class="col-xl-8 col-lg-7">
+          <div class="col-12 col-xl-8">
             <div class="bpes-card" id="enrolled-students-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -324,7 +369,7 @@
               </div>
 
               <div class="bpes-table-wrapper">
-                <table class="bpes-table">
+                <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
                       <th>Student</th>
@@ -362,7 +407,7 @@
         <div class="row g-4">
           
           <!-- Left: teacher-registration-car -->
-          <div class="col-xl-4 col-lg-5">
+          <div class="col-12 col-xl-4">
             <div class="bpes-card mb-4" id="teacher-registration-card">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Register teacher</h3>
@@ -406,7 +451,7 @@
 
                 <div class="bpes-form-group">
                   <label for="tch-email-input" class="bpes-label">Email address</label>
-                  <input type="email" id="tch-email-input" class="bpes-input" placeholder="juan.delacruz@deped.gov.ph" required>
+                  <input type="email" id="tch-email-input" class="bpes-input" placeholder="name@deped.gov.ph" required>
                 </div>
 
                 <div class="bpes-form-group">
@@ -417,7 +462,7 @@
                 <div class="bpes-form-group">
                   <label for="tch-rfid-input" class="bpes-label">RFID card</label>
                   <div class="d-flex gap-2">
-                    <input type="text" id="tch-rfid-input" class="bpes-input" placeholder="Scan the card, or type e.g. F3:06:24:38" required>
+                    <input type="text" id="tch-rfid-input" class="bpes-input" placeholder="Scan or type UID" required>
                     <button type="button" class="bpes-btn-outline px-3" onclick="startTapToEnrollInline('tch-rfid-input')" title="Scan card">
                       <i class="fas fa-id-card"></i>
                     </button>
@@ -432,7 +477,7 @@
           </div>
 
           <!-- Right: registered-teachers-card -->
-          <div class="col-xl-8 col-lg-7">
+          <div class="col-12 col-xl-8">
             <div class="bpes-card" id="registered-teachers-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -445,13 +490,13 @@
               </div>
 
               <div class="bpes-table-wrapper">
-                <table class="bpes-table">
+                <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
                       <th>Teacher</th>
                       <th>Position</th>
                       <th>Email</th>
-                      <th>Type</th>
+                      <th class="d-none d-xxl-table-cell">Type</th>
                       <th>RFID card</th>
                       <th>Actions</th>
                     </tr>
@@ -481,7 +526,7 @@
       <!-- ============================================================ -->
       <section id="adm-tab-sections" class="d-none">
         <div class="row g-4">
-          <div class="col-xl-4 col-lg-5">
+          <div class="col-12 col-xl-4">
             <div class="bpes-card mb-4">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Add section</h3>
@@ -507,7 +552,7 @@
             </div>
           </div>
 
-          <div class="col-xl-8 col-lg-7">
+          <div class="col-12 col-xl-8">
             <div class="bpes-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -516,7 +561,7 @@
                 </div>
               </div>
               <div class="bpes-table-wrapper">
-                <table class="bpes-table">
+                <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
                       <th>Section</th>
@@ -541,7 +586,7 @@
       <!-- ============================================================ -->
       <section id="adm-tab-subjects" class="d-none">
         <div class="row g-4">
-          <div class="col-xl-4 col-lg-5">
+          <div class="col-12 col-xl-4">
             <div class="bpes-card mb-4">
               <div class="mb-3">
                 <h3 class="bpes-card-title" id="subject-form-title">Add subject</h3>
@@ -565,7 +610,7 @@
             </div>
           </div>
 
-          <div class="col-xl-8 col-lg-7">
+          <div class="col-12 col-xl-8">
             <div class="bpes-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -574,7 +619,7 @@
                 </div>
               </div>
               <div class="bpes-table-wrapper">
-                <table class="bpes-table">
+                <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
                       <th>Subject</th>
@@ -583,7 +628,7 @@
                     </tr>
                   </thead>
                   <tbody id="adm-subjects-tbody">
-                    <tr><td colspan="3"class="text-center py-4 text-muted">Loading subjects...</td></tr>
+                    <tr><td colspan="3" class="text-center py-4 text-muted">Loading subjects...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -597,7 +642,7 @@
       <!-- ============================================================ -->
       <section id="adm-tab-schedules" class="d-none">
         <div class="row g-4">
-          <div class="col-xl-4 col-lg-5">
+          <div class="col-12 col-xl-4">
             <div class="bpes-card mb-4">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Add class period</h3>
@@ -646,7 +691,7 @@
             </div>
           </div>
 
-          <div class="col-xl-8 col-lg-7">
+          <div class="col-12 col-xl-8">
             <div class="bpes-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
@@ -654,10 +699,10 @@
                   <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="schedules-count-pill">0 periods</span>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                  <select id="sch-filter-section" class="bpes-select" onchange="loadAdminSchedules()" style="height: 38px; font-size: 13px;">
+                  <select id="sch-filter-section" class="bpes-select" onchange="loadAdminSchedules()" style="height: 38px; font-size: 13px; width: auto; min-width: 150px;">
                     <option value="">All sections</option>
                   </select>
-                  <select id="sch-filter-status" class="bpes-select" onchange="loadAdminSchedules()" style="height: 38px; font-size: 13px;">
+                  <select id="sch-filter-status" class="bpes-select" onchange="loadAdminSchedules()" style="height: 38px; font-size: 13px; width: auto; min-width: 110px;">
                     <option value="active">Active</option>
                     <option value="archived">Archived</option>
                     <option value="all">All</option>
@@ -665,7 +710,7 @@
                 </div>
               </div>
               <div class="bpes-table-wrapper">
-                <table class="bpes-table">
+                <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
                       <th>Day &amp; time</th>

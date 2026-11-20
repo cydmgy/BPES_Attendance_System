@@ -35,7 +35,7 @@ function initTeacherPortal() {
   // Update teacher name, email & avatar in sidebar & greeting
   if (currentTeacherUser && currentTeacherUser.name) {
     setText('teacher-nav-badge', currentTeacherUser.name);
-    setText('teacher-greeting', `Good morning, ${currentTeacherUser.name}!`);
+    setText('teacher-greeting', `${greetingWord()}, ${currentTeacherUser.name}!`);
     setText('teacher-avatar', currentTeacherUser.name.charAt(0).toUpperCase());
     setText('teacher-sidebar-user-name', currentTeacherUser.name);
     setText('teacher-sidebar-user-email', currentTeacherUser.email || 'Faculty Member');
@@ -152,6 +152,7 @@ async function loadTeacherDashboardData() {
     setText('tch-kpi-present-sub', logged > 0 ? `${Math.round(((present + late + excused) / logged) * 100)}% attendance` : 'No records yet');
 
     teacherWeekData = weekRes;
+    BpesCharts.statusDonut('tch-mix-chart', { present, late, excused, absent }, 'tch-mix-legend', 'No attendance records in your classes yet today.');
     renderTeacherToday(periods);
     renderTeacherWeek(weekRes);
     renderTeacherClasses(weekRes);

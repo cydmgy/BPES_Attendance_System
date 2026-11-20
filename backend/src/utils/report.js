@@ -67,4 +67,21 @@ function studentBadge(session, logStatus) {
   return 'not_checked_in';
 }
 
-module.exports = { STATUSES, countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, studentBadge };
+// Daily attendance for the dashboard charts: one entry per date that has counted logs, oldest first.
+// Days with no logs (weekends, no classes held) are left out so the chart shows no false drops to zero.
+// A row is { status, session: { session_date } }.
+function buildTrend(rows) {
+  const byDate = new Map();
+  for (const r of rows || []) {
+    const date = r.session?.session_date;
+    if (!date || !STATUSES.includes(r.status)) continue;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date).push(r);
+  }
+  return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, own]) => {
+    const c = countStatuses(own);
+    return { date, present: c.present, late: c.late, excused: c.excused, absent: c.absent, total: c.total, rate: attendancePercent(c) };
+  });
+}
+
+module.exports = { STATUSES, countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, studentBadge, buildTrend };

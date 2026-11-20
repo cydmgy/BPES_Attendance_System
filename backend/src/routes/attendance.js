@@ -14,7 +14,7 @@ const auth = require('../middleware/auth');
 const { localDateStr, localIso } = require('../utils/time');
 const { dayNameOf } = require('../utils/schedule');
 const { withSectionName } = require('../utils/section');
-const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange } = require('../utils/report');
+const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, buildTrend } = require('../utils/report');
 
 // Logs carry the student's section as a plain `section` name (the join row is lifted away).
 const flatLogs = rows => (rows || []).map(l => ({ ...l, students: l.students && withSectionName(l.students) }));
@@ -182,6 +182,22 @@ router.get('/daily', auth, async (req, res) => {
   } catch (err) {
     console.error('[GET /attendance/daily]', err);
     return res.status(500).json({ error: 'Failed to fetch daily report' });
+  }
+});
+
+// ── GET /api/attendance/trend?days=14 ──
+// Daily counts over the last `days` calendar days (default 14, capped like the other reports) for the dashboard
+// charts: held, closed sessions only. Students get their own days; staff get the whole school.
+router.get('/trend', auth, async (req, res) => {
+  try {
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 1), MAX_REPORT_DAYS);
+    const to = localDateStr();
+    const from = addDays(to, -(days - 1));
+    const rows = await sessionLogs({ from, to, studentId: ownStudentId(req) });
+    return res.json({ from, to, days: buildTrend(rows) });
+  } catch (err) {
+    console.error('[GET /attendance/trend]', err);
+    return res.status(500).json({ error: 'Failed to fetch attendance trend' });
   }
 });
 

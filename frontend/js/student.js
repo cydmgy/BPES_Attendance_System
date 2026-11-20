@@ -121,7 +121,7 @@ async function loadStudentPortalData() {
   if (cardIdEl) cardIdEl.textContent = displayLrn;
   if (cardCourseEl) cardCourseEl.textContent = displaySection;
   if (cardRfidEl) cardRfidEl.textContent = displayRfid;
-  if (greetingEl) greetingEl.textContent = `Good morning, ${displayName}!`;
+  if (greetingEl) greetingEl.textContent = `${greetingWord()}, ${displayName}!`;
 
   // Prefill Tab 3 form fields
   const formLrn = document.getElementById('leave-form-lrn');
@@ -139,12 +139,14 @@ async function loadStudentPortalData() {
       axios.get(`${API_BASE}/api/attendance/weekly`, { params: { from: termFrom, to: today } }),
       axios.get(`${API_BASE}/api/sessions/today`),
       axios.get(`${API_BASE}/api/schedules/my-week`),
+      axios.get(`${API_BASE}/api/attendance/trend`, { params: { days: 14 } }),
     ]);
-    const [logsData, reportData, todayData, weekData] = results.map(r => (r.status === 'fulfilled' ? r.value.data : null));
+    const [logsData, reportData, todayData, weekData, trendData] = results.map(r => (r.status === 'fulfilled' ? r.value.data : null));
 
     studentLogsCache = logsData?.logs || [];
     studentReport = reportData?.report?.[0] || null;
     renderStudentStats();
+    BpesCharts.trendBars('std-trend-chart', trendData?.days || [], 'No classes held in the last 14 days.');
     renderStudentToday(todayData?.periods);
     renderStudentWeek(weekData?.schedules);
     renderStudentRecent();
@@ -173,6 +175,8 @@ function renderStudentStats() {
   setText('std-stat-absent-sub', `${r.excused} excused`);
   setText('std-stat-rate', rate === null ? '—' : `${rate}%`);
   setText('std-stat-rate-sub', r.sessions > 0 ? `${attended} of ${r.sessions} classes attended` : 'No classes held yet');
+
+  BpesCharts.statusDonut('std-mix-chart', r, 'std-mix-legend', 'No classes held yet.');
 
   // History tab cards
   const logs = studentLogsCache;
