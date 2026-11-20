@@ -51,8 +51,9 @@ async function periodsFor(req, res, date) {
     const sessionBy = new Map(sessions.map(s => [s.schedule_id, s]));
 
     let logs = [];
-    if (sessions.length) {
-      let lq = supabase.from('attendance_logs').select('id, session_id, student_id, status, timestamp').in('session_id', sessions.map(s => s.id));
+    const live = sessions.filter(s => s.status !== 'cancelled'); // logs of a cancelled period do not count
+    if (live.length) {
+      let lq = supabase.from('attendance_logs').select('id, session_id, student_id, status, timestamp').in('session_id', live.map(s => s.id));
       if (student) lq = lq.eq('student_id', student.id);
       const { data, error: lErr } = await lq;
       if (lErr) throw lErr;

@@ -14,14 +14,14 @@ const auth = require('../middleware/auth');
 const { localDateStr, localIso } = require('../utils/time');
 const { dayNameOf } = require('../utils/schedule');
 const { withSectionName } = require('../utils/section');
-const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, buildTrend } = require('../utils/report');
+const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, buildTrend, withoutCancelled } = require('../utils/report');
 
 // Logs carry the student's section as a plain `section` name (the join row is lifted away).
 const flatLogs = rows => (rows || []).map(l => ({ ...l, students: l.students && withSectionName(l.students) }));
 
 // Class context of a log: which period it belongs to and who taught it (null for pre-session taps).
 const SESSION_CONTEXT = `session_id,
-        class_sessions(session_date, teacher:instructors!actual_teacher_id(full_name),
+        class_sessions(session_date, status, teacher:instructors!actual_teacher_id(full_name),
           schedules(start_time, end_time, subjects(id, name, code)))`;
 
 // ── GET /api/attendance ──────────────────────────────────────────
@@ -68,7 +68,8 @@ router.get('/', auth, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    const logs = flatLogs(data);
+    // shortcut: cancelled-session logs are dropped after the fetch, so a page can hold a few fewer than `limit`.
+    const logs = flatLogs(withoutCancelled(data));
     return res.json({ logs, count: logs.length });
   } catch (err) {
     console.error('[GET /attendance]', err);
@@ -93,7 +94,8 @@ router.get('/live', auth, async (req, res) => {
       .select(`
         id, timestamp, status, device_id,
         students(id, full_name, student_id, course, year_level, sections(section_name)),
-        rooms(id, name)
+        rooms(id, name),
+        class_sessions(status)
       `)
       .eq('room_id', room_id)
       .gte('timestamp', startOfDay)
@@ -101,7 +103,7 @@ router.get('/live', auth, async (req, res) => {
 
     if (error) throw error;
 
-    const logs = flatLogs(data);
+    const logs = flatLogs(withoutCancelled(data));
     return res.json({ logs, count: logs.length });
   } catch (err) {
     console.error('[GET /attendance/live]', err);
@@ -130,6 +132,7 @@ async function sessionLogs({ from, to, sectionId, subjectId, roomId, studentId, 
             subjects(name, code), sections(section_name)))`)
       .gte('class_sessions.session_date', from)
       .lte('class_sessions.session_date', to)
+      .neq('class_sessions.status', 'cancelled') // a cancelled period is never counted
       .order('id')
       .range(offset, offset + PAGE - 1);
     if (heldOnly) q = q.eq('class_sessions.status', 'closed').not('class_sessions.teacher_time_in', 'is', null);

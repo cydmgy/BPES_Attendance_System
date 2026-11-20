@@ -57,15 +57,20 @@ function monthRange(year, month) {
 }
 
 // What a portal shows for one student in one of today's periods.
-// A log always wins; otherwise it follows the session: not started -> 'upcoming', open without the
+// A cancelled period always shows 'cancelled' (logs from before a suspension do not count). Otherwise a log wins; otherwise it follows the session: not started -> 'upcoming', open without the
 // student -> 'not_checked_in', teacher never came -> 'no_teacher', closed after a held class -> 'absent'.
 function studentBadge(session, logStatus) {
+  if (session?.status === 'cancelled') return 'cancelled';
   if (logStatus) return logStatus;
   if (!session || session.status === 'pending') return 'upcoming';
   if (session.status === 'no_teacher') return 'no_teacher';
   if (session.status === 'closed') return session.teacher_time_in ? 'absent' : 'no_teacher';
   return 'not_checked_in';
 }
+
+// Drops logs whose session was cancelled (a student tapped before a suspension); logs with no session stay.
+// A row is { class_sessions: { status } | null }.
+const withoutCancelled = rows => (rows || []).filter(r => r.class_sessions?.status !== 'cancelled');
 
 // Daily attendance for the dashboard charts: one entry per date that has counted logs, oldest first.
 // Days with no logs (weekends, no classes held) are left out so the chart shows no false drops to zero.
@@ -84,4 +89,4 @@ function buildTrend(rows) {
   });
 }
 
-module.exports = { STATUSES, countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, studentBadge, buildTrend };
+module.exports = { STATUSES, countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, studentBadge, buildTrend, withoutCancelled };

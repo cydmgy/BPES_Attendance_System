@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, studentBadge, buildTrend } = require('../src/utils/report');
+const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, studentBadge, buildTrend, withoutCancelled } = require('../src/utils/report');
 
 test('studentBadge: log wins, otherwise follows the session state', () => {
   assert.equal(studentBadge({ status: 'ongoing' }, 'late'), 'late');
@@ -63,4 +63,20 @@ test('buildTrend: a date with only unknown statuses is left out, and no rows giv
   assert.deepEqual(buildTrend([{ student_id: 's', status: 'unknown', session: { session_date: '2026-11-10' } }]), []);
   assert.deepEqual(buildTrend([]), []);
   assert.deepEqual(buildTrend(undefined), []);
+});
+
+test('studentBadge: a cancelled session shows cancelled, even when a log exists', () => {
+  assert.equal(studentBadge({ status: 'cancelled' }, null), 'cancelled');
+  assert.equal(studentBadge({ status: 'cancelled', teacher_time_in: null }, 'present'), 'cancelled');
+});
+
+test('withoutCancelled: drops logs of cancelled sessions, keeps logs with no session', () => {
+  const rows = [
+    { status: 'present', class_sessions: { status: 'closed' } },
+    { status: 'present', class_sessions: { status: 'cancelled' } },
+    { status: 'unknown', class_sessions: null },
+  ];
+  assert.deepEqual(withoutCancelled(rows).map(r => r.status), ['present', 'unknown']);
+  assert.equal(countStatuses(withoutCancelled(rows)).total, 1);
+  assert.deepEqual(withoutCancelled(null), []);
 });
