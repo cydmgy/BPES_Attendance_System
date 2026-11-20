@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseNoClassDay } = require('../src/utils/noClassDay');
+const { parseNoClassDay, noClassBody } = require('../src/utils/noClassDay');
 
 const TODAY = '2026-11-20';
 
@@ -26,4 +26,9 @@ test('empty or whitespace reason is rejected', () => {
 
 test('a day before today is rejected', () => {
   assert.ok(parseNoClassDay({ day: '2026-11-19', reason: 'x' }, TODAY).error);
+});
+
+test('noClassBody is the 200 body readers see on a no-class day (never 409, which means duplicate)', () => {
+  assert.deepEqual(noClassBody('Typhoon'), { success: false, role: 'none', status: 'no_class', reason: 'Typhoon' });
+  assert.equal(noClassBody(undefined).reason, null);
 });

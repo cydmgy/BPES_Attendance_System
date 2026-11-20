@@ -11,4 +11,7 @@ function parseNoClassDay(body, today) {
   return { day, reason };
 }
 
-module.exports = { parseNoClassDay };
+// What /api/scan answers on a no-class day: 200 (409 already means duplicate tap) so the reader can show the reason.
+const noClassBody = (reason) => ({ success: false, role: 'none', status: 'no_class', reason: reason ?? null });
+
+module.exports = { parseNoClassDay, noClassBody };

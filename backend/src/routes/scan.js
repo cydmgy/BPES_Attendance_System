@@ -15,6 +15,7 @@ const adminOnly = require('../middleware/adminOnly');
 const { normalizeUid } = require('../utils/uid');
 const { localNow, localIso } = require('../utils/time');
 const { isUuid } = require('../utils/schedule');
+const { noClassBody } = require('../utils/noClassDay');
 const { resolveSlot, teacherRole, studentTapStatus } = require('../utils/slot');
 
 // shortcut: both live in this process's memory, so exactly one Render instance may run.
@@ -86,6 +87,8 @@ async function teacherTap(res, { teacher, room, tapAt, now }) {
   });
   if (error) throw error;
   const s = data[0];
+  // The period was cancelled (no-class day): no session to open or report as "already open".
+  if (s.o_status === 'cancelled') return res.status(200).json(noClassBody(null));
   return res.status(200).json({
     success: true,
     role: 'teacher',
@@ -195,6 +198,13 @@ router.post('/', iotAuth, async (req, res) => {
           : `Reader "${device_id || '(no device_id)'}" is not assigned to a room; set rooms.device_id`,
       });
     }
+
+    // No-class day: the whole school is closed, so no tap (teacher, student or unknown card) is logged.
+    // Fails open: if the lookup errors, taps carry on so a DB hiccup never stops a real school day.
+    const { data: closedDay, error: closedErr } = await supabase.from('no_class_days')
+      .select('reason').eq('day', now.date).maybeSingle();
+    if (closedErr) console.error('[SCAN] no_class_days lookup failed, continuing', closedErr);
+    else if (closedDay) return res.status(200).json(noClassBody(closedDay.reason));
 
     if (teacher) return await teacherTap(res, { teacher, room, tapAt, now });
 
