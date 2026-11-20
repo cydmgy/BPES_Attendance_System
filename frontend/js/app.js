@@ -1,0 +1,852 @@
+// ============================================================
+// BPES Portal - Core Application Router & State Management
+// ============================================================
+
+function getApiBase() {
+  if (typeof window === 'undefined') return 'http://localhost:3000';
+  const hostname = window.location.hostname || 'localhost';
+  const protocol = window.location.protocol.startsWith('http') ? window.location.protocol : 'http:';
+  const port = window.location.port;
+
+  // If running locally
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || !window.location.protocol.startsWith('http')) {
+    // If the frontend is already served directly by Express on port 3000
+    if (port === '3000') {
+      return window.location.origin;
+    }
+    // Route API requests to the Express backend server on port 3000 to eliminate 405 Method Not Allowed errors
+    return `${protocol}//${hostname}:3000`;
+  }
+
+  return window.location.origin;
+}
+
+const API_BASE = getApiBase();
+
+// 'YYYY-MM-DD' in school time (Asia/Manila), whatever the browser's zone. Accepts a Date or ISO string.
+function manilaDate(value = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date(value));
+}
+
+let activePortal = 'welcome';
+let isBackendOnline = false;
+
+let rooms = [];
+let subjects = [];
+
+// Leave requests are a whole day or a half day. Old requests that named one subject keep showing it.
+const leaveTypeLabel = type => ({ half_day_am: 'Half day (morning)', half_day_pm: 'Half day (afternoon)' })[type] || 'Whole day';
+const leaveLabel = req => leaveTypeLabel(req.leave_type) + (req.subjects?.name ? ` - ${req.subjects.name} only` : '');
+// Old requests saved a leading "[Subject] " in the reason; hide it.
+const leaveReasonText = req => String(req.reason || '').replace(/^\[.*?\]\s*/, '').replace(/\s*\(Proof:[^)]*\)\s*$/, ''); // proof was removed; hide it on old requests
+let students = [];
+let teachers = [];
+let allLogs = [];
+let overrideModal = null;
+
+let studentUser = {
+  id: '',
+  name: 'Student',
+  student_id: '',
+  rfid: '',
+  course: 'Elementary',
+  section: '—',
+  year: 1
+};
+
+let currentTeacherUser = {
+  id: '',
+  name: 'Faculty Member',
+  email: ''
+};
+
+// ── Session State Management ──────────────────────────────────
+
+function getAuthRole() {
+  return sessionStorage.getItem('auth_role') || null;
+}
+
+function getAuthToken() {
+  return sessionStorage.getItem('auth_token') || null;
+}
+
+function restoreAuthSession() {
+  const token = getAuthToken();
+  const role = getAuthRole();
+  const savedUserJson = sessionStorage.getItem('auth_user');
+
+  if (token) {
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (savedUserJson) {
+    try {
+      const user = JSON.parse(savedUserJson);
+      if (role === 'student') {
+        studentUser = { ...studentUser, ...user };
+        if (user.full_name) {
+          studentUser.name = user.full_name;
+          studentUser.full_name = user.full_name;
+        }
+      } else if (role === 'teacher') {
+        currentTeacherUser = { ...currentTeacherUser, ...user };
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved auth_user', e);
+    }
+  }
+}
+
+// ── DOM Initialization ────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', async () => {
+  restoreAuthSession();
+  
+  // Verify backend connectivity and load initial system collections
+  await loadSystemData();
+
+  // Route to the appropriate initial page
+  const hash = window.location.hash ? window.location.hash.replace('#', '') : '';
+  const initialPage = resolveAuthorizedPage(hash);
+  await loadPage(initialPage);
+});
+
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.replace('#', '');
+  const target = hash === 'instructor' ? 'teacher' : hash;
+  if (target && target !== activePortal) {
+    loadPage(target);
+  }
+});
+
+function resolveAuthorizedPage(requestedPage) {
+  const target = requestedPage === 'instructor' ? 'teacher' : requestedPage;
+  const role = getAuthRole();
+
+  // Public pages accessible to anyone
+  if (target === 'welcome') {
+    return target;
+  }
+
+  // If already authenticated and trying to visit login or root, go to portal
+  if (role) {
+    if (target === 'student' && role === 'student') return 'student';
+    if (target === 'teacher' && role === 'teacher') return 'teacher';
+    if (target === 'admin' && role === 'admin') return 'admin';
+    if (!target || target === 'login') return role;
+  }
+
+  // If requesting specific protected role portal while not logged in
+  if (target === 'student' || target === 'teacher' || target === 'admin') {
+    return 'login';
+  }
+
+  if (target === 'login') return 'login';
+
+  // Default initial landing page for unauthenticated visitors is welcome
+  return 'welcome';
+}
+
+// ── System Data Loader (Axios) ────────────────────────────────
+
+async function loadSystemData() {
+  try {
+    const pingRes = await axios.get(`${API_BASE}/api/ping`, { timeout: 3000 }).catch(() => null);
+    isBackendOnline = !!(pingRes && pingRes.data && pingRes.data.status === 'online');
+
+    if (!isBackendOnline) {
+      console.warn(`[BPES Portal] Backend offline at ${API_BASE}. Run 'node server.js' to connect.`);
+      updateBackendStatusUI(false);
+      return;
+    }
+
+    const isAdminRole = getAuthRole() === 'admin';
+    const [roomsRes, subjRes, stdRes, tchRes] = await Promise.all([
+      axios.get(`${API_BASE}/api/rooms`, { timeout: 4000 }).catch(() => ({ data: { rooms: [] } })),
+      axios.get(`${API_BASE}/api/subjects`, { timeout: 4000 }).catch(() => ({ data: { subjects: [] } })),
+      // The full student and teacher lists are admin-only (the server refuses everyone else).
+      isAdminRole ? axios.get(`${API_BASE}/api/students`, { timeout: 4000 }).catch(() => ({ data: { students: [] } })) : { data: { students: [] } },
+      isAdminRole ? axios.get(`${API_BASE}/api/teachers`, { timeout: 4000 }).catch(() => ({ data: { teachers: [] } })) : { data: { teachers: [] } }
+    ]);
+
+    rooms = roomsRes.data.rooms || [];
+    subjects = subjRes.data.subjects || [];
+    students = stdRes.data.students || [];
+    teachers = tchRes.data.teachers || [];
+
+    updateBackendStatusUI(true);
+
+    if (activePortal === 'login') {
+      populateLoginStudentPicker();
+    }
+
+  } catch (err) {
+    console.error('Data initialization error:', err);
+    isBackendOnline = false;
+    updateBackendStatusUI(false);
+  }
+}
+
+function updateBackendStatusUI(online) {
+  const badge = document.getElementById('backend-status-badge');
+  if (!badge) return;
+
+  if (online) {
+    badge.className = 'alert alert-success py-2 small d-flex align-items-center justify-content-center gap-2 mb-4';
+    badge.style.borderRadius = 'var(--radius-input)';
+    badge.style.background = 'var(--color-primary-light)';
+    badge.style.color = 'var(--color-primary)';
+    badge.style.border = '1px solid var(--color-primary-border)';
+    badge.innerHTML = `<i class="fas fa-check-circle"></i> Database &amp; Attendance Node Connected`;
+  } else {
+    badge.className = 'alert alert-warning py-2 small d-flex flex-column align-items-center justify-content-center gap-1 mb-4 text-center';
+    badge.style.borderRadius = 'var(--radius-input)';
+    badge.style.background = 'var(--color-amber-bg)';
+    badge.style.color = 'var(--color-amber)';
+    badge.style.border = '1px solid var(--color-amber-border)';
+    badge.innerHTML = `
+      <div class="fw-bold"><i class="fas fa-triangle-exclamation me-1"></i> Backend Server Disconnected</div>
+      <div class="small" style="color: #666;">Start <code>node server.js</code> to enable live sync and IoT card reads.</div>
+      <button class="btn btn-sm btn-dark mt-1 py-1 px-3 fw-bold" style="font-size: 0.75rem" onclick="retryBackendConnection()">
+        <i class="fas fa-rotate me-1"></i> Retry Connection
+      </button>
+    `;
+  }
+}
+
+async function retryBackendConnection() {
+  const badge = document.getElementById('backend-status-badge');
+  if (badge) {
+    badge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Checking ${escapeHtml(API_BASE)}...`;
+  }
+  await loadSystemData();
+}
+
+function populateLoginStudentPicker() {
+  const pickerWrapper = document.getElementById('student-picker-wrapper');
+  const picker = document.getElementById('login-student-picker');
+  if (picker && students.length > 0) {
+    picker.innerHTML = '<option value="">-- Choose enrolled student to auto-fill --</option>' +
+      students.map(s => `<option value="${s.id}">${escapeHtml(s.full_name)} (LRN: ${escapeHtml(s.student_id)})</option>`).join('');
+    if (pickerWrapper) pickerWrapper.classList.remove('d-none');
+  }
+}
+
+function onSelectStudentProfile(studentId) {
+  if (!studentId) return;
+  const matched = students.find(s => s.id === studentId);
+  if (matched) {
+    const userInput = document.getElementById('login-username') || document.getElementById('student-login-lrn');
+    const pinInput = document.getElementById('login-password') || document.getElementById('student-login-pin');
+    // Fill with student's full name
+    if (userInput) userInput.value = matched.full_name || matched.student_id;
+    if (pinInput) {
+      const defaultPin = matched.student_id && matched.student_id.length >= 4 
+        ? matched.student_id.slice(-4) 
+        : matched.student_id;
+      pinInput.value = defaultPin;
+    }
+  }
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    icon.className = isPass ? 'fas fa-eye-slash' : 'fas fa-eye';
+  }
+}
+
+// ── Authentication Feedback Modal Popups ──────────────────────
+
+function showAuthErrorPopup({ title, message, type = 'error', isNotFound = false }) {
+  const backdrop = document.getElementById('bpes-auth-modal-backdrop');
+  const iconWrap = document.getElementById('bpes-auth-modal-icon-wrap');
+  const titleEl = document.getElementById('bpes-auth-modal-title');
+  const msgEl = document.getElementById('bpes-auth-modal-message');
+  const actionsEl = document.getElementById('bpes-auth-modal-actions');
+
+  if (!backdrop) {
+    // Fallback if modal HTML is not mounted
+    alert(`${title}\n\n${message}`);
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = title;
+  if (msgEl) msgEl.textContent = message;
+
+  if (iconWrap) {
+    if (isNotFound) {
+      iconWrap.className = 'bpes-auth-modal-icon not-found mb-3';
+      iconWrap.innerHTML = '<i class="fas fa-user-xmark"></i>';
+    } else {
+      iconWrap.className = 'bpes-auth-modal-icon incorrect-pw mb-3';
+      iconWrap.innerHTML = '<i class="fas fa-key"></i>';
+    }
+  }
+
+  if (actionsEl) {
+    if (isNotFound) {
+      actionsEl.innerHTML = `
+        <button type="button" class="bpes-btn-primary w-100 py-3" style="border-radius: var(--radius-input);" onclick="closeAuthErrorPopup()">
+          Check Name &amp; Try Again
+        </button>
+      `;
+    } else {
+      actionsEl.innerHTML = `
+        <button type="button" class="bpes-btn-primary w-100 py-3" style="border-radius: var(--radius-input);" onclick="closeAuthErrorPopup(true)">
+          <i class="fas fa-rotate-left me-2"></i> Try Again
+        </button>
+      `;
+    }
+  }
+
+  backdrop.classList.add('active');
+}
+
+function closeAuthErrorPopup(focusPassword = false) {
+  const backdrop = document.getElementById('bpes-auth-modal-backdrop');
+  if (backdrop) {
+    backdrop.classList.remove('active');
+  }
+  if (focusPassword) {
+    const passInput = document.getElementById('login-password');
+    if (passInput) {
+      passInput.value = '';
+      passInput.focus();
+    }
+  } else {
+    const userInput = document.getElementById('login-username');
+    if (userInput) userInput.focus();
+  }
+}
+
+// ── Unified Authentication Handlers ──────────────
+
+async function handleUnifiedLogin(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('login-alert-box') || document.getElementById('login-alert');
+  const btn = document.getElementById('unified-login-btn') || document.getElementById('btn-submit-login');
+  const userInput = document.getElementById('login-username');
+  const passInput = document.getElementById('login-password');
+
+  const username = (userInput?.value || '').trim();
+  const password = (passInput?.value || '').trim();
+
+  if (!username || !password) {
+    showAuthErrorPopup({
+      title: 'Missing Credentials',
+      message: 'Please enter both your full name and password to sign in.',
+      type: 'warning',
+      isNotFound: false
+    });
+    return;
+  }
+
+  if (alertEl) alertEl.innerHTML = '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Logging In...';
+  }
+
+  try {
+    // 1. Administrator authentication
+    if (username.toLowerCase() === 'admin') {
+      try {
+        const res = await axios.post(`${API_BASE}/api/auth/admin`, { username, password });
+        if (res.data.success) {
+          sessionStorage.setItem('auth_role', 'admin');
+          sessionStorage.setItem('auth_token', res.data.token);
+          sessionStorage.setItem('auth_user', JSON.stringify(res.data.user || { role: 'admin' }));
+          axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+          await loadPage('admin');
+          return;
+        }
+      } catch (adminErr) {
+        const code = adminErr.response?.data?.code;
+        const msg = adminErr.response?.data?.error || 'Invalid administrator password.';
+        showAuthErrorPopup({
+          title: code === 'ACCOUNT_NOT_FOUND' ? 'Account Not Found' : 'Incorrect Password',
+          message: msg,
+          isNotFound: code === 'ACCOUNT_NOT_FOUND'
+        });
+        return;
+      }
+    }
+
+    // 2. If username contains '@', authenticate via teacher email
+    if (username.includes('@')) {
+      try {
+        const res = await axios.post(`${API_BASE}/api/auth/teacher`, { email: username, password });
+        if (res.data.success) {
+          sessionStorage.setItem('auth_role', 'teacher');
+          sessionStorage.setItem('auth_token', res.data.token);
+          sessionStorage.setItem('auth_user', JSON.stringify(res.data.user));
+          currentTeacherUser = { ...currentTeacherUser, ...res.data.user };
+          axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+          await loadPage('teacher');
+          return;
+        }
+      } catch (tchErr) {
+        const code = tchErr.response?.data?.code;
+        const msg = tchErr.response?.data?.error || 'Invalid teacher credentials.';
+        showAuthErrorPopup({
+          title: code === 'ACCOUNT_NOT_FOUND' ? 'Account Not Found' : 'Incorrect Password',
+          message: msg,
+          isNotFound: code === 'ACCOUNT_NOT_FOUND'
+        });
+        return;
+      }
+    }
+
+    // 3. Authenticate Student by Full Name (or LRN)
+    let studentResponse = null;
+    let studentErrData = null;
+    try {
+      studentResponse = await axios.post(`${API_BASE}/api/auth/student`, {
+        full_name: username,
+        student_id: username,
+        pin: password
+      });
+    } catch (stdErr) {
+      studentErrData = stdErr.response?.data || { error: stdErr.message };
+    }
+
+    if (studentResponse && studentResponse.data && studentResponse.data.success) {
+      sessionStorage.setItem('auth_role', 'student');
+      sessionStorage.setItem('auth_token', studentResponse.data.token);
+      sessionStorage.setItem('auth_user', JSON.stringify(studentResponse.data.user));
+      studentUser = { ...studentUser, ...studentResponse.data.user };
+      axios.defaults.headers.common['Authorization'] = `Bearer ${studentResponse.data.token}`;
+      await loadPage('student');
+      return;
+    }
+
+    // If student account was found but password was incorrect:
+    if (studentErrData && studentErrData.code === 'INCORRECT_PASSWORD') {
+      showAuthErrorPopup({
+        title: 'Incorrect Password',
+        message: 'The password you entered is incorrect. Please check your password and try again.',
+        isNotFound: false
+      });
+      return;
+    }
+
+    // Same name and PIN as another student, or a server problem: show the server's message
+    if (studentErrData && studentErrData.code !== 'ACCOUNT_NOT_FOUND') {
+      showAuthErrorPopup({
+        title: 'Login Problem',
+        message: escapeHtml(studentErrData.error || 'Unable to sign in right now.'),
+        isNotFound: false
+      });
+      return;
+    }
+
+    // 4. No student under that name (teachers sign in with their email above)
+    showAuthErrorPopup({
+      title: 'Account Does Not Exist',
+      message: `We could not find a student under the name "${escapeHtml(username)}". Please check the spelling (teachers sign in with their email address), or ask the school administrator to enroll your RFID card.`,
+      isNotFound: true
+    });
+
+  } catch (err) {
+    console.error('Unified login error:', err);
+    showAuthErrorPopup({
+      title: 'Login Error',
+      message: err.message || 'Unable to complete sign in. Please verify your connection.',
+      isNotFound: false
+    });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Log In</span>';
+    }
+  }
+}
+
+// ── Mobile Drawer Open / Close Helpers ─────────────────────────
+
+function openAdminMobileDrawer() {
+  document.getElementById('adminMobileDrawer')?.classList.add('open');
+  document.getElementById('adminMobileBackdrop')?.classList.add('show');
+}
+function closeAdminMobileDrawer() {
+  document.getElementById('adminMobileDrawer')?.classList.remove('open');
+  document.getElementById('adminMobileBackdrop')?.classList.remove('show');
+}
+
+function openTeacherMobileDrawer() {
+  document.getElementById('teacherMobileDrawer')?.classList.add('open');
+  document.getElementById('teacherMobileBackdrop')?.classList.add('show');
+}
+function closeTeacherMobileDrawer() {
+  document.getElementById('teacherMobileDrawer')?.classList.remove('open');
+  document.getElementById('teacherMobileBackdrop')?.classList.remove('show');
+}
+
+function openStudentMobileDrawer() {
+  document.getElementById('studentMobileDrawer')?.classList.add('open');
+  document.getElementById('studentMobileBackdrop')?.classList.add('show');
+}
+function closeStudentMobileDrawer() {
+  document.getElementById('studentMobileDrawer')?.classList.remove('open');
+  document.getElementById('studentMobileBackdrop')?.classList.remove('show');
+}
+
+async function handleTeacherLogin(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('teacher-login-alert');
+  const btn = document.getElementById('teacher-login-btn');
+  const emailInput = document.getElementById('teacher-login-email');
+  const passInput = document.getElementById('teacher-login-password');
+
+  const email = (emailInput?.value || '').trim();
+  const password = (passInput?.value || '').trim();
+
+  if (alertEl) alertEl.innerHTML = '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authenticating...';
+  }
+
+  try {
+    const res = await axios.post(`${API_BASE}/api/auth/teacher`, { email, password });
+    if (res.data.success) {
+      sessionStorage.setItem('auth_role', 'teacher');
+      sessionStorage.setItem('auth_token', res.data.token);
+      sessionStorage.setItem('auth_user', JSON.stringify(res.data.user));
+
+      currentTeacherUser = { ...currentTeacherUser, ...res.data.user };
+      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+
+      await loadPage('teacher');
+    } else {
+      throw new Error(res.data.error || 'Authentication failed');
+    }
+  } catch (err) {
+    const msg = err.response?.data?.error || err.message || 'Login error occurred';
+    if (alertEl) {
+      alertEl.innerHTML = `
+        <div class="alert alert-danger py-2 small shadow-sm mb-3" style="border-radius: var(--radius-input);">
+          <i class="fas fa-circle-exclamation me-1"></i> ${escapeHtml(msg)}
+        </div>
+      `;
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Sign In as Teacher</span> <i class="fas fa-arrow-right ms-2"></i>';
+    }
+  }
+}
+
+async function handleAdminLogin(e) {
+  e.preventDefault();
+  const alertEl = document.getElementById('admin-login-alert');
+  const btn = document.getElementById('admin-login-btn');
+  const userInput = document.getElementById('admin-login-username');
+  const passInput = document.getElementById('admin-login-password');
+
+  const username = (userInput?.value || '').trim();
+  const password = (passInput?.value || '').trim();
+
+  if (alertEl) alertEl.innerHTML = '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authenticating...';
+  }
+
+  try {
+    const res = await axios.post(`${API_BASE}/api/auth/admin`, { username, password });
+    if (res.data.success) {
+      sessionStorage.setItem('auth_role', 'admin');
+      sessionStorage.setItem('auth_token', res.data.token);
+      sessionStorage.setItem('auth_user', JSON.stringify(res.data.user));
+
+      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+
+      await loadPage('admin');
+    } else {
+      throw new Error(res.data.error || 'Authentication failed');
+    }
+  } catch (err) {
+    const msg = err.response?.data?.error || err.message || 'Login error occurred';
+    if (alertEl) {
+      alertEl.innerHTML = `
+        <div class="alert alert-danger py-2 small shadow-sm mb-3" style="border-radius: var(--radius-input);">
+          <i class="fas fa-circle-exclamation me-1"></i> ${escapeHtml(msg)}
+        </div>
+      `;
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Sign In as Administrator</span> <i class="fas fa-arrow-right ms-2"></i>';
+    }
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('auth_role');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('auth_user');
+  delete axios.defaults.headers.common['Authorization'];
+  toggleMobileDrawer(false);
+  loadPage('welcome');
+}
+
+// ── Mobile Drawer Global Controls ─────────────────────────────
+
+function toggleMobileDrawer(open) {
+  const drawer = document.getElementById('bpes-global-drawer');
+  const backdrop = document.getElementById('bpes-global-drawer-backdrop');
+  if (drawer && backdrop) {
+    drawer.classList.toggle('active', !!open);
+    backdrop.classList.toggle('active', !!open);
+  }
+}
+
+function openAdminMobileDrawer() {
+  const contextLabel = document.getElementById('drawer-context-label');
+  const titleLabel = document.getElementById('drawer-title-label');
+  const navContainer = document.getElementById('drawer-nav-items');
+
+  if (contextLabel) contextLabel.textContent = 'ADMIN / BPES PORTAL';
+  if (titleLabel) titleLabel.textContent = 'Navigation';
+  if (navContainer) {
+    navContainer.innerHTML = `
+      <a href="#" class="bpes-drawer-item active" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students')">
+        <i class="fas fa-users"></i>
+        <span>Student Enrollment</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-teachers" onclick="selectAdminDrawerTab('teachers')">
+        <i class="fas fa-chalkboard-user"></i>
+        <span>Teachers Directory</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-sections" onclick="selectAdminDrawerTab('sections')">
+        <i class="fas fa-layer-group"></i>
+        <span>Sections</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules')">
+        <i class="fas fa-calendar-days"></i>
+        <span>Schedules</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-logs" onclick="selectAdminDrawerTab('logs')">
+        <i class="fas fa-clock-rotate-left"></i>
+        <span>Attendance Stream</span>
+      </a>
+    `;
+  }
+  toggleMobileDrawer(true);
+}
+
+function selectAdminDrawerTab(tab) {
+  toggleMobileDrawer(false);
+  if (typeof showAdminTab === 'function') {
+    showAdminTab(tab);
+  }
+}
+
+function openTeacherMobileDrawer() {
+  const contextLabel = document.getElementById('drawer-context-label');
+  const titleLabel = document.getElementById('drawer-title-label');
+  const navContainer = document.getElementById('drawer-nav-items');
+
+  if (contextLabel) contextLabel.textContent = 'TEACHER / BPES PORTAL';
+  if (titleLabel) titleLabel.textContent = 'Navigation';
+  if (navContainer) {
+    navContainer.innerHTML = `
+      <a href="#" class="bpes-drawer-item active" id="drawer-item-tch-dashboard" onclick="selectTeacherDrawerTab('dashboard')">
+        <i class="fas fa-home"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-attendance" onclick="selectTeacherDrawerTab('attendance')">
+        <i class="fas fa-check-square"></i>
+        <span>Attendance</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-export" onclick="selectTeacherDrawerTab('export')">
+        <i class="fas fa-download"></i>
+        <span>Export Attendance</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-leave" onclick="selectTeacherDrawerTab('leave')">
+        <i class="fas fa-file-text"></i>
+        <span>Student Leave Requests</span>
+      </a>
+    `;
+  }
+  toggleMobileDrawer(true);
+}
+
+function selectTeacherDrawerTab(tab) {
+  toggleMobileDrawer(false);
+  if (typeof showTeacherTab === 'function') {
+    showTeacherTab(tab);
+  }
+}
+
+function openStudentMobileDrawer() {
+  const contextLabel = document.getElementById('drawer-context-label');
+  const titleLabel = document.getElementById('drawer-title-label');
+  const navContainer = document.getElementById('drawer-nav-items');
+
+  if (contextLabel) contextLabel.textContent = 'STUDENT / BPES PORTAL';
+  if (titleLabel) titleLabel.textContent = 'Navigation';
+  if (navContainer) {
+    navContainer.innerHTML = `
+      <a href="#" class="bpes-drawer-item active" id="drawer-item-std-overview" onclick="selectStudentDrawerTab('overview')">
+        <i class="fas fa-home"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-std-logs" onclick="selectStudentDrawerTab('logs')">
+        <i class="fas fa-clock"></i>
+        <span>Attendance History</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-std-leave" onclick="selectStudentDrawerTab('leave')">
+        <i class="fas fa-file-text"></i>
+        <span>File Excuse / Leave</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" onclick="toggleMobileDrawer(false); openChangePinModal();">
+        <i class="fas fa-key"></i>
+        <span>Change Security PIN</span>
+      </a>
+    `;
+  }
+  toggleMobileDrawer(true);
+}
+
+function selectStudentDrawerTab(tab) {
+  toggleMobileDrawer(false);
+  if (typeof showStudentTab === 'function') {
+    showStudentTab(tab);
+  }
+}
+
+// ── Modular Page Router ───────────────────────────────────────
+
+async function loadPage(page) {
+  const appContainer = document.getElementById('app');
+  if (!appContainer) return;
+
+  // Cleanup active intervals when changing pages
+  if (typeof stopAutoRefreshLogs === 'function') stopAutoRefreshLogs();
+  if (typeof stopTeacherAutoRefresh === 'function') stopTeacherAutoRefresh();
+  toggleMobileDrawer(false);
+
+  let targetPage = (page === 'instructor') ? 'teacher' : (page || 'welcome');
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentRole = getAuthRole();
+
+  // Route protection
+  if (targetPage === 'student' && currentRole !== 'student') {
+    targetPage = 'login';
+  } else if (targetPage === 'teacher' && currentRole !== 'teacher') {
+    targetPage = 'login';
+  } else if (targetPage === 'admin' && currentRole !== 'admin') {
+    targetPage = 'login';
+  }
+
+  try {
+    const response = await fetch(`pages/${targetPage}.html`);
+    if (!response.ok) throw new Error(`Failed to load page: ${targetPage} (${response.status})`);
+    
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    
+    doc.querySelectorAll('script').forEach(s => s.remove());
+    appContainer.innerHTML = doc.body ? doc.body.innerHTML : html;
+    activePortal = targetPage;
+    
+    if (window.location.hash !== `#${targetPage}`) {
+      history.replaceState(null, '', `#${targetPage}`);
+    }
+
+    // Scroll to top smoothly
+    window.scrollTo({ top: 0, behavior: 'instant' });
+
+    // Initialize specific page controllers
+    if (targetPage === 'login') {
+      updateBackendStatusUI(isBackendOnline);
+      populateLoginStudentPicker();
+    } else if (targetPage === 'student' && typeof initStudentPortal === 'function') {
+      initStudentPortal();
+    } else if (targetPage === 'teacher' && typeof initTeacherPortal === 'function') {
+      initTeacherPortal();
+    } else if (targetPage === 'admin' && typeof initAdminPortal === 'function') {
+      initAdminPortal();
+    }
+
+    const targetTab = urlParams.get('tab');
+    if (targetTab) {
+      if (targetPage === 'admin' && typeof showAdminTab === 'function') showAdminTab(targetTab);
+      if (targetPage === 'teacher' && typeof showTeacherTab === 'function') showTeacherTab(targetTab);
+      if (targetPage === 'student' && typeof showStudentTab === 'function') showStudentTab(targetTab);
+    }
+  } catch (err) {
+    console.error(`Page routing error for '${targetPage}':`, err);
+    appContainer.innerHTML = `
+      <div class="container py-5 text-center">
+        <div class="bpes-card d-inline-block text-start p-4" style="max-width: 500px;">
+          <h5 class="fw-bold text-danger"><i class="fas fa-triangle-exclamation me-2"></i> Error Loading Page</h5>
+          <p class="mb-2">Could not load <code>pages/${escapeHtml(targetPage)}.html</code>.</p>
+          <button class="bpes-btn-primary bpes-btn-sm mt-3" onclick="loadPage('welcome')">Return to Welcome Page</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ── Shared UI Utilities ───────────────────────────────────────
+
+// One attendance badge for every portal. Log statuses plus the states a class period can be in
+// when a student has no log yet (upcoming / not_checked_in / no_teacher).
+const STATUS_BADGES = {
+  present:        ['present', 'fa-check', 'Present'],
+  late:           ['late', 'fa-clock', 'Late'],
+  absent:         ['absent', 'fa-times', 'Absent'],
+  excused:        ['excused', 'fa-info-circle', 'Excused'],
+  unknown:        ['warning', 'fa-question-circle', 'Unregistered'],
+  upcoming:       ['pending', 'fa-hourglass-half', 'Upcoming'],
+  not_checked_in: ['warning', 'fa-person-circle-question', 'Not checked in'],
+  no_teacher:     ['warning', 'fa-user-slash', 'No teacher'],
+};
+
+function statusBadge(status) {
+  const key = String(status || 'present').toLowerCase();
+  const [cls, icon, label] = STATUS_BADGES[key] || ['present', 'fa-check', key];
+  return `<span class="bpes-badge bpes-badge-${cls}"><i class="fas ${icon}"></i> ${escapeHtml(label)}</span>`;
+}
+
+// 'HH:MM:SS' -> 'HH:MM'
+const shortTime = t => String(t || '').slice(0, 5);
+
+// Set an element's text if it exists
+const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+
+
+function notify(target, message, type = 'success') {
+  const container = document.getElementById(`${target}-alert-box`);
+  if (!container) return;
+  const icon = type === 'success' ? 'check-circle' : type === 'warning' ? 'triangle-exclamation' : 'circle-exclamation';
+  const alertClass = type === 'success' ? 'alert-success' : type === 'warning' ? 'alert-warning' : 'alert-danger';
+  container.innerHTML = `
+    <div class="alert ${alertClass} alert-dismissible fade show shadow-sm mb-4" role="alert" style="border-radius: var(--radius-input);">
+      <i class="fas fa-${icon} me-2"></i> ${message}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  `;
+  setTimeout(() => { if (container) container.innerHTML = ''; }, 4500);
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}

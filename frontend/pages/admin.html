@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal — BPES</title>
+</head>
+<body>
+
+<div id="screen-admin" class="min-vh-100 d-flex flex-column">
+
+  <!-- Desktop Top Navbar (72px) — brand + role badge + avatar + logout, no tab pills -->
+  <header class="bpes-navbar">
+    <div class="bpes-brand" onclick="showAdminTab('students')">
+      <div class="bpes-logo-icon"><i class="fas fa-graduation-cap"></i></div>
+      <div class="bpes-brand-title" id="admin-brand-title">Student Enrollment</div>
+    </div>
+    <!-- Center nav pills intentionally removed — navigation is in the sidebar -->
+    <div class="bpes-nav-right">
+      <div class="bpes-role-badge">Admin</div>
+      <div class="bpes-avatar" title="System Administrator">A</div>
+      <button class="bpes-btn-logout" onclick="logout()"><span>Logout</span></button>
+    </div>
+  </header>
+
+  <!-- Mobile Top Header (72px) -->
+  <div class="bpes-mobile-header">
+    <button class="bpes-hamburger-btn" onclick="openAdminMobileDrawer()" aria-label="Open menu">
+      <i class="fas fa-bars"></i>
+    </button>
+    <div class="bpes-mobile-brand">
+      <div class="bpes-mobile-context">ADMIN / BPES PORTAL</div>
+      <div class="bpes-mobile-title" id="admin-mobile-header-title">Student Enrollment</div>
+    </div>
+    <button class="bpes-hamburger-btn" onclick="logout()" title="Logout">
+      <i class="fas fa-arrow-right-from-bracket"></i>
+    </button>
+  </div>
+
+  <!-- Main Layout Area (Desktop: 2-Column Sidebar + Content) -->
+  <div class="bpes-desktop-layout flex-grow-1">
+    
+    <!-- Left Sidebar (260px) -->
+    <aside class="bpes-sidebar">
+      <!-- Sidebar Brand -->
+      <div class="bpes-sidebar-brand d-flex align-items-center gap-2 pb-3 mb-1 border-bottom">
+        <div class="bpes-logo-icon" style="background: var(--color-primary); color: #fff; width: 38px; height: 38px; font-size: 18px; border-radius: 10px;">
+          <i class="fas fa-graduation-cap"></i>
+        </div>
+        <div>
+          <div class="fw-bold" style="font-family: var(--font-brand); font-size: 19px; color: var(--color-primary); line-height: 1.1;">BPES Portal</div>
+          <div class="text-muted fw-semibold" style="font-size: 11px; letter-spacing: 0.5px;">ADMINISTRATOR</div>
+        </div>
+      </div>
+
+      <div class="bpes-sidebar-header">
+        <div class="bpes-sidebar-subtitle">Admin landing</div>
+        <h2 class="bpes-sidebar-title" id="admin-sidebar-title">Student Enrollment</h2>
+        <p class="bpes-sidebar-desc" id="admin-sidebar-desc">
+          Tap-to-enroll workflow, enrolled students, and system summaries.
+        </p>
+      </div>
+
+      <nav class="bpes-sidebar-nav">
+        <div class="bpes-sidebar-item active" id="sidebar-adm-dashboard" onclick="showAdminTab('dashboard')">
+          <i class="fas fa-gauge"></i>
+          <span>Dashboard</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-students" onclick="showAdminTab('students')">
+          <i class="fas fa-users"></i>
+          <span>Student Enrollment</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-teachers" onclick="showAdminTab('teachers')">
+          <i class="fas fa-user"></i>
+          <span>Teachers</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-sections" onclick="showAdminTab('sections')">
+          <i class="fas fa-layer-group"></i>
+          <span>Sections</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-subjects" onclick="showAdminTab('subjects')">
+          <i class="fas fa-book"></i>
+          <span>Subjects</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-schedules" onclick="showAdminTab('schedules')">
+          <i class="fas fa-calendar-days"></i>
+          <span>Schedules</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-logs" onclick="showAdminTab('logs')">
+          <i class="fas fa-clock"></i>
+          <span>Attendance Stream</span>
+        </div>
+      </nav>
+
+      <!-- Sidebar User Footer & Logout -->
+      <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2 overflow-hidden">
+          <div class="bpes-avatar" style="background: var(--color-primary); color: #fff; width: 34px; height: 34px; font-size: 14px; border-radius: 50%;">A</div>
+          <div class="overflow-hidden">
+            <div class="small fw-bold text-dark text-truncate">Administrator</div>
+            <div class="text-muted text-truncate" style="font-size: 11px;">System Admin</div>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline-danger border-0 p-2" onclick="logout()" title="Logout">
+          <i class="fas fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Panel -->
+    <main class="bpes-main-content">
+      <div id="admin-alert-box"></div>
+
+      <!-- Welcome bar -->
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+          <h1 class="fs-3 fw-bold text-dark mb-1">Good morning, Admin!</h1>
+          <p class="text-muted small mb-0" id="admin-welcome-desc">
+            Manage student enrollment, review enrolled students, and monitor system health.
+          </p>
+        </div>
+        <div class="px-3 py-2 rounded-pill bg-white border d-flex align-items-center gap-2 shadow-sm text-muted small fw-medium">
+          <i class="fas fa-calendar text-success"></i>
+          <span id="admin-date-pill">Today, 08:30 AM</span>
+        </div>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- TAB 0: Dashboard -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-dashboard">
+        <div class="bpes-stat-grid mb-4">
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-users"></i></div>
+            <div>
+              <div class="bpes-stat-label">Registered students</div>
+              <div class="bpes-stat-value" id="dash-students">&mdash;</div>
+              <div class="bpes-stat-sub">Enrolled with an RFID card</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-user"></i></div>
+            <div>
+              <div class="bpes-stat-label">Registered teachers</div>
+              <div class="bpes-stat-value" id="dash-teachers">&mdash;</div>
+              <div class="bpes-stat-sub">DepEd faculty members</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-layer-group"></i></div>
+            <div>
+              <div class="bpes-stat-label">Sections</div>
+              <div class="bpes-stat-value" id="dash-sections">&mdash;</div>
+              <div class="bpes-stat-sub">Classes with a home room</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-book"></i></div>
+            <div>
+              <div class="bpes-stat-label">Subjects</div>
+              <div class="bpes-stat-value" id="dash-subjects">&mdash;</div>
+              <div class="bpes-stat-sub">Offered by the school</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-door-open"></i></div>
+            <div>
+              <div class="bpes-stat-label">Rooms</div>
+              <div class="bpes-stat-value" id="dash-rooms">&mdash;</div>
+              <div class="bpes-stat-sub">Each can have a reader</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-calendar-days"></i></div>
+            <div>
+              <div class="bpes-stat-label">Active schedules</div>
+              <div class="bpes-stat-value" id="dash-schedules">&mdash;</div>
+              <div class="bpes-stat-sub">Weekly periods in use</div>
+            </div>
+          </div>
+          <div class="bpes-stat-card">
+            <div class="bpes-stat-icon"><i class="fas fa-file-text"></i></div>
+            <div>
+              <div class="bpes-stat-label">Pending leave requests</div>
+              <div class="bpes-stat-value" id="dash-leave">&mdash;</div>
+              <div class="bpes-stat-sub">Waiting for a teacher</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bpes-card">
+          <h6 class="fw-bold mb-1"><i class="fas fa-chart-simple text-success me-2"></i>Today's attendance</h6>
+          <div class="small text-muted mb-3">Counted per student per class period, so a student in 5 periods counts 5 times. Absent fills in as each period closes.</div>
+          <div class="bpes-stat-grid" id="dash-attendance">
+            <div class="text-muted small">Loading...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 1: Student Enrollment -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-students">
+        <div class="row g-4">
+          
+          <!-- Left: enrollment-card  -->
+          <div class="col-xl-4 col-lg-5">
+            <div class="bpes-card mb-4" id="enrollment-card">
+              
+              <!-- rfid-scanner sub-panel -->
+              <div class="p-4 rounded-4 text-center mb-4" onclick="startTapToEnrollInline()" style="background: var(--color-bg); border: 1px dashed var(--color-border); cursor: pointer;" title="Click to scan RFID card">
+                <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; border-radius: 50%; background: var(--color-primary-soft); color: var(--color-primary); font-size: 24px;">
+                  <i class="fas fa-wifi" id="rfid-scan-icon"></i>
+                </div>
+                <h4 class="fw-bold mb-1" style="font-size: 1.1rem; color: var(--color-dark);">Tap RFID to enroll</h4>
+                <p class="text-muted small mb-3" id="rfid-scan-status-text">Ready to enroll</p>
+                <button type="button" class="bpes-btn-outline w-100 py-2" id="btn-scan-rfid" onclick="event.stopPropagation(); startTapToEnrollInline()">
+                  <i class="fas fa-id-card me-2"></i> Scan RFID card
+                </button>
+              </div>
+
+              <!-- enrollment-form -->
+              <form id="enrollment-form" onsubmit="submitInlineEnrollForm(event)">
+                <div class="bpes-form-group">
+                  <label for="enroll-id-input" class="bpes-label">Student ID</label>
+                  <input type="text" id="enroll-id-input" class="bpes-input" placeholder="e.g. 109283740192" required>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="enroll-name-input" class="bpes-label">Full name</label>
+                  <input type="text" id="enroll-name-input" class="bpes-input" placeholder="Last Name, First Name M.I." required>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="bpes-form-group">
+                      <label for="enroll-section-input" class="bpes-label">Section</label>
+                      <select id="enroll-section-input" class="bpes-select" required>
+                        <option value="">Select section</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="bpes-form-group">
+                      <label for="enroll-room-input" class="bpes-label">Classroom</label>
+                      <select id="enroll-room-input" class="bpes-select">
+                        <option value="Room 101">Room 101</option>
+                        <option value="Room 102">Room 102</option>
+                        <option value="Room 103">Room 103</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="enroll-rfid-input" class="bpes-label">RFID card</label>
+                  <input type="text" id="enroll-rfid-input" class="bpes-input" placeholder="Scan the card, or type e.g. F3:06:24:38" required>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="enroll-pin-input" class="bpes-label">Login PIN</label>
+                  <input type="text" id="enroll-pin-input" class="bpes-input" placeholder="At least 4 characters; the student logs in with it" minlength="4" autocomplete="off" required>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="enroll-date-input" class="bpes-label">Enrollment date</label>
+                  <input type="date" id="enroll-date-input" class="bpes-input">
+                </div>
+
+                <!-- Guardian Information Section -->
+                <div class="mt-3 pt-3 border-top">
+                  <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="fas fa-user-shield text-success"></i>
+                    <span class="fw-bold small text-dark">Guardian Information</span>
+                  </div>
+
+                  <div class="bpes-form-group">
+                    <label for="enroll-guardian-name" class="bpes-label">Guardian full name</label>
+                    <input type="text" id="enroll-guardian-name" class="bpes-input" placeholder="e.g. Maria dela Cruz" required>
+                  </div>
+
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <div class="bpes-form-group">
+                        <label for="enroll-guardian-phone" class="bpes-label">Phone number</label>
+                        <input type="tel" id="enroll-guardian-phone" class="bpes-input" placeholder="0912 345 6789" required>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="bpes-form-group">
+                        <label for="enroll-guardian-relation" class="bpes-label">Relationship</label>
+                        <select id="enroll-guardian-relation" class="bpes-select">
+                          <option value="Parent">Parent</option>
+                          <option value="Mother">Mother</option>
+                          <option value="Father">Father</option>
+                          <option value="Guardian">Guardian</option>
+                          <option value="Sibling">Sibling</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" id="btn-submit-enroll" class="bpes-btn-primary w-100 py-3 mt-3">
+                  <span>Enroll student</span>
+                </button>
+              </form>
+
+            </div>
+          </div>
+
+          <!-- Right: enrolled-students-card -->
+          <div class="col-xl-8 col-lg-7">
+            <div class="bpes-card" id="enrolled-students-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h3 class="bpes-card-title">Enrolled students</h3>
+                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="enrolled-count-pill">0 students</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="text" id="adm-student-search" class="bpes-input" placeholder="Search students..." oninput="filterAdminStudents()" style="height: 38px; width: 220px; font-size: 13px;">
+                </div>
+              </div>
+
+              <div class="bpes-table-wrapper">
+                <table class="bpes-table">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Section</th>
+                      <th>RFID</th>
+                      <th>Room</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-students-tbody">
+                    <tr>
+                      <td colspan="6" class="text-center py-4 text-muted">
+                        <span class="spinner-border spinner-border-sm me-2"></span> Loading enrolled students...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center mt-3 pt-2 text-muted small">
+                <span id="adm-students-pagination-label">Showing records</span>
+                <span class="badge bg-light text-dark border">DepEd / BPES</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 2: Teachers -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-teachers" class="d-none">
+        <div class="row g-4">
+          
+          <!-- Left: teacher-registration-car -->
+          <div class="col-xl-4 col-lg-5">
+            <div class="bpes-card mb-4" id="teacher-registration-card">
+              <div class="mb-3">
+                <h3 class="bpes-card-title">Register teacher</h3>
+                <div class="bpes-card-subtitle">Add a new teacher to the directory.</div>
+              </div>
+
+              <form id="teacher-registration-form" onsubmit="submitInlineTeacherForm(event)">
+                <div class="bpes-form-group">
+                  <label for="tch-id-input" class="bpes-label">Teacher ID</label>
+                  <input type="text" id="tch-id-input" class="bpes-input" placeholder="T-2025-014" required>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="tch-name-input" class="bpes-label">Full name</label>
+                  <input type="text" id="tch-name-input" class="bpes-input" placeholder="e.g. Juan dela Cruz" required>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="bpes-form-group">
+                      <label for="tch-position-input" class="bpes-label">Position</label>
+                      <select id="tch-position-input" class="bpes-select">
+                        <option value="Teacher I">Teacher I</option>
+                        <option value="Teacher II">Teacher II</option>
+                        <option value="Teacher III">Teacher III</option>
+                        <option value="Master Teacher I">Master Teacher I</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="bpes-form-group">
+                      <label for="tch-type-input" class="bpes-label">Employment type</label>
+                      <select id="tch-type-input" class="bpes-select">
+                        <option value="Regular">Regular</option>
+                        <option value="Contractual">Contractual</option>
+                        <option value="Part-time">Part-time</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="tch-email-input" class="bpes-label">Email address</label>
+                  <input type="email" id="tch-email-input" class="bpes-input" placeholder="juan.delacruz@deped.gov.ph" required>
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="tch-contact-input" class="bpes-label">Contact number</label>
+                  <input type="text" id="tch-contact-input" class="bpes-input" placeholder="0912 345 6789">
+                </div>
+
+                <div class="bpes-form-group">
+                  <label for="tch-rfid-input" class="bpes-label">RFID card</label>
+                  <div class="d-flex gap-2">
+                    <input type="text" id="tch-rfid-input" class="bpes-input" placeholder="Scan the card, or type e.g. F3:06:24:38" required>
+                    <button type="button" class="bpes-btn-outline px-3" onclick="startTapToEnrollInline('tch-rfid-input')" title="Scan card">
+                      <i class="fas fa-id-card"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <button type="submit" id="btn-submit-teacher" class="bpes-btn-primary w-100 py-3 mt-2">
+                  <span>Register teacher</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Right: registered-teachers-card -->
+          <div class="col-xl-8 col-lg-7">
+            <div class="bpes-card" id="registered-teachers-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h3 class="bpes-card-title">Registered teachers</h3>
+                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="teachers-count-pill">0 teachers</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="text" id="adm-teacher-search" class="bpes-input" placeholder="Search teachers..." oninput="filterAdminTeachers()" style="height: 38px; width: 220px; font-size: 13px;">
+                </div>
+              </div>
+
+              <div class="bpes-table-wrapper">
+                <table class="bpes-table">
+                  <thead>
+                    <tr>
+                      <th>Teacher</th>
+                      <th>Position</th>
+                      <th>Email</th>
+                      <th>Type</th>
+                      <th>RFID card</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-teachers-tbody">
+                    <tr>
+                      <td colspan="6" class="text-center py-4 text-muted">
+                        <span class="spinner-border spinner-border-sm me-2"></span> Loading registered teachers...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="d-flex justify-content-between align-items-center mt-3 pt-2 text-muted small">
+                <span id="adm-teachers-pagination-label">Showing records</span>
+                <span class="badge bg-light text-dark border">DepEd / BPES</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Sections -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-sections" class="d-none">
+        <div class="row g-4">
+          <div class="col-xl-4 col-lg-5">
+            <div class="bpes-card mb-4">
+              <div class="mb-3">
+                <h3 class="bpes-card-title">Add section</h3>
+                <div class="bpes-card-subtitle">All of a section's classes are held in its home room.</div>
+              </div>
+              <form id="section-form" onsubmit="submitSectionForm(event)">
+                <div class="bpes-form-group">
+                  <label for="sec-name-input" class="bpes-label">Section name</label>
+                  <input type="text" id="sec-name-input" class="bpes-input" placeholder="Grade 7 - Diamond" maxlength="50" required>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="sec-grade-input" class="bpes-label">Grade level (optional)</label>
+                  <select id="sec-grade-input" class="bpes-select"><option value="">No grade</option><option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option><option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option></select>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="sec-room-input" class="bpes-label">Home room</label>
+                  <select id="sec-room-input" class="bpes-select" required></select>
+                </div>
+                <button type="submit" id="btn-submit-section" class="bpes-btn-primary w-100 py-3 mt-2">
+                  <span>Add section</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="col-xl-8 col-lg-7">
+            <div class="bpes-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h3 class="bpes-card-title">Sections</h3>
+                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="sections-count-pill">0 sections</span>
+                </div>
+              </div>
+              <div class="bpes-table-wrapper">
+                <table class="bpes-table">
+                  <thead>
+                    <tr>
+                      <th>Section</th>
+                      <th>Grade</th>
+                      <th>Home room</th>
+                      <th>Students</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-sections-tbody">
+                    <tr><td colspan="5" class="text-center py-4 text-muted">Loading sections...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Subjects -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-subjects" class="d-none">
+        <div class="row g-4">
+          <div class="col-xl-4 col-lg-5">
+            <div class="bpes-card mb-4">
+              <div class="mb-3">
+                <h3 class="bpes-card-title" id="subject-form-title">Add subject</h3>
+                <div class="bpes-card-subtitle">Subjects are shared by schedules, attendance and leave requests.</div>
+              </div>
+              <form id="subject-form" onsubmit="submitSubjectForm(event)">
+                <input type="hidden" id="sub-id-input">
+                <div class="bpes-form-group">
+                  <label for="sub-name-input" class="bpes-label">Subject name</label>
+                  <input type="text" id="sub-name-input" class="bpes-input" placeholder="Mathematics" maxlength="100" required>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="sub-late-input" class="bpes-label">Late after (minutes)</label>
+                  <input type="number" id="sub-late-input" class="bpes-input" min="0" value="15" required>
+                </div>
+                <button type="submit" id="btn-submit-subject" class="bpes-btn-primary w-100 py-3 mt-2">
+                  <span>Add subject</span>
+                </button>
+                <button type="button" id="btn-cancel-subject" class="bpes-btn-outline w-100 py-2 mt-2 d-none" onclick="resetSubjectForm()">Cancel edit</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="col-xl-8 col-lg-7">
+            <div class="bpes-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h3 class="bpes-card-title">Subjects</h3>
+                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="subjects-count-pill">0 subjects</span>
+                </div>
+              </div>
+              <div class="bpes-table-wrapper">
+                <table class="bpes-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Late after (min)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-subjects-tbody">
+                    <tr><td colspan="3"class="text-center py-4 text-muted">Loading subjects...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB: Schedules -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-schedules" class="d-none">
+        <div class="row g-4">
+          <div class="col-xl-4 col-lg-5">
+            <div class="bpes-card mb-4">
+              <div class="mb-3">
+                <h3 class="bpes-card-title">Add class period</h3>
+                <div class="bpes-card-subtitle">Pick a section; its home room is used automatically.</div>
+              </div>
+              <form id="schedule-form" onsubmit="submitScheduleForm(event)">
+                <div class="bpes-form-group">
+                  <label for="sch-section-input" class="bpes-label">Section</label>
+                  <select id="sch-section-input" class="bpes-select" onchange="refreshScheduleAvailability()" required></select>
+                  <div class="small text-muted mt-1" id="sch-room-hint"></div>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="sch-subject-input" class="bpes-label">Subject</label>
+                  <select id="sch-subject-input" class="bpes-select" required></select>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="sch-teacher-input" class="bpes-label">Teacher</label>
+                  <select id="sch-teacher-input" class="bpes-select"></select>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="sch-day-input" class="bpes-label">Day</label>
+                  <select id="sch-day-input" class="bpes-select" onchange="refreshScheduleAvailability()" required>
+                    <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+                    <option>Thursday</option><option>Friday</option><option>Saturday</option>
+                  </select>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="bpes-form-group">
+                      <label for="sch-start-input" class="bpes-label">Start</label>
+                      <input type="time" id="sch-start-input" class="bpes-input" onchange="refreshScheduleAvailability()" required>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="bpes-form-group">
+                      <label for="sch-end-input" class="bpes-label">End</label>
+                      <input type="time" id="sch-end-input" class="bpes-input" onchange="refreshScheduleAvailability()" required>
+                    </div>
+                  </div>
+                </div>
+                <div class="small text-muted" id="sch-availability-hint">Choose a day and time to see who is free.</div>
+                <button type="submit" id="btn-submit-schedule" class="bpes-btn-primary w-100 py-3 mt-3">
+                  <span>Add class period</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="col-xl-8 col-lg-7">
+            <div class="bpes-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h3 class="bpes-card-title">Timetable</h3>
+                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="schedules-count-pill">0 periods</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <select id="sch-filter-section" class="bpes-select" onchange="loadAdminSchedules()" style="height: 38px; font-size: 13px;">
+                    <option value="">All sections</option>
+                  </select>
+                  <select id="sch-filter-status" class="bpes-select" onchange="loadAdminSchedules()" style="height: 38px; font-size: 13px;">
+                    <option value="active">Active</option>
+                    <option value="archived">Archived</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+              </div>
+              <div class="bpes-table-wrapper">
+                <table class="bpes-table">
+                  <thead>
+                    <tr>
+                      <th>Day &amp; time</th>
+                      <th>Subject</th>
+                      <th>Section &amp; room</th>
+                      <th>Teacher</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-schedules-tbody">
+                    <tr><td colspan="5" class="text-center py-4 text-muted">Loading schedules...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 3: Attendance Stream -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-logs" class="d-none">
+        
+        <!-- Filter Controls -->
+        <div class="bpes-card mb-4" id="attendance-stream-filter-card">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex flex-wrap align-items-center gap-3">
+              <div style="min-width: 200px;">
+                <label class="bpes-label mb-1">Section</label>
+                <select id="adm-log-section-filter" class="bpes-select" onchange="loadAdminLogs()">
+                  <option value="">All sections</option>
+                </select>
+              </div>
+
+              <div style="min-width: 200px;">
+                <label class="bpes-label mb-1">Date</label>
+                <div class="px-3 py-2 rounded-3 border bg-light d-flex align-items-center gap-2 text-dark small fw-medium" style="height: 44px;">
+                  <i class="fas fa-calendar text-muted"></i>
+                  <span id="adm-stream-date-display">Today</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <button class="bpes-btn-outline bpes-btn-sm" onclick="loadAdminLogs()">
+                <i class="fas fa-rotate me-1"></i> Refresh stream
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- live-taps-card -->
+        <div class="bpes-card" id="live-taps-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <h3 class="bpes-card-title">Live taps</h3>
+              <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="adm-stream-status-badge">0 taps</span>
+            </div>
+            <div class="small text-muted">
+              <i class="fas fa-circle text-success me-1" style="animation: pulse 1.5s infinite; font-size: 8px;"></i>
+              Real-time feed
+            </div>
+          </div>
+
+          <div class="bpes-table-wrapper">
+            <table class="bpes-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>LRN</th>
+                  <th>Section</th>
+                  <th>Subject</th>
+                  <th>Teacher</th>
+                  <th>Room</th>
+                  <th>Status</th>
+                  <th>Date / Time</th>
+                </tr>
+              </thead>
+              <tbody id="adm-logs-tbody">
+                <tr>
+                  <td colspan="8" class="text-center py-4 text-muted">
+                    <span class="spinner-border spinner-border-sm me-2"></span> Loading attendance logs...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2 text-muted small">
+            <span id="adm-logs-count-label">Stream active</span>
+            <span>Auto-refreshes every 3 seconds</span>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Mobile Drawer Menu -->
+  <div class="bpes-mobile-drawer" id="adminMobileDrawer">
+    <div class="bpes-mobile-drawer-header">
+      <div class="d-flex align-items-center gap-2">
+        <i class="fas fa-graduation-cap text-success fs-5"></i>
+        <span class="fw-bold text-dark">Admin Menu</span>
+      </div>
+      <button class="btn btn-sm btn-light border-0" onclick="closeAdminMobileDrawer()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="bpes-mobile-drawer-body">
+      <div class="bpes-mobile-drawer-item active" onclick="showAdminTab('dashboard'); closeAdminMobileDrawer();">
+        <i class="fas fa-gauge"></i>
+        <span>Dashboard</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('students'); closeAdminMobileDrawer();">
+        <i class="fas fa-users"></i>
+        <span>Student Enrollment</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('teachers'); closeAdminMobileDrawer();">
+        <i class="fas fa-user"></i>
+        <span>Teachers</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('sections'); closeAdminMobileDrawer();">
+        <i class="fas fa-layer-group"></i>
+        <span>Sections</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('subjects'); closeAdminMobileDrawer();">
+        <i class="fas fa-book"></i>
+        <span>Subjects</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('schedules'); closeAdminMobileDrawer();">
+        <i class="fas fa-calendar-days"></i>
+        <span>Schedules</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('logs'); closeAdminMobileDrawer();">
+        <i class="fas fa-clock"></i>
+        <span>Attendance Stream</span>
+      </div>
+      <hr>
+      <div class="bpes-mobile-drawer-item text-danger" onclick="logout()">
+        <i class="fas fa-arrow-right-from-bracket"></i>
+        <span>Logout</span>
+      </div>
+    </div>
+  </div>
+  <div class="bpes-mobile-backdrop" id="adminMobileBackdrop" onclick="closeAdminMobileDrawer()"></div>
+
+  <!-- Interactive RFID Tap Scanner Modal Pop-Out -->
+  <div class="bpes-rfid-modal-backdrop" id="rfid-scan-modal" onclick="handleRfidModalBackdropClick(event)">
+    <div class="bpes-rfid-modal" role="dialog" aria-modal="true" aria-labelledby="rfid-modal-title">
+      <button type="button" class="bpes-rfid-modal-close" onclick="closeRfidScanModal()" aria-label="Close modal">
+        <i class="fas fa-times"></i>
+      </button>
+
+      <!-- Radar Ripple Animation Container -->
+      <div class="bpes-rfid-radar-container" id="rfid-modal-radar">
+        <div class="bpes-rfid-ripple"></div>
+        <div class="bpes-rfid-ripple"></div>
+        <div class="bpes-rfid-ripple"></div>
+        <div class="bpes-rfid-icon-circle" id="rfid-modal-icon-circle">
+          <i class="fas fa-id-card" id="rfid-modal-icon"></i>
+        </div>
+      </div>
+
+      <!-- State Badge -->
+      <div class="mb-3">
+        <span class="bpes-rfid-badge" id="rfid-modal-badge">
+          <span class="bpes-rfid-pulse-dot" id="rfid-modal-dot"></span>
+          <span id="rfid-modal-badge-text">SCANNER ACTIVE</span>
+        </span>
+      </div>
+
+      <h3 class="fw-bold mb-2 text-dark" id="rfid-modal-title" style="font-size: 1.35rem;">Waiting for RFID Scan...</h3>
+      <p class="text-muted small mb-4" id="rfid-modal-desc">
+        Please tap or hold the student's RFID card on the reader.
+      </p>
+
+      <!-- Detected Card UID Box (Shown when tapped) -->
+      <div id="rfid-modal-card-info" class="d-none mb-4">
+        <div class="p-3 rounded-3" style="background: rgba(15, 76, 58, 0.08); border: 1px solid rgba(15, 76, 58, 0.2);">
+          <div class="text-muted small fw-semibold mb-1" style="font-size: 0.72rem; letter-spacing: 0.6px;">DETECTED CARD UID</div>
+          <div class="fw-bold text-success fs-5 font-monospace" id="rfid-modal-card-uid">--:--:--:--</div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="d-flex gap-2 justify-content-center">
+        <button type="button" class="bpes-btn-outline px-4 py-2" id="rfid-modal-cancel-btn" onclick="closeRfidScanModal()">
+          <i class="fas fa-times me-1"></i> Cancel Scan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Co-teachers & substitutes for one class period -->
+  <div class="modal fade" id="schedule-detail-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="sch-modal-title">Class period</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="fw-bold small mb-2">Co-teachers</div>
+          <div id="sch-modal-co" class="mb-2"></div>
+          <div class="d-flex gap-2">
+            <select id="sch-co-select" class="bpes-select"></select>
+            <button type="button" class="bpes-btn-outline px-3" onclick="addCoTeacher()">Add</button>
+          </div>
+          <hr>
+          <div class="fw-bold small mb-2">Substitute for one day</div>
+          <div id="sch-modal-subs" class="mb-2"></div>
+          <div class="d-flex gap-2">
+            <input type="date" id="sch-sub-date" class="bpes-input">
+            <select id="sch-sub-select" class="bpes-select"></select>
+            <button type="button" class="bpes-btn-outline px-3" onclick="addSubstitute()">Add</button>
+          </div>
+          <div class="small text-muted mt-2">The date must fall on this period's weekday.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+
+</html>

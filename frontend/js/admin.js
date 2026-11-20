@@ -1,0 +1,1221 @@
+// ============================================================
+// ADMINISTRATOR PORTAL CONTROLLER
+// Tap-to-Enroll, Teachers Directory, and Real-Time Live Taps
+// ============================================================
+
+let tapPollInterval = null;
+let logsAutoRefreshInterval = null;
+let isScanningRfid = false;
+let rfidTargetInputId = 'enroll-rfid-input';
+let rfidCaptureHandler = null;
+let sections = [];
+let schedules = [];
+
+function initAdminPortal() {
+  const datePill = document.getElementById('admin-date-pill');
+  if (datePill) {
+    datePill.textContent = `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+  const streamDateEl = document.getElementById('adm-stream-date-display');
+  if (streamDateEl) {
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+    streamDateEl.textContent = `Today, ${dateFormatted}`;
+  }
+
+  // Set default enrollment date to today
+  const enrollDateInput = document.getElementById('enroll-date-input');
+  if (enrollDateInput) {
+    enrollDateInput.value = manilaDate();
+  }
+
+  // Populate Room Dropdowns & Section Filter
+  populateAdminRoomDropdowns();
+  populateAdminSectionFilter();
+
+  showAdminTab('dashboard');
+  loadAdminSections();
+  loadAdminStudents();
+  loadAdminTeachers();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('triggerScan') === '1') {
+    setTimeout(() => {
+      startTapToEnrollInline();
+    }, 400);
+  }
+}
+
+function populateAdminSectionFilter() {
+  const el = document.getElementById('adm-log-section-filter');
+  if (!el) return;
+
+  const sectionSet = new Set();
+  (students || []).forEach(s => {
+    if (s.section && typeof s.section === 'string' && s.section.trim()) {
+      sectionSet.add(s.section.trim());
+    }
+  });
+
+  const sortedSections = Array.from(sectionSet).sort();
+  if (sortedSections.length > 0) {
+    el.innerHTML = '<option value="">All sections</option>' +
+      sortedSections.map(sec => `<option value="${escapeHtml(sec)}">${escapeHtml(sec)}</option>`).join('');
+  }
+}
+
+function populateAdminRoomDropdowns() {
+  const enrollRoomSelect = document.getElementById('enroll-room-input');
+  if (enrollRoomSelect && rooms.length > 0) {
+    enrollRoomSelect.innerHTML = rooms.map(r => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`).join('');
+  }
+}
+
+// ── Admin Tabs ────────────────────────────────────────────────
+
+const ADMIN_TABS = {
+  dashboard: ['Dashboard', 'School-wide numbers and today\'s attendance at a glance.',
+              'School-wide numbers and today\'s attendance at a glance.'],
+  students:  ['Student Enrollment', 'Tap-to-enroll workflow, enrolled students, and system summaries.',
+              'Manage student enrollment, review enrolled students, and monitor system health.'],
+  teachers:  ['Teachers', 'Manage teacher registration, review registered teachers, and monitor system health.',
+              'Manage teacher registration, review registered teachers, and monitor system health.'],
+  sections:  ['Sections', 'Create sections and choose the home room where each one has its classes.',
+              'Create sections and choose the home room where each one has its classes.'],
+  subjects:  ['Subjects', 'Add, edit and remove the subjects offered by the school.',
+              'Add, edit and remove the subjects offered by the school.'],
+  schedules: ['Schedules', 'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.',
+              'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.'],
+  logs:      ['Attendance Stream', 'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.',
+              'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.'],
+};
+
+function showAdminTab(tab) {
+  Object.keys(ADMIN_TABS).forEach(t => {
+    document.getElementById(`adm-tab-${t}`)?.classList.toggle('d-none', t !== tab);
+    document.getElementById(`tablink-adm-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`sidebar-adm-${t}`)?.classList.toggle('active', t === tab);
+  });
+
+  const [title, sideDesc, welcomeDesc] = ADMIN_TABS[tab];
+  const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  setText('admin-sidebar-title', title);
+  setText('admin-sidebar-desc', sideDesc);
+  setText('admin-brand-title', title);
+  setText('admin-mobile-header-title', title);
+  setText('admin-welcome-desc', welcomeDesc);
+
+  if (tab === 'logs') {
+    loadAdminLogs();
+    startAutoRefreshLogs();
+    return;
+  }
+  stopAutoRefreshLogs();
+  if (tab === 'dashboard') loadAdminDashboard();
+  else if (tab === 'students') loadAdminStudents();
+  else if (tab === 'teachers') loadAdminTeachers();
+  else if (tab === 'sections') loadAdminSections();
+  else if (tab === 'subjects') loadAdminSubjects();
+  else if (tab === 'schedules') { loadAdminSections().then(refreshScheduleAvailability); loadAdminSchedules(); }
+}
+
+// ── Dashboard ─────────────────────────────────────────────────
+
+const DASH_COUNTS = {
+  students: 'dash-students', teachers: 'dash-teachers', sections: 'dash-sections', subjects: 'dash-subjects',
+  rooms: 'dash-rooms', active_schedules: 'dash-schedules', pending_leave: 'dash-leave',
+};
+
+async function loadAdminDashboard() {
+  const set = (id, value) => { const el = byId(id); if (el) el.textContent = value; };
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/stats/overview`);
+    Object.entries(DASH_COUNTS).forEach(([key, id]) => set(id, data[key] ?? '—'));
+  } catch (err) {
+    Object.values(DASH_COUNTS).forEach(id => set(id, '—')); // unknown, not zero
+    notify('admin', errMsg(err, 'Could not load dashboard numbers'), 'danger');
+  }
+
+  const box = byId('dash-attendance');
+  if (!box) return;
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/attendance/daily`);
+    const c = data.summary || {};
+    const item = (label, value) => `
+      <div class="bpes-stat-card"><div>
+        <div class="bpes-stat-label">${label}</div>
+        <div class="bpes-stat-value">${value}</div>
+      </div></div>`;
+    box.innerHTML = [
+      item('Present', c.present ?? 0), item('Late', c.late ?? 0), item('Excused', c.excused ?? 0),
+      item('Absent', c.absent ?? 0),
+      item('Attendance rate', c.attendance_rate == null ? '—' : `${c.attendance_rate}%`),
+    ].join('');
+  } catch (err) {
+    box.innerHTML = '<div class="text-muted small">Could not load today\'s attendance.</div>';
+  }
+}
+
+function startAutoRefreshLogs() {
+  stopAutoRefreshLogs();
+  logsAutoRefreshInterval = setInterval(() => {
+    loadAdminLogs(true);
+  }, 3000);
+}
+
+function stopAutoRefreshLogs() {
+  if (logsAutoRefreshInterval) {
+    clearInterval(logsAutoRefreshInterval);
+    logsAutoRefreshInterval = null;
+  }
+}
+
+// ── Interactive RFID Tap Scanner Modal & Sound Effect ──────────
+
+function playRfidChirp() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    // Melodic positive chime (880Hz A5 -> 1320Hz E6)
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    // Audio synthesis blocked by browser autoplay policy
+  }
+}
+
+function openRfidScanModal() {
+  const modal = document.getElementById('rfid-scan-modal');
+  if (!modal) return;
+
+  // Reset modal state to active listening
+  const radar = document.getElementById('rfid-modal-radar');
+  const iconCircle = document.getElementById('rfid-modal-icon-circle');
+  const icon = document.getElementById('rfid-modal-icon');
+  const badge = document.getElementById('rfid-modal-badge');
+  const dot = document.getElementById('rfid-modal-dot');
+  const badgeText = document.getElementById('rfid-modal-badge-text');
+  const title = document.getElementById('rfid-modal-title');
+  const desc = document.getElementById('rfid-modal-desc');
+  const cardInfo = document.getElementById('rfid-modal-card-info');
+  const cancelBtn = document.getElementById('rfid-modal-cancel-btn');
+
+  if (radar) radar.classList.remove('stopped');
+  if (iconCircle) iconCircle.classList.remove('detected');
+  if (icon) icon.className = 'fas fa-id-card';
+  if (badge) badge.classList.remove('detected');
+  if (dot) dot.classList.remove('detected');
+  if (badgeText) badgeText.textContent = 'SCANNER ACTIVE';
+  if (title) title.textContent = 'Waiting for RFID Scan...';
+  if (desc) desc.textContent = "Please tap or hold the student's RFID card on the reader.";
+  if (cardInfo) cardInfo.classList.add('d-none');
+  if (cancelBtn) {
+    cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i> Cancel Scan';
+    cancelBtn.className = 'bpes-btn-outline px-4 py-2';
+  }
+
+  modal.classList.add('active');
+}
+
+function closeRfidScanModal() {
+  const modal = document.getElementById('rfid-scan-modal');
+  if (modal) modal.classList.remove('active');
+
+  if (isScanningRfid) rfidCaptureHandler = null; // cancelled before a card was read
+  stopTapPolling();
+  isScanningRfid = false;
+
+  const statusText = document.getElementById('rfid-scan-status-text');
+  const scanIcon = document.getElementById('rfid-scan-icon');
+  const scanBtn = document.getElementById('btn-scan-rfid');
+  const rfidInput = document.getElementById(rfidTargetInputId);
+
+  if (scanIcon) scanIcon.style.animation = 'none';
+
+  // If already detected, keep the detected label
+  if (rfidInput && rfidInput.value.trim()) {
+    if (statusText) statusText.innerHTML = `<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Card detected: ${escapeHtml(rfidInput.value)}</span>`;
+    if (scanBtn) scanBtn.innerHTML = '<i class="fas fa-rotate me-2"></i> Rescan RFID card';
+  } else {
+    if (statusText) statusText.textContent = 'Ready to enroll';
+    if (scanBtn) scanBtn.innerHTML = '<i class="fas fa-id-card me-2"></i> Scan RFID card';
+  }
+}
+
+function handleRfidModalBackdropClick(e) {
+  if (e.target.id === 'rfid-scan-modal') {
+    closeRfidScanModal();
+  }
+}
+
+// ── Tap to Enroll Inline Workflow ────────────
+
+// targetInputId: input that receives the UID ('' for none). onCapture(uid): optional callback once a card is read.
+async function startTapToEnrollInline(targetInputId = 'enroll-rfid-input', onCapture = null) {
+  rfidTargetInputId = targetInputId;
+  rfidCaptureHandler = onCapture;
+  const statusText = document.getElementById('rfid-scan-status-text');
+  const scanIcon = document.getElementById('rfid-scan-icon');
+  const scanBtn = document.getElementById('btn-scan-rfid');
+  const rfidInput = document.getElementById(targetInputId);
+
+  isScanningRfid = true;
+  if (statusText) statusText.textContent = 'Waiting for RFID card tap...';
+  if (scanBtn) scanBtn.innerHTML = '<i class="fas fa-times me-2"></i> Cancel Scan';
+  if (scanIcon) scanIcon.style.animation = 'pulse 1s infinite';
+
+  // Pop out interactive modal window
+  openRfidScanModal();
+
+  try {
+    await axios.post(`${API_BASE}/api/scan/clear-tap`).catch(() => null);
+  } catch (e) {}
+
+  stopTapPolling();
+  tapPollInterval = setInterval(async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/scan/latest-tap`);
+      const scan = res.data.scan;
+
+      if (scan && scan.uid) {
+        stopTapPolling();
+        isScanningRfid = false;
+        const uid = scan.formatted || scan.uid;
+
+        // Play feedback sound
+        playRfidChirp();
+
+        if (rfidCaptureHandler) {
+          const handler = rfidCaptureHandler;
+          rfidCaptureHandler = null;
+          handler(uid);
+        }
+
+        // Update form input and highlight it
+        if (rfidInput) {
+          rfidInput.value = uid;
+          rfidInput.style.borderColor = 'var(--color-primary)';
+          rfidInput.style.boxShadow = '0 0 0 3px rgba(15, 76, 58, 0.15)';
+        }
+
+        // Update modal UI interactively
+        const radar = document.getElementById('rfid-modal-radar');
+        const iconCircle = document.getElementById('rfid-modal-icon-circle');
+        const icon = document.getElementById('rfid-modal-icon');
+        const badge = document.getElementById('rfid-modal-badge');
+        const dot = document.getElementById('rfid-modal-dot');
+        const badgeText = document.getElementById('rfid-modal-badge-text');
+        const title = document.getElementById('rfid-modal-title');
+        const desc = document.getElementById('rfid-modal-desc');
+        const cardInfo = document.getElementById('rfid-modal-card-info');
+        const cardUidEl = document.getElementById('rfid-modal-card-uid');
+        const cancelBtn = document.getElementById('rfid-modal-cancel-btn');
+
+        if (radar) radar.classList.add('stopped');
+        if (iconCircle) iconCircle.classList.add('detected');
+        if (icon) icon.className = 'fas fa-check';
+        if (badge) badge.classList.add('detected');
+        if (dot) dot.classList.add('detected');
+        if (badgeText) badgeText.textContent = 'CARD DETECTED';
+        if (title) title.textContent = 'Card Scanned Successfully!';
+        if (desc) desc.textContent = 'RFID UID captured. Attaching to student enrollment.';
+        if (cardUidEl) cardUidEl.textContent = uid;
+        if (cardInfo) cardInfo.classList.remove('d-none');
+        if (cancelBtn) {
+          cancelBtn.innerHTML = '<i class="fas fa-check me-1"></i> Continue';
+          cancelBtn.className = 'bpes-btn px-4 py-2 text-white';
+          cancelBtn.style.background = 'var(--color-primary)';
+        }
+
+        // Update background inline scan status
+        if (statusText) statusText.innerHTML = `<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Card detected: ${escapeHtml(uid)}</span>`;
+        if (scanBtn) scanBtn.innerHTML = '<i class="fas fa-rotate me-2"></i> Rescan RFID card';
+        if (scanIcon) scanIcon.style.animation = 'none';
+
+        // Auto-close after 1.4 seconds of visual confirmation
+        setTimeout(() => {
+          const modal = document.getElementById('rfid-scan-modal');
+          if (modal && modal.classList.contains('active')) {
+            closeRfidScanModal();
+          }
+        }, 1400);
+      }
+    } catch (err) {
+      console.error('Tap poll error', err);
+    }
+  }, 800);
+}
+
+function stopTapPolling() {
+  if (tapPollInterval) {
+    clearInterval(tapPollInterval);
+    tapPollInterval = null;
+  }
+}
+
+async function submitInlineEnrollForm(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit-enroll');
+  const studentId = document.getElementById('enroll-id-input')?.value.trim();
+  const fullName = document.getElementById('enroll-name-input')?.value.trim();
+  const sectionId = document.getElementById('enroll-section-input')?.value;
+  const room = document.getElementById('enroll-room-input')?.value;
+  const rfidUid = document.getElementById('enroll-rfid-input')?.value.trim();
+  const pin = document.getElementById('enroll-pin-input')?.value.trim();
+
+  // Guardian details
+  const guardianName = document.getElementById('enroll-guardian-name')?.value.trim();
+  const guardianPhone = document.getElementById('enroll-guardian-phone')?.value.trim();
+  const guardianRelation = document.getElementById('enroll-guardian-relation')?.value;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Enrolling...';
+  }
+
+  try {
+    await axios.post(`${API_BASE}/api/students`, {
+      student_id: studentId,
+      full_name: fullName,
+      rfid_uid: rfidUid,
+      pin,
+      course: 'Elementary',
+      year_level: 1,
+      section_id: sectionId,
+      guardian: {
+        full_name: guardianName,
+        phone_number: guardianPhone,
+        relationship: guardianRelation || 'Parent'
+      }
+    });
+
+    notify('admin', `Student ${escapeHtml(fullName)} successfully enrolled!`, 'success');
+    document.getElementById('enrollment-form')?.reset();
+    
+    // Reset date input
+    const enrollDateInput = document.getElementById('enroll-date-input');
+    if (enrollDateInput) enrollDateInput.value = manilaDate();
+
+    const statusText = document.getElementById('rfid-scan-status-text');
+    if (statusText) statusText.textContent = 'Ready to enroll';
+
+    const scanBtn = document.getElementById('btn-scan-rfid');
+    if (scanBtn) scanBtn.innerHTML = '<i class="fas fa-id-card me-2"></i> Scan RFID card';
+
+    const enrollRfidInput = document.getElementById('enroll-rfid-input');
+    if (enrollRfidInput) {
+      enrollRfidInput.style.borderColor = '';
+      enrollRfidInput.style.boxShadow = '';
+    }
+
+    await loadSystemData();
+    await loadAdminStudents();
+  } catch (err) {
+    const msg = err.response?.data?.error || err.message || 'Enrollment failed';
+    notify('admin', `Enrollment error: ${msg}`, 'danger');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Enroll student</span>';
+    }
+  }
+}
+
+// ── Students Management & Table Rendering ─────────────────────
+
+async function loadAdminStudents() {
+  const tbody = document.getElementById('adm-students-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await axios.get(`${API_BASE}/api/students`);
+    students = res.data.students || [];
+
+    const countPill = document.getElementById('enrolled-count-pill');
+    if (countPill) countPill.textContent = `${students.length} students`;
+
+    renderStudentsTable(students);
+    populateAdminSectionFilter();
+  } catch (err) {
+    console.error('Error loading students:', err);
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-warning">Could not load students. Verify backend is running.</td></tr>`;
+  }
+}
+
+function renderStudentsTable(list) {
+  const tbody = document.getElementById('adm-students-tbody');
+  const paginationLabel = document.getElementById('adm-students-pagination-label');
+  if (!tbody) return;
+
+  if (paginationLabel) {
+    paginationLabel.textContent = `Showing ${list.length} student record${list.length === 1 ? '' : 's'}`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No students enrolled yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(s => {
+    const initials = s.full_name ? s.full_name.charAt(0).toUpperCase() : 'S';
+    const guardian = (s.guardians && s.guardians.length > 0) ? s.guardians[0] : null;
+    const guardianHtml = guardian ? `<div class="small text-muted mt-1" style="font-size: 0.72rem;"><i class="fas fa-user-shield text-success me-1"></i>${escapeHtml(guardian.full_name)} (${escapeHtml(guardian.relationship || 'Guardian')}: ${escapeHtml(guardian.phone_number || '')})</div>` : '';
+    const rfidTag = (s.rfid_uid && s.rfid_uid !== '-') ? `<span class="fw-bold text-success">${escapeHtml(s.rfid_uid)}</span>` : `<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending RFID</span>`;
+
+    return `
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 32px; height: 32px; border-radius: 50%; background: #14532D; flex-shrink: 0;">
+              ${initials}
+            </div>
+            <div>
+              <div class="fw-bold text-dark">${escapeHtml(s.full_name)}</div>
+              <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(s.student_id)}</div>
+              ${guardianHtml}
+            </div>
+          </div>
+        </td>
+        <td><span class="badge bg-light text-dark border">Grade ${s.year_level || 1} &bull; ${escapeHtml(s.section || 'Diamond')}</span></td>
+        <td>${rfidTag}</td>
+        <td><span class="small text-muted">${escapeHtml(sections.find(sec => sec.id === s.section_id)?.rooms?.name || '—')}</span></td>
+        <td><span class="badge rounded-pill bg-light text-success border px-2 py-1">Enrolled</span></td>
+        <td>
+          <button class="bpes-btn-outline bpes-btn-sm me-1" onclick="handleAdminSetStudentPin('${s.id}')">
+            <i class="fas fa-key me-1"></i> Set PIN
+          </button>
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="handleAdminDeleteStudent('${s.id}')">
+            <i class="fas fa-trash me-1"></i> Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterAdminStudents() {
+  const query = (document.getElementById('adm-student-search')?.value || '').toLowerCase();
+  if (!query) {
+    renderStudentsTable(students);
+    return;
+  }
+  const filtered = students.filter(s =>
+    (s.full_name && s.full_name.toLowerCase().includes(query)) ||
+    (s.student_id && s.student_id.toLowerCase().includes(query)) ||
+    (s.section && s.section.toLowerCase().includes(query)) ||
+    (s.rfid_uid && s.rfid_uid.toLowerCase().includes(query))
+  );
+  renderStudentsTable(filtered);
+}
+
+// A student with no PIN cannot log in; this is how an admin sets (or resets) one.
+async function handleAdminSetStudentPin(id) {
+  const name = students.find(s => s.id === id)?.full_name || 'this student';
+  const pin = (prompt(`New login PIN for "${name}" (at least 4 characters):`) || '').trim();
+  if (!pin) return;
+  if (pin.length < 4) return notify('admin', 'A PIN needs at least 4 characters', 'danger');
+  try {
+    await axios.put(`${API_BASE}/api/students/${id}`, { pin });
+    notify('admin', `PIN set for "${escapeHtml(name)}"`, 'success');
+  } catch (err) {
+    notify('admin', `Could not set PIN: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+  }
+}
+
+// Only the id goes into onclick; the name is looked up here so no record text is ever parsed as script.
+async function handleAdminDeleteStudent(id) {
+  const name = students.find(s => s.id === id)?.full_name || 'this student';
+  if (!confirm(`Are you sure you want to remove student "${name}"?`)) return;
+  try {
+    await axios.delete(`${API_BASE}/api/students/${id}`);
+    notify('admin', `Removed student "${escapeHtml(name)}"`, 'warning');
+    await loadSystemData();
+    await loadAdminStudents();
+  } catch (err) {
+    notify('admin', `Delete failed: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+  }
+}
+
+// ── Teachers Management & Table Rendering ────
+
+async function loadAdminTeachers() {
+  const tbody = document.getElementById('adm-teachers-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await axios.get(`${API_BASE}/api/teachers`);
+    teachers = res.data.teachers || [];
+
+    const countPill = document.getElementById('teachers-count-pill');
+    if (countPill) countPill.textContent = `${teachers.length} teachers`;
+
+    renderTeachersTable(teachers);
+  } catch (err) {
+    console.error('Error loading teachers', err);
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">Failed to load teachers</td></tr>`;
+  }
+}
+
+function renderTeachersTable(list) {
+  const tbody = document.getElementById('adm-teachers-tbody');
+  const paginationLabel = document.getElementById('adm-teachers-pagination-label');
+  if (!tbody) return;
+
+  if (paginationLabel) {
+    paginationLabel.textContent = `Showing ${list.length} teacher record${list.length === 1 ? '' : 's'}`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No teachers registered yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(t => {
+    const initials = t.full_name ? t.full_name.charAt(0).toUpperCase() : 'T';
+    return `
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 32px; height: 32px; border-radius: 50%; background: #14532D; flex-shrink: 0;">
+              ${initials}
+            </div>
+            <div>
+              <div class="fw-bold text-dark">${escapeHtml(t.full_name)}</div>
+              <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(t.id ? t.id.slice(0, 8) : 'T-2025')}</div>
+            </div>
+          </div>
+        </td>
+        <td><span class="small fw-medium text-dark">${escapeHtml(t.role || 'Teacher I')}</span></td>
+        <td><span class="small text-muted">${escapeHtml(t.email)}</span></td>
+        <td><span class="badge bg-light text-dark border">Regular</span></td>
+        <td>${t.rfid_uid
+          ? `<span class="fw-bold text-success small">${escapeHtml(t.rfid_uid)}</span>
+             <button class="btn btn-link btn-sm p-0 ms-1 text-muted" title="Replace card" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-rotate"></i></button>`
+          : `<button class="bpes-btn-outline bpes-btn-sm" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-id-card me-1"></i> Assign card</button>`}</td>
+        <td>
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="resetTeacherPassword('${t.id}')">
+            <i class="fas fa-key me-1"></i> Reset password
+          </button>
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="handleAdminDeleteTeacher('${t.id}')">
+            <i class="fas fa-trash me-1"></i> Delete
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterAdminTeachers() {
+  const query = (document.getElementById('adm-teacher-search')?.value || '').toLowerCase();
+  if (!query) {
+    renderTeachersTable(teachers);
+    return;
+  }
+  const filtered = teachers.filter(t =>
+    (t.full_name && t.full_name.toLowerCase().includes(query)) ||
+    (t.email && t.email.toLowerCase().includes(query)) ||
+    (t.role && t.role.toLowerCase().includes(query))
+  );
+  renderTeachersTable(filtered);
+}
+
+async function submitInlineTeacherForm(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btn-submit-teacher');
+  const name = document.getElementById('tch-name-input')?.value.trim();
+  const email = document.getElementById('tch-email-input')?.value.trim();
+  const position = document.getElementById('tch-position-input')?.value;
+  const rfidUid = document.getElementById('tch-rfid-input')?.value.trim();
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Registering...';
+  }
+
+  try {
+    const res = await axios.post(`${API_BASE}/api/teachers`, {
+      full_name: name,
+      email: email,
+      role: position || 'Teacher I',
+      rfid_uid: rfidUid
+    });
+
+    notify('admin', `Teacher "${escapeHtml(name)}" registered successfully!`, 'success');
+    document.getElementById('teacher-registration-form')?.reset();
+    await loadAdminTeachers();
+    showTempPassword(name, res.data.temp_password);
+  } catch (err) {
+    const msg = err.response?.data?.error || err.message || 'Failed to register teacher';
+    notify('admin', `Registration error: ${msg}`, 'danger');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<span>Register teacher</span>';
+    }
+  }
+}
+
+function assignTeacherCard(id) {
+  startTapToEnrollInline('', async uid => {
+    try {
+      await axios.put(`${API_BASE}/api/teachers/${id}`, { rfid_uid: uid });
+      notify('admin', 'Card assigned to teacher', 'success');
+    } catch (err) {
+      notify('admin', err.response?.data?.error || 'Could not assign card', 'danger');
+    }
+    loadAdminTeachers();
+  });
+}
+
+// The server-generated one-time password is shown once: the admin copies it and hands it to the teacher.
+function showTempPassword(name, pw) {
+  prompt(`One-time password for ${name} (copy it now, it is not shown again):`, pw);
+}
+
+async function resetTeacherPassword(id) {
+  const t = teachers.find(x => x.id === id);
+  if (!t || !confirm(`Issue a new password for "${t.full_name}"? Their current one stops working.`)) return;
+  try {
+    const res = await axios.post(`${API_BASE}/api/teachers/${id}/reset-password`);
+    showTempPassword(t.full_name, res.data.temp_password);
+  } catch (err) {
+    notify('admin', err.response?.data?.error || 'Could not reset password', 'danger');
+  }
+}
+
+async function handleAdminDeleteTeacher(id) {
+  const name = teachers.find(t => t.id === id)?.full_name || 'this teacher';
+  if (!confirm(`Are you sure you want to remove teacher "${name}"?`)) return;
+  try {
+    await axios.delete(`${API_BASE}/api/teachers/${id}`);
+    notify('admin', `Removed teacher "${escapeHtml(name)}"`, 'warning');
+    await loadAdminTeachers();
+  } catch (err) {
+    notify('admin', `Delete failed: ${err.message}`, 'danger');
+  }
+}
+
+// ── Attendance Stream ────────────────────────
+
+async function loadAdminLogs(isSilent = false) {
+  const tbody = document.getElementById('adm-logs-tbody');
+  const countBadge = document.getElementById('adm-stream-status-badge');
+  const countLabel = document.getElementById('adm-logs-count-label');
+  const sectionFilter = document.getElementById('adm-log-section-filter')?.value;
+  if (!tbody) return;
+
+  try {
+    const res = await axios.get(`${API_BASE}/api/attendance`);
+    let logs = res.data.logs || [];
+
+    if (sectionFilter) {
+      logs = logs.filter(l => l.students && l.students.section === sectionFilter);
+    }
+
+    if (countBadge) {
+      countBadge.textContent = `${logs.length} taps`;
+    }
+    if (countLabel) {
+      countLabel.textContent = `Live Stream: ${logs.length} logged tap${logs.length === 1 ? '' : 's'}`;
+    }
+
+    if (logs.length === 0) {
+      if (!isSilent) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No live attendance taps recorded yet today.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = logs.map(l => {
+      const student = l.students;
+      const name = student ? escapeHtml(student.full_name) : (l.rfid_uid ? `Card ${escapeHtml(l.rfid_uid)}` : 'Unassigned Card');
+      const id = student ? escapeHtml(student.student_id) : (l.rfid_uid ? escapeHtml(l.rfid_uid) : '—');
+      const section = student?.section || (student ? '—' : 'Unregistered');
+      const room = l.rooms?.name || '—';
+      const subject = l.class_sessions?.schedules?.subjects?.name || '—';
+      const teacher = l.class_sessions?.teacher?.full_name || '—';
+      const time = new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const date = new Date(l.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+      const badge = statusBadge(l.status);
+      const initials = name.charAt(0).toUpperCase();
+
+      return `
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 32px; height: 32px; border-radius: 50%; background: #14532D; flex-shrink: 0;">
+                ${initials}
+              </div>
+              <strong class="text-dark">${name}</strong>
+            </div>
+          </td>
+          <td><span class="bpes-cell-lrn">${id}</span></td>
+          <td><span class="badge bg-light text-dark border">${escapeHtml(section)}</span></td>
+          <td><span class="small text-dark">${escapeHtml(subject)}</span></td>
+          <td><span class="small text-muted">${escapeHtml(teacher)}</span></td>
+          <td><span class="small text-muted">${escapeHtml(room)}</span></td>
+          <td>${badge}</td>
+          <td>
+            <div class="small fw-semibold text-dark">${time}</div>
+            <div class="text-muted" style="font-size: 0.75rem;">${date}</div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    if (!isSilent) {
+      console.error('Error fetching admin logs', err);
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-warning">Could not fetch live taps.</td></tr>`;
+    }
+  }
+}
+
+// ── Sections ─────────────────────────────────────────────────
+
+const byId = id => document.getElementById(id);
+const errMsg = (err, fallback) => err.response?.data?.error || fallback;
+
+async function loadAdminSections() {
+  try {
+    const res = await axios.get(`${API_BASE}/api/sections`);
+    sections = res.data.sections || [];
+  } catch (err) {
+    console.error('Error loading sections', err);
+    notify('admin', errMsg(err, 'Could not load sections'), 'danger');
+    return;
+  }
+  if (byId('sections-count-pill')) byId('sections-count-pill').textContent = `${sections.length} section${sections.length === 1 ? '' : 's'}`;
+  renderSectionsTable();
+  fillAdminSelects();
+  if (students.length) filterAdminStudents(); // student rows show the section's home room
+}
+
+function roomOptions(selectedId) {
+  return rooms.map(r => `<option value="${r.id}"${r.id === selectedId ? ' selected' : ''}>${escapeHtml(r.name)}</option>`).join('');
+}
+
+function renderSectionsTable() {
+  const tbody = byId('adm-sections-tbody');
+  if (!tbody) return;
+  if (!sections.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No sections yet. Add one to start building schedules.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = sections.map(sec => {
+    const count = students.filter(s => s.section_id === sec.id).length;
+    const gradeSelect = `<select class="bpes-select" style="height: 34px; font-size: 13px; min-width: 110px;" onchange="changeSectionGrade('${sec.id}', this.value)">
+        <option value="">No grade</option>${[1, 2, 3, 4, 5, 6].map(g => `<option value="${g}"${g === sec.grade_level ? ' selected' : ''}>Grade ${g}</option>`).join('')}</select>`;
+    const roomSelect = `<select class="bpes-select" style="height: 34px; font-size: 13px; min-width: 150px;" onchange="changeSectionRoom('${sec.id}', this.value)">
+        ${sec.home_room_id ? '' : '<option value="">No home room</option>'}${roomOptions(sec.home_room_id)}</select>`;
+    return `
+      <tr>
+        <td><strong class="text-dark">${escapeHtml(sec.section_name)}</strong></td>
+        <td>${gradeSelect}</td>
+        <td>${roomSelect}</td>
+        <td><span class="badge bg-light text-dark border">${count}</span></td>
+        <td>
+          <button class="bpes-btn-outline bpes-btn-sm" onclick="renameSection('${sec.id}')"><i class="fas fa-pen me-1"></i> Rename</button>
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="deleteSection('${sec.id}')"><i class="fas fa-trash me-1"></i> Delete</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// Rebuild every dropdown that lists rooms, sections, subjects or teachers, keeping the current choice.
+function fillAdminSelects() {
+  const fill = (id, html) => {
+    const el = byId(id);
+    if (!el) return;
+    const prev = el.value;
+    el.innerHTML = html;
+    if ([...el.options].some(o => o.value === prev)) el.value = prev;
+  };
+  const sectionOpts = sections.map(sec => `<option value="${sec.id}">${escapeHtml(sec.section_name)}</option>`).join('');
+  const subjectOpts = (subjects || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+  const teacherOpts = (teachers || []).filter(t => t.role !== 'admin')
+    .map(t => `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`).join('');
+
+  fill('enroll-section-input', '<option value="">Select section</option>' + sectionOpts);
+  fill('sch-section-input', '<option value="">Select section</option>' + sectionOpts);
+  fill('sch-filter-section', '<option value="">All sections</option>' + sectionOpts);
+  fill('sch-subject-input', '<option value="">Select subject</option>' + subjectOpts);
+  fill('sch-teacher-input', '<option value="">— No teacher yet —</option>' + teacherOpts);
+  fill('sec-room-input', '<option value="">Select room</option>' + roomOptions());
+}
+
+async function submitSectionForm(e) {
+  e.preventDefault();
+  const btn = byId('btn-submit-section');
+  if (btn) btn.disabled = true;
+  try {
+    await axios.post(`${API_BASE}/api/sections`, {
+      section_name: byId('sec-name-input').value.trim(),
+      home_room_id: byId('sec-room-input').value || null,
+      grade_level: byId('sec-grade-input').value || null,
+    });
+    notify('admin', 'Section added', 'success');
+    byId('section-form').reset();
+    await loadAdminSections();
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not add section'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function changeSectionGrade(id, grade) {
+  try {
+    await axios.put(`${API_BASE}/api/sections/${id}`, { grade_level: grade || null });
+    notify('admin', 'Grade level updated', 'success');
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not change grade level'), 'danger');
+  }
+  await loadAdminSections();
+}
+
+async function changeSectionRoom(id, roomId) {
+  try {
+    await axios.put(`${API_BASE}/api/sections/${id}`, { home_room_id: roomId || null });
+    notify('admin', 'Home room updated', 'success');
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not change home room'), 'danger');
+  }
+  await loadAdminSections(); // also resets the dropdown if the change was refused
+}
+
+async function renameSection(id) {
+  const sec = sections.find(s => s.id === id);
+  const name = sec && prompt('New section name', sec.section_name);
+  if (!name || !name.trim() || name.trim() === sec.section_name) return;
+  try {
+    await axios.put(`${API_BASE}/api/sections/${id}`, { section_name: name.trim() });
+    await loadAdminStudents();
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not rename section'), 'danger');
+  }
+  await loadAdminSections();
+}
+
+async function deleteSection(id) {
+  const sec = sections.find(s => s.id === id);
+  if (!sec || !confirm(`Delete section "${sec.section_name}" and all of its schedules?`)) return;
+  try {
+    await axios.delete(`${API_BASE}/api/sections/${id}`);
+    notify('admin', 'Section deleted', 'warning');
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not delete section'), 'danger');
+  }
+  await loadAdminSections();
+  await loadAdminStudents();
+}
+
+// ── Subjects ─────────────────────────────────────────────────
+
+async function loadAdminSubjects() {
+  try {
+    const res = await axios.get(`${API_BASE}/api/subjects`);
+    subjects = res.data.subjects || [];
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not load subjects'), 'danger');
+    return;
+  }
+  if (byId('subjects-count-pill')) byId('subjects-count-pill').textContent = `${subjects.length} subject${subjects.length === 1 ? '' : 's'}`;
+  const tbody = byId('adm-subjects-tbody');
+  if (tbody) {
+    tbody.innerHTML = subjects.length ? subjects.map(s => `
+      <tr>
+        <td><strong class="text-dark">${escapeHtml(s.name)}</strong></td>
+        <td>${s.late_threshold_minutes ?? '—'}</td>
+        <td>
+          <button class="bpes-btn-outline bpes-btn-sm" onclick="editSubject('${s.id}')"><i class="fas fa-pen me-1"></i> Edit</button>
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="deleteSubject('${s.id}')"><i class="fas fa-trash me-1"></i> Delete</button>
+        </td>
+      </tr>`).join('')
+      : '<tr><td colspan="3" class="text-center py-4 text-muted">No subjects yet. Add one to start building schedules.</td></tr>';
+  }
+  fillAdminSelects();
+}
+
+function resetSubjectForm() {
+  byId('subject-form').reset();
+  byId('sub-id-input').value = '';
+  byId('subject-form-title').textContent = 'Add subject';
+  byId('btn-submit-subject').querySelector('span').textContent = 'Add subject';
+  byId('btn-cancel-subject').classList.add('d-none');
+}
+
+function editSubject(id) {
+  const s = subjects.find(x => x.id === id);
+  if (!s) return;
+  byId('sub-id-input').value = s.id;
+  byId('sub-name-input').value = s.name;
+  byId('sub-late-input').value = s.late_threshold_minutes ?? 15;
+  byId('subject-form-title').textContent = 'Edit subject';
+  byId('btn-submit-subject').querySelector('span').textContent = 'Save changes';
+  byId('btn-cancel-subject').classList.remove('d-none');
+  byId('sub-name-input').focus();
+}
+
+async function submitSubjectForm(e) {
+  e.preventDefault();
+  const btn = byId('btn-submit-subject');
+  const id = byId('sub-id-input').value;
+  const body = {
+    name: byId('sub-name-input').value.trim(),
+    late_threshold_minutes: byId('sub-late-input').value,
+  };
+  if (btn) btn.disabled = true;
+  try {
+    if (id) await axios.put(`${API_BASE}/api/subjects/${id}`, body);
+    else await axios.post(`${API_BASE}/api/subjects`, body);
+    notify('admin', id ? 'Subject updated' : 'Subject added', 'success');
+    resetSubjectForm();
+    await loadAdminSubjects();
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not save subject'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function deleteSubject(id) {
+  const s = subjects.find(x => x.id === id);
+  if (!s || !confirm(`Delete subject "${s.name}"?`)) return;
+  try {
+    await axios.delete(`${API_BASE}/api/subjects/${id}`);
+    notify('admin', 'Subject deleted', 'warning');
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not delete subject'), 'danger');
+  }
+  await loadAdminSubjects();
+}
+
+// ── Schedules ────────────────────────────────────────────────
+
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+async function loadAdminSchedules() {
+  const tbody = byId('adm-schedules-tbody');
+  if (!tbody) return;
+  const params = { status: byId('sch-filter-status')?.value || 'active' };
+  const sectionId = byId('sch-filter-section')?.value;
+  if (sectionId) params.section_id = sectionId;
+  try {
+    const res = await axios.get(`${API_BASE}/api/schedules`, { params });
+    schedules = res.data.schedules || [];
+  } catch (err) {
+    console.error('Error loading schedules', err);
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger">Failed to load schedules</td></tr>';
+    return;
+  }
+  renderSchedulesTable();
+}
+
+function renderSchedulesTable() {
+  const tbody = byId('adm-schedules-tbody');
+  if (!tbody) return;
+  schedules.sort((a, b) => DAY_ORDER.indexOf(a.day_of_week) - DAY_ORDER.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time));
+  if (byId('schedules-count-pill')) byId('schedules-count-pill').textContent = `${schedules.length} period${schedules.length === 1 ? '' : 's'}`;
+  if (!schedules.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No class periods found.</td></tr>';
+    return;
+  }
+  const today = manilaDate();
+  tbody.innerHTML = schedules.map(s => {
+    const co = (s.schedule_co_teachers || []).map(c => `<span class="badge bg-light text-dark border me-1">+ ${escapeHtml(c.instructors?.full_name || '?')}</span>`).join('');
+    const subs = (s.schedule_overrides || []).filter(o => o.override_date >= today)
+      .map(o => `<div class="small text-warning-emphasis">Sub ${escapeHtml(o.override_date)}: ${escapeHtml(o.instructors?.full_name || '?')}</div>`).join('');
+    const archived = s.status === 'archived';
+    return `
+      <tr${archived ? ' class="text-muted"' : ''}>
+        <td><div class="fw-bold text-dark">${escapeHtml(s.day_of_week)}</div>
+            <div class="small">${shortTime(s.start_time)} – ${shortTime(s.end_time)}</div></td>
+        <td>${escapeHtml(s.subjects?.name || '—')}</td>
+        <td><span class="badge bg-light text-dark border">${escapeHtml(s.sections?.section_name || '—')}</span>
+            <div class="small text-muted">${escapeHtml(s.rooms?.name || '—')}</div></td>
+        <td>${escapeHtml(s.teacher?.full_name || '—')}<div>${co}</div>${subs}</td>
+        <td>
+          <button class="bpes-btn-outline bpes-btn-sm" onclick="openScheduleDetail('${s.id}')" title="Co-teachers and substitutes"><i class="fas fa-user-group me-1"></i> Manage</button>
+          <button class="bpes-btn-outline bpes-btn-sm" onclick="setScheduleStatus('${s.id}', '${archived ? 'active' : 'archived'}')">${archived ? 'Restore' : 'Archive'}</button>
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="deleteSchedule('${s.id}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// Grey out sections/teachers that are already booked for the chosen day and time.
+async function refreshScheduleAvailability() {
+  const sectionSel = byId('sch-section-input');
+  const teacherSel = byId('sch-teacher-input');
+  const hint = byId('sch-availability-hint');
+  if (!sectionSel || !teacherSel) return;
+
+  const section = sections.find(s => s.id === sectionSel.value);
+  byId('sch-room-hint').textContent = !section ? ''
+    : section.rooms ? `Room: ${section.rooms.name}` : 'This section has no home room yet. Set one in Sections.';
+
+  const day = byId('sch-day-input').value;
+  const start = byId('sch-start-input').value;
+  const end = byId('sch-end-input').value;
+  const markBusy = (select, busyIds) => {
+    [...select.options].forEach(o => {
+      if (!o.value) return;
+      o.dataset.label ??= o.textContent;
+      o.disabled = busyIds.includes(o.value);
+      o.textContent = o.dataset.label + (o.disabled ? ' — busy' : '');
+    });
+    if (select.selectedOptions[0]?.disabled) select.value = '';
+  };
+
+  if (!start || !end || end <= start) {
+    markBusy(sectionSel, []);
+    markBusy(teacherSel, []);
+    hint.textContent = 'Choose a day and a start/end time to see who is free.';
+    return;
+  }
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/schedules/availability`, { params: { day, start, end } });
+    markBusy(sectionSel, data.sections);
+    markBusy(teacherSel, data.teachers);
+    const roomBusy = section?.home_room_id && data.rooms.includes(section.home_room_id);
+    hint.textContent = roomBusy ? `${section.rooms.name} is already in use at that time.` : 'Sections and teachers marked busy are already booked then.';
+  } catch (err) {
+    hint.textContent = errMsg(err, 'Could not check availability');
+  }
+}
+
+async function submitScheduleForm(e) {
+  e.preventDefault();
+  const btn = byId('btn-submit-schedule');
+  if (btn) btn.disabled = true;
+  try {
+    await axios.post(`${API_BASE}/api/schedules`, {
+      section_id: byId('sch-section-input').value,
+      subject_id: byId('sch-subject-input').value,
+      teacher_id: byId('sch-teacher-input').value || null,
+      day_of_week: byId('sch-day-input').value,
+      start_time: byId('sch-start-input').value,
+      end_time: byId('sch-end-input').value,
+    });
+    notify('admin', 'Class period added', 'success');
+    byId('schedule-form').reset();
+    await loadAdminSchedules();
+    refreshScheduleAvailability();
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not add class period'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function setScheduleStatus(id, status) {
+  try {
+    await axios.put(`${API_BASE}/api/schedules/${id}`, { status });
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not update class period'), 'danger');
+  }
+  await loadAdminSchedules();
+}
+
+async function deleteSchedule(id) {
+  if (!confirm('Delete this class period?')) return;
+  try {
+    await axios.delete(`${API_BASE}/api/schedules/${id}`);
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not delete class period'), 'danger');
+  }
+  await loadAdminSchedules();
+}
+
+// ── Co-teachers & substitutes (modal) ────────────────────────
+
+let activeScheduleId = null;
+
+function openScheduleDetail(id) {
+  activeScheduleId = id;
+  byId('sch-sub-date').value = '';
+  renderScheduleDetail();
+  bootstrap.Modal.getOrCreateInstance(byId('schedule-detail-modal')).show();
+}
+
+function renderScheduleDetail(error = '') {
+  const s = schedules.find(x => x.id === activeScheduleId);
+  if (!s) return;
+  byId('sch-modal-title').textContent =
+    `${s.subjects?.name || 'Class'} · ${s.day_of_week} ${shortTime(s.start_time)}–${shortTime(s.end_time)}`;
+  byId('sch-sub-date').min = manilaDate();
+
+  const chip = (label, onclick) => `<span class="badge bg-light text-dark border me-1 mb-1">${escapeHtml(label)}
+    <a href="#" class="text-danger ms-1" onclick="${onclick}; return false;" title="Remove"><i class="fas fa-xmark"></i></a></span>`;
+  const co = s.schedule_co_teachers || [];
+  byId('sch-modal-co').innerHTML = co.length
+    ? co.map(c => chip(c.instructors?.full_name || '?', `removeCoTeacher('${c.teacher_id}')`)).join('')
+    : '<span class="small text-muted">None</span>';
+  const subs = s.schedule_overrides || [];
+  byId('sch-modal-subs').innerHTML = subs.length
+    ? subs.map(o => chip(`${o.override_date}: ${o.instructors?.full_name || '?'}`, `removeSubstitute('${o.override_date}')`)).join('')
+    : '<span class="small text-muted">None</span>';
+
+  const toOptions = list => list.map(t => `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`).join('');
+  const others = teachers.filter(t => t.role !== 'admin' && t.id !== s.teacher_id);
+  byId('sch-co-select').innerHTML = toOptions(others.filter(t => !co.some(c => c.teacher_id === t.id)));
+  byId('sch-sub-select').innerHTML = toOptions(others);
+
+  let box = byId('sch-modal-error');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'sch-modal-error';
+    box.className = 'text-danger small mt-2';
+    byId('sch-sub-select').closest('.modal-body').appendChild(box);
+  }
+  box.textContent = error;
+}
+
+// Run a schedule sub-resource call; the API returns the updated schedule, which replaces the cached one.
+async function scheduleDetailCall(request) {
+  try {
+    const res = await request();
+    const updated = res.data.schedule;
+    if (updated) schedules = schedules.map(s => (s.id === updated.id ? updated : s));
+    renderScheduleDetail();
+    renderSchedulesTable();
+  } catch (err) {
+    renderScheduleDetail(errMsg(err, 'Request failed'));
+  }
+}
+
+const detailUrl = path => `${API_BASE}/api/schedules/${activeScheduleId}/${path}`;
+
+function addCoTeacher() {
+  const teacher_id = byId('sch-co-select').value;
+  if (teacher_id) scheduleDetailCall(() => axios.post(detailUrl('co-teachers'), { teacher_id }));
+}
+
+async function removeCoTeacher(teacherId) {
+  await scheduleDetailCall(() => axios.delete(detailUrl(`co-teachers/${teacherId}`)));
+  await loadAdminSchedules();
+  renderScheduleDetail();
+}
+
+function addSubstitute() {
+  const override_date = byId('sch-sub-date').value;
+  const sub_teacher_id = byId('sch-sub-select').value;
+  if (!override_date || !sub_teacher_id) return renderScheduleDetail('Pick a date and a teacher');
+  scheduleDetailCall(() => axios.post(detailUrl('overrides'), { override_date, sub_teacher_id }));
+}
+
+async function removeSubstitute(date) {
+  await scheduleDetailCall(() => axios.delete(detailUrl(`overrides/${date}`)));
+  await loadAdminSchedules();
+  renderScheduleDetail();
+}

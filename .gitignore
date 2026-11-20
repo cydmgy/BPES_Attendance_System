@@ -1,0 +1,10 @@
+.env
+backend/.env
+# Dependencies
+node_modules/
+backend/node_modules/
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+.vscode/settings.json
