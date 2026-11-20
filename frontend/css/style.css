@@ -1749,3 +1749,7 @@ a:hover {
 .bpes-legend-label { flex: 1; color: var(--color-text-secondary); font-weight: 600; }
 .bpes-legend-value { font-weight: 700; color: var(--color-primary); }
 .bpes-legend-value small { font-weight: 500; color: var(--color-text-secondary); }
+
+/* Attendance stream: the table scrolls inside the card and keeps its header in view */
+#live-taps-card .bpes-table-wrapper { max-height: 480px; overflow: auto; }
+#live-taps-card .bpes-table thead th { position: sticky; top: 0; z-index: 2; }

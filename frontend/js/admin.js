@@ -29,8 +29,6 @@ function initAdminPortal() {
     enrollDateInput.value = manilaDate();
   }
 
-  // Populate Room Dropdowns & Section Filter
-  populateAdminRoomDropdowns();
   populateAdminSectionFilter();
 
   const greeting = document.getElementById('admin-greeting');
@@ -63,13 +61,6 @@ function populateAdminSectionFilter() {
   if (sortedSections.length > 0) {
     el.innerHTML = '<option value="">All sections</option>' +
       sortedSections.map(sec => `<option value="${escapeHtml(sec)}">${escapeHtml(sec)}</option>`).join('');
-  }
-}
-
-function populateAdminRoomDropdowns() {
-  const enrollRoomSelect = document.getElementById('enroll-room-input');
-  if (enrollRoomSelect && rooms.length > 0) {
-    enrollRoomSelect.innerHTML = rooms.map(r => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`).join('');
   }
 }
 
@@ -370,7 +361,6 @@ async function submitInlineEnrollForm(e) {
   const studentId = document.getElementById('enroll-id-input')?.value.trim();
   const fullName = document.getElementById('enroll-name-input')?.value.trim();
   const sectionId = document.getElementById('enroll-section-input')?.value;
-  const room = document.getElementById('enroll-room-input')?.value;
   const rfidUid = document.getElementById('enroll-rfid-input')?.value.trim();
   const pin = document.getElementById('enroll-pin-input')?.value.trim();
 
@@ -839,7 +829,7 @@ function fillAdminSelects() {
     el.innerHTML = html;
     if ([...el.options].some(o => o.value === prev)) el.value = prev;
   };
-  const sectionOpts = sections.map(sec => `<option value="${sec.id}">${escapeHtml(sec.section_name)}</option>`).join('');
+  const sectionOpts = sections.map(sec => `<option value="${sec.id}">${escapeHtml(`${sec.section_name} (${sec.rooms?.name || 'no room'})`)}</option>`).join('');
   const subjectOpts = (subjects || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
   const teacherOpts = (teachers || []).filter(t => t.role !== 'admin')
     .map(t => `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`).join('');

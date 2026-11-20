@@ -81,6 +81,7 @@ let isBackendOnline = false;
 
 let rooms = [];
 let subjects = [];
+let systemDataToken = null; // the auth token the lists above were loaded with
 
 // Leave requests are a whole day or a half day. Old requests that named one subject keep showing it.
 const leaveTypeLabel = type => ({ half_day_am: 'Half day (morning)', half_day_pm: 'Half day (afternoon)' })[type] || 'Whole day';
@@ -209,9 +210,15 @@ async function loadSystemData() {
     }
 
     const isAdminRole = getAuthRole() === 'admin';
+    // Rooms and subjects need a login: without a token the server answers 401 and the lists would stay empty.
+    const loggedIn = !!getAuthToken();
+    let listFailed = false;
+    const fetchList = (path, key) => loggedIn
+      ? axios.get(`${API_BASE}/api/${path}`, { timeout: 4000 }).catch(() => { listFailed = true; return { data: { [key]: [] } }; })
+      : { data: { [key]: [] } };
     const [roomsRes, subjRes, stdRes, tchRes] = await Promise.all([
-      axios.get(`${API_BASE}/api/rooms`, { timeout: 4000 }).catch(() => ({ data: { rooms: [] } })),
-      axios.get(`${API_BASE}/api/subjects`, { timeout: 4000 }).catch(() => ({ data: { subjects: [] } })),
+      fetchList('rooms', 'rooms'),
+      fetchList('subjects', 'subjects'),
       // The full student and teacher lists are admin-only (the server refuses everyone else).
       isAdminRole ? axios.get(`${API_BASE}/api/students`, { timeout: 4000 }).catch(() => ({ data: { students: [] } })) : { data: { students: [] } },
       isAdminRole ? axios.get(`${API_BASE}/api/teachers`, { timeout: 4000 }).catch(() => ({ data: { teachers: [] } })) : { data: { teachers: [] } }
@@ -221,6 +228,8 @@ async function loadSystemData() {
     subjects = subjRes.data.subjects || [];
     students = stdRes.data.students || [];
     teachers = tchRes.data.teachers || [];
+    systemDataToken = listFailed ? null : getAuthToken();
+    if (listFailed) notify(getAuthRole(), 'Could not load rooms and subjects. Refresh the page to try again.', 'danger');
 
     updateBackendStatusUI(true);
 
@@ -807,6 +816,10 @@ async function loadPage(page) {
     doc.querySelectorAll('script').forEach(s => s.remove());
     appContainer.innerHTML = doc.body ? doc.body.innerHTML : html;
     activePortal = targetPage;
+
+    // Reference lists load once per login: at page boot the visitor has no token yet, so they came back empty.
+    // Loaded here, after the page is in the DOM, so a failure toast has somewhere to show.
+    if (targetPage !== 'login' && targetPage !== 'welcome' && systemDataToken !== getAuthToken()) await loadSystemData();
     
     if (window.location.hash !== `#${targetPage}`) {
       history.replaceState(null, '', `#${targetPage}`);
