@@ -7,7 +7,8 @@
 --                                   reason = the holiday name, ON CONFLICT DO NOTHING (an admin's own row wins),
 --                                   cancels unfinished sessions on the inserted dates, records the year,
 --                                   returns how many dates it inserted (0 if the year was already seeded)
---   cron job seed_fixed_holidays    every 1 Dec 00:00 Manila (16:00 UTC on 30 Nov), seeds next year
+--   cron job seed_fixed_holidays    monthly at 16:00 UTC on the 1st (= 00:00 on the 2nd in Manila), seeds the current
+--                                   and the next Manila year; both calls are idempotent, so a missed run catches up
 --
 -- Left out on purpose: dates set by proclamation (Nov 2, Dec 24, Feb 25) and moving dates
 -- (National Heroes Day, Holy Week, Eid). An admin adds those by hand.
@@ -75,8 +76,9 @@ GRANT EXECUTE ON FUNCTION public.seed_fixed_holidays(int) TO service_role;
 
 -- Re-runnable: drop the old job first, then schedule it again.
 SELECT cron.unschedule(j.jobid) FROM cron.job j WHERE j.jobname = 'seed_fixed_holidays';
-SELECT cron.schedule('seed_fixed_holidays', '0 16 30 11 *',
-  $$SELECT public.seed_fixed_holidays((extract(year FROM now() AT TIME ZONE 'Asia/Manila'))::int + 1)$$);
+SELECT cron.schedule('seed_fixed_holidays', '0 16 1 * *',
+  $$SELECT public.seed_fixed_holidays(extract(year FROM now() AT TIME ZONE 'Asia/Manila')::int);
+    SELECT public.seed_fixed_holidays(extract(year FROM now() AT TIME ZONE 'Asia/Manila')::int + 1)$$);
 
 -- Seed this year (only the dates still ahead) and next year.
 SELECT public.seed_fixed_holidays(2026);
