@@ -19,8 +19,23 @@ CREATE TABLE IF NOT EXISTS public.no_class_days (
 -- Backend (service role) only; same posture as the other tables (RLS on, no policies).
 ALTER TABLE public.no_class_days ENABLE ROW LEVEL SECURITY;
 
--- The status CHECK in 001 is inline and unnamed, so Postgres named it class_sessions_status_check.
-ALTER TABLE public.class_sessions DROP CONSTRAINT IF EXISTS class_sessions_status_check;
+-- The status CHECK in 001 is inline and unnamed (Postgres would call it class_sessions_status_check, but do
+-- not rely on that): drop every CHECK on class_sessions that mentions status, then re-add it with the new value.
+DO $$
+DECLARE
+  v_con record;
+BEGIN
+  FOR v_con IN
+    SELECT c.conname
+      FROM pg_catalog.pg_constraint c
+     WHERE c.conrelid = 'public.class_sessions'::regclass
+       AND c.contype = 'c'
+       AND pg_catalog.pg_get_constraintdef(c.oid) ~* '\mstatus\M'
+  LOOP
+    EXECUTE format('ALTER TABLE public.class_sessions DROP CONSTRAINT %I', v_con.conname);
+  END LOOP;
+END;
+$$;
 ALTER TABLE public.class_sessions
   ADD CONSTRAINT class_sessions_status_check
   CHECK (status IN ('pending', 'ongoing', 'substituted', 'no_teacher', 'closed', 'cancelled'));
