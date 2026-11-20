@@ -32,8 +32,9 @@
         room: s.rooms?.name || '—',
         start_time: s.start_time,
         end_time: s.end_time,
-        role: s.teacher_id === selfId ? 'own' : 'co',
+        teacher: s.teacher?.full_name || '',
       };
+      if (selfId != null) entry.role = s.teacher_id === selfId ? 'own' : 'co'; // students have no 'self'
       for (let h = Math.floor(minutes(s.start_time) / 60); h <= Math.ceil(minutes(s.end_time) / 60) - 1; h++) {
         cells[h][s.day_of_week].push(entry);
       }

@@ -65,6 +65,19 @@ test('buildWeekGrid: a teacher with no classes gets an empty grid, not an error'
   assert.equal(grid.days.length, 5);
 });
 
+test('buildWeekGrid: without a selfId (student view) no entry gets a role', () => {
+  const co = sched('Monday', '07:00:00', '08:00:00', { teacher_id: 'someone-else' });
+  const entry = buildWeekGrid([sched('Monday', '07:00:00', '08:00:00'), co], null).cells[7].Monday[0];
+  assert.equal('role' in entry, false);
+  for (const e of buildWeekGrid([co], null).cells[7].Monday) assert.notEqual(e.role, 'co');
+});
+
+test('buildWeekGrid: entries carry the teacher name', () => {
+  const s = sched('Monday', '07:00:00', '08:00:00', { teacher: { full_name: 'Ana Reyes' } });
+  assert.equal(buildWeekGrid([s], null).cells[7].Monday[0].teacher, 'Ana Reyes');
+  assert.equal(buildWeekGrid([sched('Monday', '07:00:00', '08:00:00')], ME).cells[7].Monday[0].teacher, '');
+});
+
 // ── My Classes: grade > section > subject ───────────────────────────────
 const cls = (day, start, end, { section = ['sec-a', 'Diamond', 3], subject = ['sub-m', 'Math'], teacher_id = ME, room = 'Room 1', status = 'active' } = {}) => ({
   id: `c${++n}`, day_of_week: day, start_time: start, end_time: end, status, teacher_id,
