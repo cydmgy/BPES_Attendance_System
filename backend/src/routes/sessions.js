@@ -50,6 +50,11 @@ async function periodsFor(req, res, date) {
     if (sErr) throw sErr;
     const sessionBy = new Map(sessions.map(s => [s.schedule_id, s]));
 
+    // A no-class day entered in advance has no sessions (the jobs skip it), so show its periods as cancelled.
+    // Fails open like the scan guard: a lookup error keeps the normal view.
+    const { data: closedDay, error: cdErr } = await supabase.from('no_class_days').select('day').eq('day', date).maybeSingle();
+    if (cdErr) console.error('[GET /sessions] no_class_days lookup failed, continuing', cdErr);
+
     let logs = [];
     const live = sessions.filter(s => s.status !== 'cancelled'); // logs of a cancelled period do not count
     if (live.length) {
@@ -75,7 +80,7 @@ async function periodsFor(req, res, date) {
     }
 
     const out = periods.map(p => {
-      const s = sessionBy.get(p.id) || null;
+      const s = sessionBy.get(p.id) || (closedDay ? { status: 'cancelled' } : null); // synthetic: no id, no logs
       const base = {
         schedule_id: p.id,
         session_id: s?.id || null,

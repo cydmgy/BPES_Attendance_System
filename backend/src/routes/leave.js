@@ -181,7 +181,7 @@ router.patch('/:id', auth, async (req, res) => {
         let sq = supabase.from('class_sessions')
           .select('id, schedules!inner(section_id, subject_id, room_id, start_time)')
           .eq('session_date', leave.leave_date)
-          .neq('status', 'pending')
+          .not('status', 'in', '(pending,cancelled)')
           .eq('schedules.section_id', student.section_id);
         const { data: sessions, error: sErr } = await sq;
         if (sErr) throw sErr;

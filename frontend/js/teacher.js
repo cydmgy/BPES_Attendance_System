@@ -13,7 +13,7 @@ let teacherOverrideRows = new Map(); // log id -> row, so inline buttons only ca
 let teacherWeekData = { schedules: [], substitutions: [] }; // GET /api/schedules/my-week, kept for the Schedule grid
 
 const SESSION_LABELS = {
-  pending: 'Upcoming', ongoing: 'In session', substituted: 'Substituted', no_teacher: 'No teacher', closed: 'Closed',
+  pending: 'Upcoming', ongoing: 'In session', substituted: 'Substituted', no_teacher: 'No teacher', closed: 'Closed', cancelled: 'No classes',
 };
 
 function initTeacherPortal() {
