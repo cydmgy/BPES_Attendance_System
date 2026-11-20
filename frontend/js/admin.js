@@ -113,7 +113,7 @@ function showAdminTab(tab) {
     return;
   }
   stopAutoRefreshLogs();
-  if (tab === 'dashboard') loadAdminDashboard();
+  if (tab === 'dashboard') { loadAdminDashboard(); loadNoClassDays(); }
   else if (tab === 'students') loadAdminStudents();
   else if (tab === 'teachers') loadAdminTeachers();
   else if (tab === 'sections') loadAdminSections();
@@ -1217,4 +1217,74 @@ async function removeSubstitute(date) {
   await scheduleDetailCall(() => axios.delete(detailUrl(`overrides/${date}`)));
   await loadAdminSchedules();
   renderScheduleDetail();
+}
+
+// ── No-class days ─────────────────────────────────────────────
+// The server cancels the day's unfinished sessions on POST; DELETE only lifts the day, it never un-cancels.
+
+async function loadNoClassDays() {
+  const tbody = byId('ncd-tbody');
+  if (!tbody) return;
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/no-class-days`);
+    tbody.innerHTML = data.days.length
+      ? data.days.map(d => `
+        <tr>
+          <td class="text-nowrap"><strong class="text-dark">${escapeHtml(d.day)}</strong></td>
+          <td>${escapeHtml(d.reason)}</td>
+          <td><button class="bpes-btn-danger-outline bpes-btn-sm" onclick="removeNoClassDay('${escapeHtml(d.day)}')"><i class="fas fa-trash me-1"></i> Delete</button></td>
+        </tr>`).join('')
+      : '<tr><td colspan="3" class="text-center py-4 text-muted">No upcoming no-class days.</td></tr>';
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-muted">Could not load no-class days.</td></tr>';
+    notify('admin', escapeHtml(errMsg(err, 'Could not load no-class days')), 'danger');
+  }
+}
+
+// Returns true when the day was saved.
+async function postNoClassDay(day, reason) {
+  try {
+    await axios.post(`${API_BASE}/api/no-class-days`, { day, reason });
+    notify('admin', `No classes on ${escapeHtml(day)}: ${escapeHtml(reason)}`, 'success');
+    await loadNoClassDays();
+    return true;
+  } catch (err) {
+    notify('admin', escapeHtml(errMsg(err, 'Could not save the no-class day')), 'danger');
+    return false;
+  }
+}
+
+async function addNoClassDay(e) {
+  e.preventDefault();
+  const day = byId('ncd-date').value;
+  const reason = byId('ncd-reason').value.trim();
+  if (!day || !reason) return;
+  if (await postNoClassDay(day, reason)) e.target.reset();
+}
+
+async function removeNoClassDay(day) {
+  if (!confirm(`Remove the no-class day on ${day}? Periods already cancelled stay cancelled.`)) return;
+  try {
+    await axios.delete(`${API_BASE}/api/no-class-days/${encodeURIComponent(day)}`);
+    notify('admin', `Removed no-class day ${escapeHtml(day)}`, 'warning');
+  } catch (err) {
+    notify('admin', escapeHtml(errMsg(err, 'Could not remove the no-class day')), 'danger');
+  }
+  await loadNoClassDays();
+}
+
+function openSuspendModal() {
+  byId('suspend-reason').value = '';
+  bootstrap.Modal.getOrCreateInstance(byId('suspend-modal')).show();
+}
+
+async function confirmSuspendToday(e) {
+  e.preventDefault();
+  const reason = byId('suspend-reason').value.trim();
+  if (!reason) return;
+  const btn = byId('suspend-confirm-btn');
+  btn.disabled = true; // one click, one POST
+  bootstrap.Modal.getOrCreateInstance(byId('suspend-modal')).hide(); // hide first so the result toast is not behind the backdrop
+  await postNoClassDay(manilaDate(), reason);
+  btn.disabled = false;
 }

@@ -196,6 +196,29 @@
           </div>
         </div>
 
+        <div class="bpes-card mb-4">
+          <div class="bpes-card-header">
+            <div>
+              <h3 class="bpes-card-title">No-class days</h3>
+              <div class="bpes-card-subtitle">Holidays and suspensions. Adding a day cancels that day's unfinished class periods.</div>
+            </div>
+            <button type="button" class="bpes-btn-danger-outline bpes-btn-sm" id="ncd-suspend-btn" onclick="openSuspendModal()">
+              <i class="fas fa-ban me-1" aria-hidden="true"></i> Suspend classes today
+            </button>
+          </div>
+          <form class="d-flex flex-wrap gap-2 mb-3" onsubmit="addNoClassDay(event)">
+            <input type="date" id="ncd-date" class="bpes-input" style="max-width: 180px;" aria-label="Date" required>
+            <input type="text" id="ncd-reason" class="bpes-input flex-grow-1" style="min-width: 180px;" maxlength="200" placeholder="Reason (e.g. Holiday)" aria-label="Reason" required>
+            <button type="submit" class="bpes-btn-outline px-3"><i class="fas fa-plus me-1" aria-hidden="true"></i> Add</button>
+          </form>
+          <div class="bpes-table-wrapper">
+            <table class="bpes-table bpes-table-actions">
+              <thead><tr><th>Date</th><th>Reason</th><th>Action</th></tr></thead>
+              <tbody id="ncd-tbody"><tr><td colspan="3" class="text-center py-4 text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="row g-4 mb-4">
           <div class="col-xl-8">
             <div class="bpes-card h-100">
@@ -904,6 +927,27 @@
           <i class="fas fa-times me-1"></i> Cancel Scan
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Suspend classes today: asks for a reason first -->
+  <div class="modal fade" id="suspend-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="confirmSuspendToday(event)">
+        <div class="modal-header">
+          <h5 class="modal-title">Suspend classes today?</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small mb-3">Every class period today that has not finished will be cancelled and will not count toward attendance.</p>
+          <label for="suspend-reason" class="bpes-label">Reason</label>
+          <input type="text" id="suspend-reason" class="bpes-input" maxlength="200" placeholder="e.g. Typhoon signal no. 2" required>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="bpes-btn-outline px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="bpes-btn-danger-outline px-3" id="suspend-confirm-btn">Suspend classes</button>
+        </div>
+      </form>
     </div>
   </div>
 
