@@ -26,11 +26,11 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const parsed = parseNoClassDay(req.body, localDateStr());
     if (parsed.error) return res.status(400).json({ error: parsed.error });
 
-    const { error } = await supabase.from('no_class_days').upsert(parsed, { onConflict: 'day' });
+    const { error } = await supabase.from('no_class_days').upsert(parsed.days.map((day) => ({ day, reason: parsed.reason })), { onConflict: 'day' });
     if (error) throw error;
     // Sessions may already exist for future days (generated ahead), so cancel for any posted date.
     const { error: cErr } = await supabase.from('class_sessions').update({ status: 'cancelled' })
-      .eq('session_date', parsed.day).not('status', 'in', '(closed,cancelled)');
+      .gte('session_date', parsed.day).lte('session_date', parsed.until).not('status', 'in', '(closed,cancelled)');
     if (cErr) throw cErr;
     return res.status(201).json({ day: parsed });
   } catch (err) {

@@ -1232,10 +1232,10 @@ async function loadNoClassDays() {
 }
 
 // Returns true when the day was saved.
-async function postNoClassDay(day, reason) {
+async function postNoClassDay(day, reason, until) {
   try {
-    await axios.post(`${API_BASE}/api/no-class-days`, { day, reason });
-    notify('admin', `No classes on ${escapeHtml(day)}: ${escapeHtml(reason)}`, 'success');
+    await axios.post(`${API_BASE}/api/no-class-days`, until ? { day, until, reason } : { day, reason });
+    notify('admin', `No classes on ${escapeHtml(until && until !== day ? `${day} to ${until}` : day)}: ${escapeHtml(reason)}`, 'success');
     await loadNoClassDays();
     return true;
   } catch (err) {
@@ -1247,9 +1247,10 @@ async function postNoClassDay(day, reason) {
 async function addNoClassDay(e) {
   e.preventDefault();
   const day = byId('ncd-date').value;
+  const until = byId('ncd-until').value;
   const reason = byId('ncd-reason').value.trim();
   if (!day || !reason) return;
-  if (await postNoClassDay(day, reason)) e.target.reset();
+  if (await postNoClassDay(day, reason, until)) e.target.reset();
 }
 
 async function removeNoClassDay(day) {

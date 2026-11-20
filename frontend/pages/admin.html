@@ -206,8 +206,11 @@
               <i class="fas fa-ban me-1" aria-hidden="true"></i> Suspend classes today
             </button>
           </div>
-          <form class="d-flex flex-wrap gap-2 mb-3" onsubmit="addNoClassDay(event)">
-            <input type="date" id="ncd-date" class="bpes-input" style="max-width: 180px;" aria-label="Date" required>
+          <form class="d-flex flex-wrap align-items-end gap-2 mb-3" onsubmit="addNoClassDay(event)">
+            <div><label for="ncd-date" class="form-label small text-muted mb-0">From</label>
+              <input type="date" id="ncd-date" class="bpes-input" style="max-width: 180px;" required></div>
+            <div><label for="ncd-until" class="form-label small text-muted mb-0">To (optional)</label>
+              <input type="date" id="ncd-until" class="bpes-input" style="max-width: 180px;"></div>
             <input type="text" id="ncd-reason" class="bpes-input flex-grow-1" style="min-width: 180px;" maxlength="200" placeholder="Reason (e.g. Holiday)" aria-label="Reason" required>
             <button type="submit" class="bpes-btn-outline px-3"><i class="fas fa-plus me-1" aria-hidden="true"></i> Add</button>
           </form>
