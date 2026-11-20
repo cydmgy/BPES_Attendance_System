@@ -222,7 +222,7 @@ function renderTeacherClasses({ schedules = [] }) {
     const isOpen = open.has(id);
     return `
     <div class="border rounded-3 mb-2">
-      <button type="button" class="tch-grade-toggle" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="${isOpen}" aria-controls="${id}">
+      <button type="button" class="tch-grade-toggle${isOpen ? '' : ' collapsed'}" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="${isOpen}" aria-controls="${id}">
         <span class="fw-bold text-dark">${g.grade ? `Grade ${g.grade}` : 'Other'}</span>
         <span class="small text-muted text-truncate me-auto">${n} section${n === 1 ? '' : 's'} &middot; ${g.sections.map(sec => escapeHtml(sec.section_name)).join(', ')}</span>
         <i class="fas fa-chevron-down small text-muted" aria-hidden="true"></i>
