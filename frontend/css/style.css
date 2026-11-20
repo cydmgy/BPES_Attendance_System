@@ -1753,3 +1753,10 @@ a:hover {
 /* Attendance stream: the table scrolls inside the card and keeps its header in view */
 #live-taps-card .bpes-table-wrapper { max-height: 480px; overflow: auto; }
 #live-taps-card .bpes-table thead th { position: sticky; top: 0; z-index: 2; }
+
+/* Teacher dashboard: collapsible grade groups in My classes */
+.tch-grade-toggle { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 8px 16px; background: none; border: 0; border-radius: inherit; text-align: left; }
+.tch-grade-toggle:focus-visible { outline: 2px solid var(--bs-success, #198754); outline-offset: -2px; }
+.tch-grade-toggle .fa-chevron-down { transition: transform .2s ease; }
+.tch-grade-toggle[aria-expanded="true"] .fa-chevron-down { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .tch-grade-toggle .fa-chevron-down { transition: none; } }

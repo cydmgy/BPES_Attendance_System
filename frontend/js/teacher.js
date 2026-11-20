@@ -211,24 +211,33 @@ function renderTeacherClasses({ schedules = [] }) {
     box.innerHTML = '<div class="small text-muted">No classes assigned yet.</div>';
     return;
   }
+  // Compact: one line per subject. Grades are collapsed; keep the ones the teacher opened across a refresh.
   const subjectHtml = sub => `
-    <div class="mb-2">
-      <div class="small fw-medium text-dark">${escapeHtml(sub.name)}${sub.role === 'co' ? ' <span class="badge bg-warning-subtle text-dark border ms-1">co-teacher</span>' : ''}</div>
-      <div class="small text-muted">${sub.slots.map(sl => `${escapeHtml(sl.day.slice(0, 3))} ${shortTime(sl.start_time)}&ndash;${shortTime(sl.end_time)}`).join(' &middot; ')}</div>
-    </div>`;
-  box.innerHTML = groups.map(g => `
-    <div class="mb-3">
-      <div class="fw-bold text-dark mb-2">${g.grade ? `Grade ${g.grade}` : 'Other'}</div>
-      <div class="row g-2">
-        ${g.sections.map(sec => `
-          <div class="col-md-6 col-xl-4">
-            <div class="border rounded-3 p-3 h-100">
-              <div class="fw-bold text-dark mb-2">${escapeHtml(sec.section_name)}</div>
+    <div class="small lh-sm mb-1"><span class="fw-medium text-dark">${escapeHtml(sub.name)}</span>${sub.role === 'co' ? ' <span class="badge bg-warning-subtle text-dark border">co-teacher</span>' : ''}
+      <span class="text-muted">${sub.slots.map(sl => `${escapeHtml(sl.day.slice(0, 3))} ${shortTime(sl.start_time)}&ndash;${shortTime(sl.end_time)}`).join(' &middot; ')}</span></div>`;
+  const open = new Set([...box.querySelectorAll('.collapse.show')].map(e => e.id));
+  box.innerHTML = groups.map(g => {
+    const id = `tch-grade-${g.grade ?? 'other'}`;
+    const n = g.sections.length;
+    const isOpen = open.has(id);
+    return `
+    <div class="border rounded-3 mb-2">
+      <button type="button" class="tch-grade-toggle" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="${isOpen}" aria-controls="${id}">
+        <span class="fw-bold text-dark">${g.grade ? `Grade ${g.grade}` : 'Other'}</span>
+        <span class="small text-muted text-truncate me-auto">${n} section${n === 1 ? '' : 's'} &middot; ${g.sections.map(sec => escapeHtml(sec.section_name)).join(', ')}</span>
+        <i class="fas fa-chevron-down small text-muted" aria-hidden="true"></i>
+      </button>
+      <div class="collapse${isOpen ? ' show' : ''}" id="${id}">
+        <div class="row g-2 px-3 pb-3">
+          ${g.sections.map(sec => `
+            <div class="col-md-6">
+              <div class="fw-bold small text-success-emphasis mb-1">${escapeHtml(sec.section_name)}</div>
               ${sec.subjects.map(subjectHtml).join('')}
-            </div>
-          </div>`).join('')}
+            </div>`).join('')}
+        </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Schedule grid: days across, hours down (window.TeacherSchedule, js/teacher-schedule.js) ──

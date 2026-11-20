@@ -118,7 +118,29 @@
       <!-- ============================================================ -->
       <section id="tch-tab-dashboard">
         <div id="tch-noclass-banner"></div>
-        
+
+        <!-- Today first: what the teacher needs right now -->
+        <div class="bpes-card mb-4" id="tch-today-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div>
+              <h3 class="bpes-card-title">Today's classes</h3>
+              <div class="bpes-card-subtitle">Your periods, with how many students are in.</div>
+            </div>
+            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-today-pill">0 classes</span>
+          </div>
+          <div class="bpes-table-wrapper">
+            <table class="bpes-table">
+              <thead>
+                <tr><th>Time</th><th>Class</th><th>Status</th><th>In</th></tr>
+              </thead>
+              <tbody id="tch-today-tbody">
+                <tr><td colspan="4" class="text-center py-4 text-muted">Loading today's classes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4 Metric KPI Cards -->
         <!-- 4 Metric KPI Cards -->
         <div class="bpes-stat-grid bpes-stat-grid--even mb-4">
           <div class="bpes-stat-card">
@@ -166,46 +188,10 @@
           </div>
         </div>
 
-        <!-- My Classes: grade > section > subjects this teacher handles -->
-        <div class="bpes-card mb-4" id="tch-classes-card">
-          <div class="bpes-card-header flex-wrap gap-2">
-            <div>
-              <h3 class="bpes-card-title">My classes</h3>
-              <div class="bpes-card-subtitle">Every grade, section and subject you handle, with its weekly slots.</div>
-            </div>
-            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-classes-pill">0 sections</span>
-          </div>
-          <div class="p-3" id="tch-classes-list">
-            <div class="small text-muted">Loading your classes...</div>
-          </div>
-        </div>
-
-        <!-- 2 Column Grid: Attendance Trend Card & Recent Scans Card -->
-        <div class="row g-4">
-          
-          <!-- Left: today's classes + weekly timetable -->
+        <!-- Reference row: timetable summary + grouped classes (collapsed by default) -->
+        <div class="row g-4 mb-4">
           <div class="col-xl-5 col-12">
-            <div class="bpes-card mb-4" id="tch-today-card">
-              <div class="bpes-card-header flex-wrap gap-2">
-                <div>
-                  <h3 class="bpes-card-title">Today's classes</h3>
-                  <div class="bpes-card-subtitle">Your periods, with how many students are in.</div>
-                </div>
-                <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-today-pill">0 classes</span>
-              </div>
-              <div class="bpes-table-wrapper">
-                <table class="bpes-table">
-                  <thead>
-                    <tr><th>Time</th><th>Class</th><th>Status</th><th>In</th></tr>
-                  </thead>
-                  <tbody id="tch-today-tbody">
-                    <tr><td colspan="4" class="text-center py-4 text-muted">Loading today's classes...</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="bpes-card mb-4" id="tch-week-card">
+            <div class="bpes-card h-100" id="tch-week-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div>
                   <h3 class="bpes-card-title">My week</h3>
@@ -220,10 +206,26 @@
               </div>
             </div>
           </div>
-
-          <!-- Right: recent-scans-card -->
           <div class="col-xl-7 col-12">
-            <div class="bpes-card mb-4" id="tch-mix-card">
+            <div class="bpes-card h-100" id="tch-classes-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div>
+                  <h3 class="bpes-card-title">My classes</h3>
+                  <div class="bpes-card-subtitle">Open a grade to see its sections, subjects and weekly slots.</div>
+                </div>
+                <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-classes-pill">0 sections</span>
+              </div>
+              <div class="p-3" id="tch-classes-list">
+                <div class="small text-muted">Loading your classes...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts + recent records -->
+        <div class="row g-4">
+          <div class="col-xl-5 col-12">
+            <div class="bpes-card h-100" id="tch-mix-card">
               <div class="bpes-card-header">
                 <div>
                   <h3 class="bpes-card-title">Today's attendance mix</h3>
@@ -236,8 +238,9 @@
               </div>
               <ul class="bpes-legend" id="tch-mix-legend"></ul>
             </div>
-
-            <div class="bpes-card" id="recent-scans-card">
+          </div>
+          <div class="col-xl-7 col-12">
+            <div class="bpes-card h-100" id="recent-scans-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                   <h3 class="bpes-card-title">Recent records</h3>
@@ -248,7 +251,7 @@
                   <i class="fas fa-arrow-right ms-1"></i>
                 </button>
               </div>
-
+  
               <div class="bpes-table-wrapper">
                 <table class="bpes-table">
                   <thead>
@@ -268,7 +271,6 @@
               </div>
             </div>
           </div>
-
         </div>
       </section>
 
