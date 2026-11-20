@@ -76,6 +76,7 @@ function showStudentTab(tab) {
 // ── Tab 1: Dashboard Overview & Tab 2: Logs Ledger ───────────
 
 async function loadStudentPortalData() {
+  showNoClassBanner('std-noclass-banner');
   // Always prioritize and display the student's full name over their LRN
   let displayName = studentUser.full_name || studentUser.name || '';
   if (!displayName || displayName === 'Student' || displayName === studentUser.student_id) {

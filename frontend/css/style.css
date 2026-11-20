@@ -952,6 +952,12 @@ a:hover {
   border: 1px solid #FCD34D;
 }
 
+.bpes-badge-cancelled {
+  background-color: #F1F5F9;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
 .bpes-badge-excused {
   background-color: #EFF6FF;
   color: #1D4ED8;

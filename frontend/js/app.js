@@ -862,12 +862,31 @@ const STATUS_BADGES = {
   upcoming:       ['pending', 'fa-hourglass-half', 'Upcoming'],
   not_checked_in: ['warning', 'fa-person-circle-question', 'Not checked in'],
   no_teacher:     ['warning', 'fa-user-slash', 'No teacher'],
+  cancelled:      ['cancelled', 'fa-calendar-xmark', 'No classes'],
 };
 
 function statusBadge(status) {
   const key = String(status || 'present').toLowerCase();
   const [cls, icon, label] = STATUS_BADGES[key] || ['present', 'fa-check', key];
   return `<span class="bpes-badge bpes-badge-${cls}"><i class="fas ${icon}"></i> ${escapeHtml(label)}</span>`;
+}
+
+// Shows "No classes: <reason>" in the placeholder when today (Manila) is a no-class day.
+// Fails quietly: a missing banner must never break the dashboard.
+async function showNoClassBanner(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/no-class-days`);
+    const today = manilaDate();
+    const hit = (data.days || []).find(d => d.day === today);
+    if (!hit) return;
+    el.innerHTML = `
+      <div class="alert alert-secondary shadow-sm mb-4" role="status" style="border-radius: var(--radius-input);">
+        <i class="fas fa-calendar-xmark me-2"></i> <strong>No classes today</strong>${hit.reason ? `: ${escapeHtml(hit.reason)}` : ''}
+      </div>`;
+  } catch (err) { /* banner is optional */ }
 }
 
 // 'HH:MM:SS' -> 'HH:MM'

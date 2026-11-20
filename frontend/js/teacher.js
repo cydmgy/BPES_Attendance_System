@@ -135,6 +135,7 @@ function stopTeacherAutoRefresh() {
 // ── Tab 1: Dashboard (today's classes, week, KPIs, recent taps) ───
 
 async function loadTeacherDashboardData() {
+  showNoClassBanner('tch-noclass-banner');
   try {
     const [periods, weekRes] = await Promise.all([
       fetchTeacherDay(manilaDate()),
