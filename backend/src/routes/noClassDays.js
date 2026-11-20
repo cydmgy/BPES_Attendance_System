@@ -20,7 +20,8 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// POST /api/no-class-days { day, reason } — idempotent; cancels every unfinished session on that date
+// POST /api/no-class-days { day, reason, until? } — idempotent; until makes an inclusive range (max 31 days).
+// Cancels every unfinished session on those dates
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
     const parsed = parseNoClassDay(req.body, localDateStr());
