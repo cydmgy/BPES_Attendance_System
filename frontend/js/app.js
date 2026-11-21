@@ -89,9 +89,36 @@ const leaveLabel = req => leaveTypeLabel(req.leave_type) + (req.subjects?.name ?
 // Old requests saved a leading "[Subject] " in the reason; hide it.
 const FILED_BY_RE = /\s*\[Filed by:\s*([^\]]+)\]\s*$/;
 // Who filed the request for the student (a trailing "[Filed by: X]" tag), or null.
-const leaveFiledBy = req => { const m = String(req.reason || '').match(FILED_BY_RE); return m ? m[1].trim() : null; };
+const leaveFiledBy = req => { const m = String(req.reason || '').match(FILED_BY_RE); return m ? (m[1].trim() || null) : null; };
 // Strip the tag first, or a reason that is only the tag would be eaten by the leading-bracket pattern.
 const leaveReasonText = req => String(req.reason || '').replace(FILED_BY_RE, '').replace(/^\[.*?\]\s*/, '').replace(/\s*\(Proof:[^)]*\)\s*$/, ''); // proof was removed; hide it on old requests
+// Leave attachments: one button per file, opened through a short-lived signed URL.
+const LEAVE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// The ids go into onclick attributes, so only well-formed UUIDs are rendered.
+function leaveAttachmentLinks(req) {
+  if (!req || !LEAVE_UUID_RE.test(req.id || '')) return '';
+  return (req.leave_attachments || []).filter(a => LEAVE_UUID_RE.test(a.id || '')).map(a => `
+    <button type="button" class="btn btn-link p-0 text-start d-flex align-items-center gap-2 bpes-attach-link"
+      style="font-size:13px;min-width:44px;min-height:44px;white-space:normal;overflow-wrap:anywhere"
+      onclick="openLeaveAttachment('${req.id}','${a.id}')">
+      <i class="fas fa-paperclip" aria-hidden="true"></i><span>${escapeHtml(a.file_name)}</span>
+    </button>`).join('');
+}
+
+// The tab opens inside the click (popup blockers allow that), then goes to the signed URL once it arrives.
+async function openLeaveAttachment(leaveId, attId) {
+  const win = window.open('about:blank', '_blank');
+  if (win) win.opener = null;
+  try {
+    const res = await axios.get(`${API_BASE}/api/leave/${leaveId}/attachments/${attId}`);
+    if (!res.data?.url) throw new Error('No file link returned');
+    if (win) win.location = res.data.url; else window.location.href = res.data.url;
+  } catch (err) {
+    if (win) win.close();
+    notify(getAuthRole() || 'student', escapeHtml(err.response?.data?.error || err.message || 'Could not open the file.'), 'error');
+  }
+}
+
 let students = [];
 let teachers = [];
 let allLogs = [];

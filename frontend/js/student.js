@@ -274,6 +274,45 @@ function renderStudentHistory() {
 
 // ── Tab 3: File Excuse or Leave ─────────────
 
+// Same limits as backend/src/utils/attachment.js (MAX_FILES, MAX_BYTES, ALLOWED_TYPES); the server re-checks them.
+const LEAVE_MAX_FILES = 3;
+const LEAVE_MAX_BYTES = 5242880;
+const LEAVE_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+let leaveFiles = []; // a FileList cannot be edited, so the chosen files live here
+
+function renderLeaveFiles() {
+  const list = document.getElementById('std-leave-file-list');
+  if (!list) return;
+  list.innerHTML = leaveFiles.map((f, i) => `
+    <li class="d-flex align-items-center gap-2 mb-1" style="font-size:13px">
+      <i class="fas fa-paperclip text-muted" aria-hidden="true"></i>
+      <span class="flex-grow-1" style="min-width:0;overflow-wrap:anywhere">${escapeHtml(f.name)}</span>
+      <button type="button" class="btn btn-link text-danger p-0" style="min-width:44px;min-height:44px;font-size:13px"
+        aria-label="Remove ${escapeHtml(f.name)}" onclick="removeLeaveFile(${i})"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+    </li>`).join('');
+}
+
+function addLeaveFiles(input) {
+  const errEl = document.getElementById('std-leave-files-error');
+  const errors = [];
+  for (const f of Array.from(input.files || [])) {
+    if (!LEAVE_FILE_TYPES.includes(f.type)) errors.push(`${f.name} is not a JPG, PNG, WebP or PDF file.`);
+    else if (f.size > LEAVE_MAX_BYTES) errors.push(`${f.name} is larger than 5 MB.`);
+    else if (leaveFiles.length >= LEAVE_MAX_FILES) errors.push(`You can attach at most ${LEAVE_MAX_FILES} files, so ${f.name} was not added.`);
+    else leaveFiles.push(f);
+  }
+  input.value = ''; // else picking the same file again after removing it fires no change event
+  if (errEl) errEl.textContent = errors.join(' ');
+  renderLeaveFiles();
+}
+
+function removeLeaveFile(i) {
+  leaveFiles.splice(i, 1);
+  const errEl = document.getElementById('std-leave-files-error');
+  if (errEl) errEl.textContent = '';
+  renderLeaveFiles();
+}
+
 async function submitStudentLeave(e) {
   e.preventDefault();
   const alertEl = document.getElementById('std-leave-form-alert');
@@ -310,15 +349,38 @@ async function submitStudentLeave(e) {
     const requesterText = requester ? ` [Filed by: ${requester}]` : '';
     const formattedReason = `${reasonText}${requesterText}`;
 
-    await axios.post(`${API_BASE}/api/leave`, {
+    if (alertEl) alertEl.innerHTML = '';
+    const posted = await axios.post(`${API_BASE}/api/leave`, {
       student_id: studentUser.id || studentUser.student_id,
       leave_type: leaveType,
       leave_date: leaveDate,
       reason: formattedReason
     });
 
-    notify('student', 'Leave request submitted successfully!', 'success');
+    // Files go up one at a time; a failed file does not undo the filed request.
+    const leaveId = posted.data?.leave_request?.id;
+    const failed = [];
+    for (let i = 0; i < leaveFiles.length; i++) {
+      const f = leaveFiles[i];
+      if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Uploading ${i + 1} of ${leaveFiles.length}...`;
+      try {
+        if (!leaveId) throw new Error('no leave id');
+        await axios.post(`${API_BASE}/api/leave/${leaveId}/attachments`, f, {
+          headers: { 'Content-Type': f.type, 'x-file-name': encodeURIComponent(f.name) }
+        });
+      } catch (upErr) { failed.push(f.name); }
+    }
+
+    if (failed.length) {
+      if (alertEl) alertEl.innerHTML = `<div class="alert alert-warning py-2 small mb-3" role="alert"><i class="fas fa-triangle-exclamation me-1"></i> Leave request filed, but these files did not upload: ${failed.map(escapeHtml).join(', ')}. Show them to your teacher, or file a new request with them attached.</div>`;
+    } else {
+      notify('student', 'Leave request submitted successfully!', 'success');
+    }
     document.getElementById('std-leave-form')?.reset();
+    leaveFiles = [];
+    renderLeaveFiles();
+    const filesErr = document.getElementById('std-leave-files-error');
+    if (filesErr) filesErr.textContent = '';
     toggleLeaveHalf();
 
     const today = manilaDate();
@@ -366,6 +428,7 @@ async function loadStudentLeaveHistory() {
     tbody.innerHTML = requests.map((req, idx) => {
       const subject = leaveLabel(req);
       const displayReason = leaveReasonText(req);
+      const filedBy = leaveFiledBy(req);
 
       const date = req.leave_date || 'Date';
       const statusBadge = getStudentLeaveStatusBadge(req.status);
@@ -376,7 +439,7 @@ async function loadStudentLeaveHistory() {
           <td><span class="bpes-req-id">${escapeHtml(reqId)}</span></td>
           <td class="text-nowrap">${escapeHtml(date)}</td>
           <td>${escapeHtml(subject)}</td>
-          <td>${escapeHtml(displayReason)}</td>
+          <td>${escapeHtml(displayReason)}${filedBy ? `<span class="bpes-cell-sub">Filed by: ${escapeHtml(filedBy)}</span>` : ''}${leaveAttachmentLinks(req)}</td>
           <td>${statusBadge}</td>
         </tr>
       `;

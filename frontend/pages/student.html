@@ -483,6 +483,16 @@
                 </div>
 
                 <div class="bpes-form-group">
+                  <label for="std-leave-files" class="bpes-label">Attachments (optional)</label>
+                  <input type="file" id="std-leave-files" class="form-control" style="min-height:44px" multiple
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    aria-describedby="std-leave-files-help std-leave-files-error" onchange="addLeaveFiles(this)">
+                  <div id="std-leave-files-help" class="form-text" style="font-size:13px">e.g. a medical certificate. Up to 3 files, JPG, PNG, WebP or PDF, 5 MB each.</div>
+                  <div id="std-leave-files-error" class="text-danger" style="font-size:13px" aria-live="polite"></div>
+                  <ul id="std-leave-file-list" class="list-unstyled mb-0 mt-2"></ul>
+                </div>
+
+                <div class="bpes-form-group">
                   <label for="std-leave-requester" class="bpes-label">Requested by</label>
                   <select id="std-leave-requester" class="bpes-select">
                     <option value="Parent / Guardian">Parent / Guardian</option>
