@@ -5,27 +5,26 @@
 
   const minutes = t => { const [h, m] = String(t).split(':'); return Number(h) * 60 + Number(m); };
 
-  // Row label for the hour starting at `hour` (24h): 7 -> '7-8', 12 -> '12-1', 13 -> '1-2'.
-  const hourLabel = hour => `${hour % 12 || 12}-${(hour + 1) % 12 || 12}`;
+  // Hour-line label (24h in): 7 -> '7 AM', 12 -> '12 PM', 13 -> '1 PM', 0 -> '12 AM'.
+  const timeLabel = hour => `${hour % 12 || 12} ${hour % 24 < 12 ? 'AM' : 'PM'}`;
 
-  // Weekly timetable grid: rows are hours, columns are days. A class appears in every hour row it overlaps,
-  // so 07:30-08:15 sits in the 7 and 8 rows (its exact times stay on the entry). One-off substitutions are not part of it.
-  function buildWeekGrid(schedules, selfId) {
+  // Calendar-style week: one block per class at its real time. `top`/`height` are minutes from `start`
+  // (the earliest start floored to the hour; `end` is the latest end ceiled). Classes that overlap share a
+  // cluster and sit in side-by-side lanes; touching ones (a.end === b.start) do not overlap.
+  // One-off substitutions are not part of it.
+  function buildWeekCalendar(schedules, selfId) {
     const active = (schedules || []).filter(s => s.status === 'active' && [...WEEKDAYS, 'Saturday'].includes(s.day_of_week));
     const days = active.some(s => s.day_of_week === 'Saturday') ? [...WEEKDAYS, 'Saturday'] : WEEKDAYS.slice();
-    if (!active.length) return { days, hours: [], cells: {} };
+    const blocks = Object.fromEntries(days.map(d => [d, []]));
+    if (!active.length) return { days, start: null, end: null, hours: [], blocks };
 
-    const first = Math.min(...active.map(s => Math.floor(minutes(s.start_time) / 60)));
-    const last = Math.max(...active.map(s => Math.ceil(minutes(s.end_time) / 60) - 1));
+    const start = Math.floor(Math.min(...active.map(s => minutes(s.start_time))) / 60) * 60;
+    const end = Math.ceil(Math.max(...active.map(s => minutes(s.end_time))) / 60) * 60;
     const hours = [];
-    const cells = {};
-    for (let h = first; h <= last; h++) {
-      hours.push(h);
-      cells[h] = Object.fromEntries(days.map(d => [d, []]));
-    }
+    for (let h = start / 60; h < end / 60; h++) hours.push(h);
 
     for (const s of active) {
-      const entry = {
+      const block = {
         schedule_id: s.id,
         subject: s.subjects?.name || '—',
         section: s.sections?.section_name || '',
@@ -33,14 +32,30 @@
         start_time: s.start_time,
         end_time: s.end_time,
         teacher: s.teacher?.full_name || '',
+        top: minutes(s.start_time) - start,
+        height: minutes(s.end_time) - minutes(s.start_time),
+        lane: 0,
+        lanes: 1,
       };
-      if (selfId != null) entry.role = s.teacher_id === selfId ? 'own' : 'co'; // students have no 'self'
-      for (let h = Math.floor(minutes(s.start_time) / 60); h <= Math.ceil(minutes(s.end_time) / 60) - 1; h++) {
-        cells[h][s.day_of_week].push(entry);
-      }
+      if (selfId != null) block.role = s.teacher_id === selfId ? 'own' : 'co'; // students have no 'self'
+      blocks[s.day_of_week].push(block);
     }
-    for (const h of hours) for (const d of days) cells[h][d].sort((a, b) => a.start_time.localeCompare(b.start_time));
-    return { days, hours, cells };
+
+    for (const day of days) {
+      const list = blocks[day].sort((a, b) => a.top - b.top || a.height - b.height);
+      let cluster = [], laneEnds = [], clusterEnd = -1;
+      const close = () => { for (const b of cluster) b.lanes = laneEnds.length; cluster = []; laneEnds = []; };
+      for (const b of list) {
+        if (b.top >= clusterEnd) { close(); clusterEnd = -1; }
+        b.lane = laneEnds.findIndex(e => e <= b.top);
+        if (b.lane < 0) b.lane = laneEnds.length;
+        laneEnds[b.lane] = b.top + b.height;
+        clusterEnd = Math.max(clusterEnd, b.top + b.height);
+        cluster.push(b);
+      }
+      close();
+    }
+    return { days, start, end, hours, blocks };
   }
 
   const DAY_ORDER = [...WEEKDAYS, 'Saturday'];
@@ -77,7 +92,7 @@
       }));
   }
 
-  const api = { hourLabel, buildWeekGrid, groupTeacherClasses };
+  const api = { timeLabel, buildWeekCalendar, groupTeacherClasses };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TeacherSchedule = api;
 })(typeof window !== 'undefined' ? window : globalThis);

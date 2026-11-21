@@ -936,3 +936,22 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+// Calendar-style weekly timetable markup (cal = TeacherSchedule.buildWeekCalendar result), shared by the
+// student "My week" and the teacher schedule modal. `inner(b)` is a block's text HTML; `cls(b)` its colour class.
+const CAL_PX_PER_MIN = 1.4;
+function weekCalendarHtml(cal, todayName, inner, cls) {
+  const px = m => `${+(m * CAL_PX_PER_MIN).toFixed(1)}px`;
+  const block = b => `
+    <div class="bpes-cal-block ${cls(b)}" title="${escapeHtml(`${b.subject} ${shortTime(b.start_time)}–${shortTime(b.end_time)} ${b.room}`)}"
+         style="top:${px(b.top)};height:calc(${px(b.height)} - 2px);left:calc(${b.lane / b.lanes * 100}% + 1px);width:calc(${100 / b.lanes}% - 2px);">${inner(b)}</div>`;
+  return `
+    <div class="bpes-cal-scroll">
+      <div class="bpes-cal" style="--cal-days:${cal.days.length};--cal-h:${px(cal.end - cal.start)};">
+        <div class="bpes-cal-head"><span class="visually-hidden">Time</span></div>
+        ${cal.days.map(d => `<div class="bpes-cal-head${d === todayName ? ' is-today' : ''}">${escapeHtml(d)}</div>`).join('')}
+        <div class="bpes-cal-gutter" aria-hidden="true">${cal.hours.map(h => `<div class="bpes-cal-hour" style="top:${px((h * 60) - cal.start)};">${TeacherSchedule.timeLabel(h)}</div>`).join('')}</div>
+        ${cal.days.map(d => `<div class="bpes-cal-col${d === todayName ? ' is-today' : ''}" role="group" aria-label="${escapeHtml(d)}">${cal.blocks[d].map(block).join('')}</div>`).join('')}
+      </div>
+    </div>`;
+}

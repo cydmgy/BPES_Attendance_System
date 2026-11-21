@@ -1,7 +1,7 @@
 // The teacher portal's timetable logic lives in a plain browser script; it also exports itself for node.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { hourLabel, buildWeekGrid, groupTeacherClasses } = require('../../frontend/js/teacher-schedule.js');
+const { timeLabel, buildWeekCalendar, groupTeacherClasses } = require('../../frontend/js/teacher-schedule.js');
 
 const ME = 'teacher-1';
 let n = 0;
@@ -10,72 +10,46 @@ const sched = (day_of_week, start_time, end_time, extra = {}) => ({
   subjects: { name: 'Math' }, sections: { section_name: 'Diamond' }, rooms: { name: 'Room 1' }, ...extra,
 });
 
-test('hourLabel: 12-hour style without am/pm', () => {
-  assert.equal(hourLabel(7), '7-8');
-  assert.equal(hourLabel(11), '11-12');
-  assert.equal(hourLabel(12), '12-1');
-  assert.equal(hourLabel(13), '1-2');
+test('timeLabel', () => { assert.equal(timeLabel(7), '7 AM'); assert.equal(timeLabel(12), '12 PM'); assert.equal(timeLabel(13), '1 PM'); assert.equal(timeLabel(0), '12 AM'); });
+
+test('buildWeekCalendar: a 07:30-08:15 class is one block placed at its real time', () => {
+  const cal = buildWeekCalendar([sched('Monday', '07:30:00', '08:15:00')], ME);
+  assert.equal(cal.start, 420); assert.equal(cal.end, 540); assert.deepEqual(cal.hours, [7, 8]);
+  assert.equal(cal.blocks.Monday.length, 1);
+  assert.deepEqual([cal.blocks.Monday[0].top, cal.blocks.Monday[0].height], [30, 45]);
+  assert.deepEqual(cal.blocks.Tuesday, []);
 });
 
-test('buildWeekGrid: days are Monday to Friday, plus Saturday only when a Saturday class exists', () => {
-  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  assert.deepEqual(buildWeekGrid([sched('Monday', '07:00:00', '08:00:00')], ME).days, weekdays);
-  assert.deepEqual(buildWeekGrid([sched('Saturday', '07:00:00', '08:00:00')], ME).days, [...weekdays, 'Saturday']);
+test('buildWeekCalendar: back-to-back classes share one lane', () => {
+  const b = buildWeekCalendar([sched('Monday', '07:30:00', '08:15:00'), sched('Monday', '08:15:00', '09:00:00')], ME).blocks.Monday;
+  assert.deepEqual(b.map(x => [x.lane, x.lanes]), [[0, 1], [0, 1]]);
 });
 
-test('buildWeekGrid: a class that starts at 07:30 and ends 08:15 sits in the 7 and 8 rows with its exact times', () => {
-  const grid = buildWeekGrid([sched('Monday', '07:30:00', '08:15:00')], ME);
-  assert.deepEqual(grid.hours, [7, 8]);
-  for (const h of [7, 8]) {
-    assert.equal(grid.cells[h].Monday.length, 1);
-    assert.equal(grid.cells[h].Monday[0].start_time, '07:30:00');
-    assert.equal(grid.cells[h].Monday[0].end_time, '08:15:00');
-  }
-  assert.equal(grid.cells[7].Tuesday.length, 0);
-});
-
-test('buildWeekGrid: a class ending exactly on the hour does not spill into the next row', () => {
-  assert.deepEqual(buildWeekGrid([sched('Monday', '07:00:00', '09:00:00')], ME).hours, [7, 8]);
-});
-
-test('buildWeekGrid: a taught class and a co-taught class in the same cell are both listed, with their roles', () => {
+test('buildWeekCalendar: overlapping classes get side-by-side lanes', () => {
   const own = sched('Tuesday', '09:00:00', '10:00:00');
-  const co = sched('Tuesday', '09:00:00', '10:00:00', { teacher_id: 'someone-else', sections: { section_name: 'Ruby' } });
-  const cell = buildWeekGrid([own, co], ME).cells[9].Tuesday;
-  assert.deepEqual(cell.map(e => e.role).sort(), ['co', 'own']);
-  assert.deepEqual(cell.map(e => e.section).sort(), ['Diamond', 'Ruby']);
-  assert.equal(cell[0].subject, 'Math');
-  assert.equal(cell[0].room, 'Room 1');
+  const co = sched('Tuesday', '09:30:00', '10:30:00', { teacher_id: 'other' });
+  const b = buildWeekCalendar([own, co], ME).blocks.Tuesday;
+  assert.deepEqual(b.map(x => [x.lane, x.lanes, x.role]), [[0, 2, 'own'], [1, 2, 'co']]);
 });
 
-test('buildWeekGrid: hours between two classes are kept as empty rows', () => {
-  const grid = buildWeekGrid([sched('Monday', '07:00:00', '08:00:00'), sched('Monday', '10:00:00', '11:00:00')], ME);
-  assert.deepEqual(grid.hours, [7, 8, 9, 10]);
-  assert.equal(grid.cells[8].Monday.length, 0);
+test('buildWeekCalendar: range is floored/ceiled to whole hours', () => {
+  const cal = buildWeekCalendar([sched('Monday', '07:30:00', '09:10:00')], ME);
+  assert.deepEqual([cal.start, cal.end, cal.hours], [420, 600, [7, 8, 9]]);
 });
 
-test('buildWeekGrid: archived schedules are ignored', () => {
-  assert.deepEqual(buildWeekGrid([sched('Monday', '07:00:00', '08:00:00', { status: 'archived' })], ME).hours, []);
+test('buildWeekCalendar: empty, archived-only, Saturday and student (no role) cases', () => {
+  const empty = buildWeekCalendar([], ME);
+  assert.deepEqual([empty.start, empty.hours, empty.days.length], [null, [], 5]);
+  assert.deepEqual(buildWeekCalendar([sched('Monday', '07:00:00', '08:00:00', { status: 'archived' })], ME).hours, []);
+  assert.equal(buildWeekCalendar([sched('Saturday', '07:00:00', '08:00:00')], ME).days.at(-1), 'Saturday');
+  assert.equal('role' in buildWeekCalendar([sched('Monday', '07:00:00', '08:00:00')], null).blocks.Monday[0], false);
 });
 
-test('buildWeekGrid: a teacher with no classes gets an empty grid, not an error', () => {
-  const grid = buildWeekGrid([], ME);
-  assert.deepEqual(grid.hours, []);
-  assert.deepEqual(grid.cells, {});
-  assert.equal(grid.days.length, 5);
-});
-
-test('buildWeekGrid: without a selfId (student view) no entry gets a role', () => {
-  const co = sched('Monday', '07:00:00', '08:00:00', { teacher_id: 'someone-else' });
-  const entry = buildWeekGrid([sched('Monday', '07:00:00', '08:00:00'), co], null).cells[7].Monday[0];
-  assert.equal('role' in entry, false);
-  for (const e of buildWeekGrid([co], null).cells[7].Monday) assert.notEqual(e.role, 'co');
-});
-
-test('buildWeekGrid: entries carry the teacher name', () => {
-  const s = sched('Monday', '07:00:00', '08:00:00', { teacher: { full_name: 'Ana Reyes' } });
-  assert.equal(buildWeekGrid([s], null).cells[7].Monday[0].teacher, 'Ana Reyes');
-  assert.equal(buildWeekGrid([sched('Monday', '07:00:00', '08:00:00')], ME).cells[7].Monday[0].teacher, '');
+test('buildWeekCalendar: a later class reuses lane 0 once the cluster has ended, and blocks carry teacher and sort by start', () => {
+  const s = sched('Monday', '09:00:00', '10:00:00', { teacher: { full_name: 'Ana Reyes' } });
+  const b = buildWeekCalendar([s, sched('Monday', '07:00:00', '08:00:00'), sched('Monday', '07:30:00', '08:30:00')], ME).blocks.Monday;
+  assert.deepEqual(b.map(x => [x.start_time, x.lane, x.lanes]), [['07:00:00', 0, 2], ['07:30:00', 1, 2], ['09:00:00', 0, 1]]);
+  assert.equal(b[2].teacher, 'Ana Reyes');
 });
 
 // ── My Classes: grade > section > subject ───────────────────────────────

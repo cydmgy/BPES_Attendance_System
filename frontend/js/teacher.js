@@ -240,24 +240,17 @@ function renderTeacherClasses({ schedules = [] }) {
 function renderTeacherScheduleGrid() {
   const box = document.getElementById('tch-schedule-grid');
   if (!box) return;
-  const { days, hours, cells } = TeacherSchedule.buildWeekGrid(teacherWeekData.schedules, currentTeacherUser?.id);
-  if (!hours.length) {
+  const cal = TeacherSchedule.buildWeekCalendar(teacherWeekData.schedules, currentTeacherUser?.id);
+  if (!cal.hours.length) {
     box.innerHTML = '<div class="text-center text-muted py-4">No classes assigned yet.</div>';
     return;
   }
-  const cell = entries => entries.map(e => `
-    <div class="rounded-3 p-2 mb-1 ${e.role === 'co' ? 'bg-warning-subtle' : 'bg-success-subtle'}" style="font-size: 12px;">
-      <div class="fw-bold text-dark">${escapeHtml(e.subject)}</div>
-      <div class="text-muted">${escapeHtml(e.section)} &middot; ${escapeHtml(e.room)}</div>
-      <div class="text-muted">${shortTime(e.start_time)}&ndash;${shortTime(e.end_time)}${e.role === 'co' ? ' &middot; co-teacher' : ''}</div>
-    </div>`).join('');
-  box.innerHTML = `
-    <div class="table-responsive">
-      <table class="table table-bordered align-middle mb-0" style="min-width: 720px;">
-        <thead class="table-light"><tr><th style="width: 80px;">Time</th>${days.map(d => `<th>${escapeHtml(d)}</th>`).join('')}</tr></thead>
-        <tbody>${hours.map(h => `<tr><th class="text-nowrap small">${TeacherSchedule.hourLabel(h)}</th>${days.map(d => `<td>${cell(cells[h][d])}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>
-    </div>`;
+  box.innerHTML = weekCalendarHtml(cal, null,
+    e => `
+      <strong>${escapeHtml(e.subject)}</strong>
+      <div>${escapeHtml(e.section)} &middot; ${escapeHtml(e.room)}</div>
+      <div>${shortTime(e.start_time)}&ndash;${shortTime(e.end_time)}${e.role === 'co' ? ' &middot; co-teacher' : ''}</div>`,
+    e => (e.role === 'co' ? 'bg-warning-subtle' : 'bg-success-subtle'));
 }
 
 // The modal lives on <body> (created once), so leaving and re-entering the portal never duplicates it.

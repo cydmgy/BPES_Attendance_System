@@ -205,42 +205,31 @@ function renderStudentToday(periods) {
       </tr>`).join('');
 }
 
-// Weekly timetable from TeacherSchedule.buildWeekGrid (js/teacher-schedule.js): a grid from 768px up, stacked by day below.
+// Weekly timetable from TeacherSchedule.buildWeekCalendar (js/teacher-schedule.js): a time-proportional calendar from 768px up, stacked by day below.
 function renderStudentWeek(schedules) {
   const box = document.getElementById('std-week-grid');
   if (!box) return;
   const list = schedules || [];
   setText('std-week-pill', `${list.length} period${list.length === 1 ? '' : 's'}`);
-  const { days, hours, cells } = TeacherSchedule.buildWeekGrid(list, null);
-  if (!hours.length) {
+  const cal = TeacherSchedule.buildWeekCalendar(list, null);
+  if (!cal.hours.length) {
     box.innerHTML = '<div class="text-center py-4 text-muted">No timetable has been set for your section yet.</div>';
     return;
   }
   const todayName = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long' }).format(new Date());
-  const block = e => `
-    <div class="rounded-3 p-2 mb-1 bg-success-subtle" style="font-size: 12px;">
-      <div class="fw-bold text-dark">${escapeHtml(e.subject)}</div>
-      <div class="text-muted">${escapeHtml(e.room)}${e.teacher ? ` &middot; ${escapeHtml(e.teacher)}` : ''}</div>
-      <div class="text-muted">${shortTime(e.start_time)}&ndash;${shortTime(e.end_time)}</div>
-    </div>`;
-  const grid = `
-    <div class="table-responsive d-none d-md-block">
-      <table class="table table-bordered align-middle mb-0" style="min-width: 720px;">
-        <thead class="table-light"><tr><th style="width: 80px;">Time</th>${days.map(d => `<th class="${d === todayName ? 'bg-success-subtle text-success' : ''}">${escapeHtml(d)}</th>`).join('')}</tr></thead>
-        <tbody>${hours.map(h => `<tr><th class="text-nowrap small">${TeacherSchedule.hourLabel(h)}</th>${days.map(d => `<td class="${d === todayName ? 'bg-success-subtle bg-opacity-25' : ''}">${cells[h][d].map(block).join('')}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>
-    </div>`;
-  // A class spans several hour rows in the grid, so de-duplicate by schedule id for the stacked view.
-  const stacked = days.map(d => {
-    const periods = [...new Map(hours.flatMap(h => cells[h][d]).map(e => [e.schedule_id, e])).values()];
-    if (!periods.length) return '';
+  const inner = e => `
+    <strong>${escapeHtml(e.subject)}</strong>
+    <div>${escapeHtml(e.room)}${e.teacher ? ` &middot; ${escapeHtml(e.teacher)}` : ''}</div>
+    <div>${shortTime(e.start_time)}&ndash;${shortTime(e.end_time)}</div>`;
+  const stacked = cal.days.map(d => {
+    if (!cal.blocks[d].length) return '';
     return `
       <div class="border rounded-3 p-2 mb-2 ${d === todayName ? 'border-success' : ''}">
         <div class="fw-bold mb-1 ${d === todayName ? 'text-success' : 'text-dark'}">${escapeHtml(d)}${d === todayName ? ' <span class="small fw-normal">(today)</span>' : ''}</div>
-        ${periods.map(block).join('')}
+        ${cal.blocks[d].map(e => `<div class="rounded-3 p-2 mb-1 bg-success-subtle" style="font-size: 12px; color: var(--color-text-main);">${inner(e)}</div>`).join('')}
       </div>`;
   }).join('');
-  box.innerHTML = `${grid}<div class="d-md-none">${stacked}</div>`;
+  box.innerHTML = `<div class="d-none d-md-block">${weekCalendarHtml(cal, todayName, inner, () => 'bg-success-subtle')}</div><div class="d-md-none">${stacked}</div>`;
 }
 
 // ── Attendance history (dashboard preview + filtered ledger) ──
