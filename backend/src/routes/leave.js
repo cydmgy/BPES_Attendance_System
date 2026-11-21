@@ -126,22 +126,23 @@ router.get('/', auth, async (req, res) => {
     if (error && isSetupMissing(error)) ({ data, error } = await run(false));
     if (error) throw error;
 
-    // File names can reveal health details: a teacher sees them only for students they may review
+    // File names can reveal health details: a teacher sees them only for students they may review.
+    // Rows without files skip the check; the promise is cached so rows sharing a key share one lookup.
     const canOpen = new Map();
-    const mayOpen = async (r) => {
+    const mayOpen = (r) => {
       if (isStudent) return true;
       const key = `${r.student_id}|${r.subject_id ?? ''}|${r.leave_date}`;
-      if (!canOpen.has(key)) canOpen.set(key, await canReviewLeave(supabase, req.user, r));
+      if (!canOpen.has(key)) canOpen.set(key, canReviewLeave(supabase, req.user, r));
       return canOpen.get(key);
     };
-    const leave_requests = [];
-    for (const r of data || []) {
-      leave_requests.push({
+    const leave_requests = await Promise.all((data || []).map(async (r) => {
+      const files = r.leave_attachments || [];
+      return {
         ...r,
         students: r.students && withSectionName(r.students),
-        leave_attachments: (await mayOpen(r)) ? (r.leave_attachments || []).sort((a, b) => a.slot - b.slot) : [],
-      });
-    }
+        leave_attachments: (files.length && await mayOpen(r)) ? files.sort((a, b) => a.slot - b.slot) : [],
+      };
+    }));
     return res.json({ leave_requests, count: leave_requests.length });
   } catch (err) {
     console.error('[GET /leave]', err);
