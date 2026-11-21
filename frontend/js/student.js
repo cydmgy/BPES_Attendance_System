@@ -360,9 +360,10 @@ async function submitStudentLeave(e) {
     // Files go up one at a time; a failed file does not undo the filed request.
     const leaveId = posted.data?.leave_request?.id;
     const failed = [];
-    for (let i = 0; i < leaveFiles.length; i++) {
-      const f = leaveFiles[i];
-      if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Uploading ${i + 1} of ${leaveFiles.length}...`;
+    const toUpload = leaveFiles.slice(); // the remove buttons stay live during upload
+    for (let i = 0; i < toUpload.length; i++) {
+      const f = toUpload[i];
+      if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Uploading ${i + 1} of ${toUpload.length}...`;
       try {
         if (!leaveId) throw new Error('no leave id');
         await axios.post(`${API_BASE}/api/leave/${leaveId}/attachments`, f, {
