@@ -14,7 +14,7 @@ const { orSafe } = require('../utils/filter');
 const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
 const { sectionFields, withSectionName } = require('../utils/section');
-const { BUCKET, isSetupMissing } = require('../utils/attachment');
+const { BUCKET, isTableMissing } = require('../utils/attachment');
 
 const SAFE_STUDENT_COLUMNS = 'id, rfid_uid, student_id, full_name, course, year_level, section_id, created_at, sections(section_name)';
 
@@ -207,7 +207,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
     // Leave requests cascade with the student: remove their medical files from Storage first
     const { data: files, error: fileErr } = await supabase
       .from('leave_attachments').select('storage_path, leave_requests!inner(student_id)').eq('leave_requests.student_id', req.params.id);
-    if (fileErr && !isSetupMissing(fileErr)) throw fileErr;
+    if (fileErr && !isTableMissing(fileErr)) throw fileErr;
     if (files?.length) {
       const { error: rmErr } = await supabase.storage.from(BUCKET).remove(files.map(f => f.storage_path));
       if (rmErr) throw rmErr;

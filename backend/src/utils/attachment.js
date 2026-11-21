@@ -43,4 +43,9 @@ function isSetupMissing(err) {
   return ['42P01', 'PGRST205', 'PGRST200'].includes(err?.code) || /Bucket not found/i.test(err?.message || '');
 }
 
-module.exports = { isSetupMissing, MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName };
+// Strict form for destructive paths: a stale schema cache (PGRST200) must not look like "no table", or cleanup would be skipped.
+function isTableMissing(err) {
+  return ['42P01', 'PGRST205'].includes(err?.code);
+}
+
+module.exports = { isSetupMissing, isTableMissing, MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName };

@@ -188,7 +188,8 @@ router.post('/:id/attachments', auth, express.raw({ type: ALLOWED_TYPES, limit: 
       .select('id, slot, file_name, content_type, size_bytes')
       .single();
     if (insErr) {
-      await supabase.storage.from(BUCKET).remove([path]); // no orphan file
+      const { error: rmErr } = await supabase.storage.from(BUCKET).remove([path]); // no orphan file
+      if (rmErr) console.error('[attachments] orphan', path, rmErr);
       if (insErr.code === '23505') return res.status(409).json({ error: 'That slot was just taken. Try again.' });
       throw insErr;
     }

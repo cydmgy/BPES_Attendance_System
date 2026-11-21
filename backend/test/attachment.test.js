@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName, isSetupMissing } = require('../src/utils/attachment');
+const { MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName, isSetupMissing, isTableMissing } = require('../src/utils/attachment');
 
 test('limits', () => {
   assert.equal(MAX_FILES, 3);
@@ -61,4 +61,12 @@ test('isSetupMissing', () => {
   assert.ok(isSetupMissing({ message: 'Bucket not found' }));
   assert.ok(!isSetupMissing({ code: '23505' }));
   assert.ok(!isSetupMissing(null));
+});
+
+test('isTableMissing is strict: a stale schema cache (PGRST200) is not a missing table', () => {
+  assert.ok(isTableMissing({ code: '42P01' }));
+  assert.ok(isTableMissing({ code: 'PGRST205' }));
+  assert.ok(!isTableMissing({ code: 'PGRST200' }));
+  assert.ok(!isTableMissing({ message: 'Bucket not found' }));
+  assert.ok(!isTableMissing(null));
 });
