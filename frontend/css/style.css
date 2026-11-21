@@ -889,6 +889,14 @@ a:hover {
   min-width: 44px;
   min-height: 44px;
 }
+/* .bpes-btn-outline forces its own colour with !important, so Decline needs a matching rule */
+.bpes-review-btn.text-danger {
+  color: var(--color-red) !important;
+  border-color: var(--color-red) !important;
+}
+.bpes-review-btn.text-danger:hover {
+  background-color: var(--color-red-bg);
+}
 
 .bpes-table td .badge,
 .bpes-table td .bpes-badge,

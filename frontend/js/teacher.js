@@ -555,7 +555,7 @@ async function loadTeacherLeaveRequests() {
           </td>
           <td>${escapeHtml(subject)}</td>
           <td>${escapeHtml(leaveDate)}</td>
-          <td>${escapeHtml(displayReason)}${filedBy ? `<span class="bpes-cell-sub">Filed by: ${escapeHtml(filedBy)}</span>` : ''}${leaveAttachmentLinks(req)}</td>
+          <td><div>${escapeHtml(displayReason)}${filedBy ? `<span class="bpes-cell-sub">Filed by: ${escapeHtml(filedBy)}</span>` : ''}${leaveAttachmentLinks(req)}</div></td>
           <td>${leaveBadge}</td>
           <td>
             ${isPending ? `

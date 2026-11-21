@@ -313,6 +313,13 @@ function removeLeaveFile(i) {
   renderLeaveFiles();
 }
 
+// The picker and remove buttons stay locked while files upload, so the list cannot change mid-submit.
+function setLeavePickerLocked(locked) {
+  const input = document.getElementById('std-leave-files');
+  if (input) input.disabled = locked;
+  document.querySelectorAll('#std-leave-file-list button').forEach(b => { b.disabled = locked; });
+}
+
 async function submitStudentLeave(e) {
   e.preventDefault();
   const alertEl = document.getElementById('std-leave-form-alert');
@@ -344,6 +351,7 @@ async function submitStudentLeave(e) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Submitting...';
   }
+  setLeavePickerLocked(true);
 
   try {
     const requesterText = requester ? ` [Filed by: ${requester}]` : '';
@@ -360,7 +368,7 @@ async function submitStudentLeave(e) {
     // Files go up one at a time; a failed file does not undo the filed request.
     const leaveId = posted.data?.leave_request?.id;
     const failed = [];
-    const toUpload = leaveFiles.slice(); // the remove buttons stay live during upload
+    const toUpload = leaveFiles.slice();
     for (let i = 0; i < toUpload.length; i++) {
       const f = toUpload[i];
       if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Uploading ${i + 1} of ${toUpload.length}...`;
@@ -397,6 +405,7 @@ async function submitStudentLeave(e) {
       alertEl.innerHTML = `<div class="alert alert-danger py-2 small mb-3"><i class="fas fa-circle-exclamation me-1"></i> ${escapeHtml(msg)}</div>`;
     }
   } finally {
+    setLeavePickerLocked(false);
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<span>Submit request</span>';
@@ -440,7 +449,7 @@ async function loadStudentLeaveHistory() {
           <td><span class="bpes-req-id">${escapeHtml(reqId)}</span></td>
           <td class="text-nowrap">${escapeHtml(date)}</td>
           <td>${escapeHtml(subject)}</td>
-          <td>${escapeHtml(displayReason)}${filedBy ? `<span class="bpes-cell-sub">Filed by: ${escapeHtml(filedBy)}</span>` : ''}${leaveAttachmentLinks(req)}</td>
+          <td><div>${escapeHtml(displayReason)}${filedBy ? `<span class="bpes-cell-sub">Filed by: ${escapeHtml(filedBy)}</span>` : ''}${leaveAttachmentLinks(req)}</div></td>
           <td>${statusBadge}</td>
         </tr>
       `;
