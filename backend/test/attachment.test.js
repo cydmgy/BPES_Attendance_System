@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName } = require('../src/utils/attachment');
+const { MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName, isSetupMissing } = require('../src/utils/attachment');
 
 test('limits', () => {
   assert.equal(MAX_FILES, 3);
@@ -53,4 +53,12 @@ test('cleanFileName', () => {
   const emoji = cleanFileName('a' + '😀'.repeat(100));
   assert.doesNotThrow(() => encodeURIComponent(emoji));
   assert.ok(Array.from(emoji).length <= 120);
+});
+
+test('isSetupMissing', () => {
+  assert.ok(isSetupMissing({ code: '42P01' }));
+  assert.ok(isSetupMissing({ code: 'PGRST205' }));
+  assert.ok(isSetupMissing({ message: 'Bucket not found' }));
+  assert.ok(!isSetupMissing({ code: '23505' }));
+  assert.ok(!isSetupMissing(null));
 });

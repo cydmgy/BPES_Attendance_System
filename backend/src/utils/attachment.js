@@ -38,4 +38,9 @@ function cleanFileName(raw) {
   return name || 'attachment';
 }
 
-module.exports = { MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName };
+// Migration 010 not applied: the table (Postgres 42P01, PostgREST PGRST205, or PGRST200 for a missing embed) or the bucket is absent.
+function isSetupMissing(err) {
+  return ['42P01', 'PGRST205', 'PGRST200'].includes(err?.code) || /Bucket not found/i.test(err?.message || '');
+}
+
+module.exports = { isSetupMissing, MAX_FILES, MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName };
