@@ -52,6 +52,12 @@ test('buildWeekCalendar: a later class reuses lane 0 once the cluster has ended,
   assert.equal(b[2].teacher, 'Ana Reyes');
 });
 
+test('buildWeekCalendar: a chain of overlaps (A-B, B-C, not A-C) is one cluster of 2 lanes, lane 0 reused by C', () => {
+  const b = buildWeekCalendar([sched('Monday', '07:00:00', '08:00:00'), sched('Monday', '07:30:00', '08:30:00'), sched('Monday', '08:15:00', '09:00:00')], ME).blocks.Monday;
+  assert.deepEqual(b.map(x => x.lane), [0, 1, 0]);
+  assert.deepEqual(b.map(x => x.lanes), [2, 2, 2]);
+});
+
 // ── My Classes: grade > section > subject ───────────────────────────────
 const cls = (day, start, end, { section = ['sec-a', 'Diamond', 3], subject = ['sub-m', 'Math'], teacher_id = ME, room = 'Room 1', status = 'active' } = {}) => ({
   id: `c${++n}`, day_of_week: day, start_time: start, end_time: end, status, teacher_id,

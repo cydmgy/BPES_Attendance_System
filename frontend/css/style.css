@@ -1796,3 +1796,8 @@ a:hover {
 .bpes-cal-block { position: absolute; box-sizing: border-box; overflow: hidden; padding: 2px 6px; border-left: 3px solid var(--bs-success, #198754); border-radius: 6px; font-size: 12px; line-height: 1.3; color: var(--color-text-main); word-break: break-word; }
 .bpes-cal-block.bg-warning-subtle { border-left-color: var(--bs-warning, #ffc107); }
 .bpes-cal-block strong { display: block; font-size: 13px; }
+/* Blocks under 45 min (< 63px) cannot fit three lines: subject and time share line 1, room goes under */
+.bpes-cal-block.is-short { display: flex; flex-wrap: wrap; align-content: flex-start; column-gap: 6px; }
+.bpes-cal-block.is-short > strong { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bpes-cal-block.is-short > :nth-child(3) { order: 2; white-space: nowrap; }
+.bpes-cal-block.is-short > :nth-child(2) { order: 3; flex-basis: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

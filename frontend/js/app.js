@@ -943,7 +943,7 @@ const CAL_PX_PER_MIN = 1.4;
 function weekCalendarHtml(cal, todayName, inner, cls) {
   const px = m => `${+(m * CAL_PX_PER_MIN).toFixed(1)}px`;
   const block = b => `
-    <div class="bpes-cal-block ${cls(b)}" title="${escapeHtml(`${b.subject} ${shortTime(b.start_time)}–${shortTime(b.end_time)} ${b.room}`)}"
+    <div class="bpes-cal-block ${cls(b)}${b.height < 45 ? ' is-short' : ''}" title="${escapeHtml(`${b.subject} ${shortTime(b.start_time)}–${shortTime(b.end_time)} ${b.room}`)}"
          style="top:${px(b.top)};height:calc(${px(b.height)} - 2px);left:calc(${b.lane / b.lanes * 100}% + 1px);width:calc(${100 / b.lanes}% - 2px);">${inner(b)}</div>`;
   return `
     <div class="bpes-cal-scroll">
