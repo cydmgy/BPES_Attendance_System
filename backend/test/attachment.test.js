@@ -43,10 +43,14 @@ test('sniffType reads magic bytes', () => {
 
 test('cleanFileName', () => {
   assert.ok(!cleanFileName('..%2F..%2Fetc%2Fpasswd').includes('/'));
-  assert.ok(!cleanFileName('a\b\u0000c.png').match(/[\/\u0000]/));
+  assert.ok(!cleanFileName('..\\..\\x').includes('\\'));
+  assert.ok(!cleanFileName('a\u0000c.png').includes('\u0000'));
   assert.doesNotThrow(() => cleanFileName('%E0%A4%A'));
   assert.equal(cleanFileName(''), 'attachment');
   assert.equal(cleanFileName(undefined), 'attachment');
   assert.equal(cleanFileName('Note%20one.pdf'), 'Note one.pdf');
   assert.equal(cleanFileName('a'.repeat(300)).length, 120);
+  const emoji = cleanFileName('a' + '😀'.repeat(100));
+  assert.doesNotThrow(() => encodeURIComponent(emoji));
+  assert.ok(Array.from(emoji).length <= 120);
 });

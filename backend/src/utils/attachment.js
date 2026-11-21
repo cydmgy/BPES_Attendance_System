@@ -33,7 +33,8 @@ function sniffType(buf) {
 function cleanFileName(raw) {
   let name = String(raw ?? '');
   try { name = decodeURIComponent(name); } catch { /* keep the raw value */ }
-  name = name.replace(/[\/\u0000-\u001f\u007f]/g, '').trim().slice(0, 120);
+  name = name.replace(/[\/\\\u0000-\u001f\u007f]/g, '').trim();
+  name = Array.from(name).slice(0, 120).join('').trim(); // by code point, so the cut never leaves a lone surrogate
   return name || 'attachment';
 }
 
