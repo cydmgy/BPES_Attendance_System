@@ -45,28 +45,24 @@ function showStudentTab(tab) {
 
   const sidebarTitle = document.getElementById('student-sidebar-title');
   const sidebarDesc = document.getElementById('student-sidebar-desc');
-  const brandTitle = document.getElementById('student-brand-title');
   const mobileTitle = document.getElementById('student-mobile-header-title');
   const welcomeDesc = document.getElementById('student-welcome-desc');
 
   if (tab === 'overview') {
     if (sidebarTitle) sidebarTitle.textContent = 'Overview';
     if (sidebarDesc) sidebarDesc.textContent = 'Track attendance, review history, and submit leave requests.';
-    if (brandTitle) brandTitle.textContent = 'Student Dashboard';
     if (mobileTitle) mobileTitle.textContent = 'Dashboard';
     if (welcomeDesc) welcomeDesc.textContent = 'Track your attendance, upcoming classes, and leave status.';
     loadStudentPortalData();
   } else if (tab === 'logs') {
     if (sidebarTitle) sidebarTitle.textContent = 'Attendance History';
     if (sidebarDesc) sidebarDesc.textContent = 'Review all personal attendance records with date, time, room, status, and teacher.';
-    if (brandTitle) brandTitle.textContent = 'Attendance History';
     if (mobileTitle) mobileTitle.textContent = 'Attendance History';
     if (welcomeDesc) welcomeDesc.textContent = 'Review all personal attendance records with date, time, room, status, and teacher.';
     loadStudentPortalData();
   } else if (tab === 'leave') {
     if (sidebarTitle) sidebarTitle.textContent = 'File Excuse / Leave';
     if (sidebarDesc) sidebarDesc.textContent = 'Submit leave requests, attach proof, and review past request status.';
-    if (brandTitle) brandTitle.textContent = 'File Excuse / Leave';
     if (mobileTitle) mobileTitle.textContent = 'File Excuse / Leave';
     if (welcomeDesc) welcomeDesc.textContent = 'Submit an absence request and track its review status.';
     loadStudentLeaveHistory();

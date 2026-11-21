@@ -94,7 +94,6 @@ function showAdminTab(tab) {
   const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   setText('admin-sidebar-title', title);
   setText('admin-sidebar-desc', sideDesc);
-  setText('admin-brand-title', title);
   setText('admin-mobile-header-title', title);
   setText('admin-welcome-desc', welcomeDesc);
 

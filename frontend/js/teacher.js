@@ -79,14 +79,12 @@ function showTeacherTab(tab) {
 
   const sidebarTitle = document.getElementById('teacher-sidebar-title');
   const sidebarDesc = document.getElementById('teacher-sidebar-desc');
-  const brandTitle = document.getElementById('teacher-brand-title');
   const mobileTitle = document.getElementById('teacher-mobile-header-title');
   const welcomeDesc = document.getElementById('teacher-welcome-desc');
 
   if (tab === 'dashboard') {
     if (sidebarTitle) sidebarTitle.textContent = 'Dashboard';
     if (sidebarDesc) sidebarDesc.textContent = 'Today\'s classes, your weekly timetable, and leave review.';
-    if (brandTitle) brandTitle.textContent = 'Dashboard';
     if (mobileTitle) mobileTitle.textContent = 'Dashboard';
     if (welcomeDesc) welcomeDesc.textContent = "Welcome back! Here's what's happening with your classes today.";
     loadTeacherDashboardData();
@@ -94,7 +92,6 @@ function showTeacherTab(tab) {
   } else if (tab === 'attendance') {
     if (sidebarTitle) sidebarTitle.textContent = 'Attendance';
     if (sidebarDesc) sidebarDesc.textContent = 'Pick a date to see each class roster and override individual records.';
-    if (brandTitle) brandTitle.textContent = 'Attendance';
     if (mobileTitle) mobileTitle.textContent = 'Attendance';
     if (welcomeDesc) welcomeDesc.textContent = 'Live roster per class period with manual status override.';
     loadTeacherAttendance();
@@ -102,7 +99,6 @@ function showTeacherTab(tab) {
   } else if (tab === 'export') {
     if (sidebarTitle) sidebarTitle.textContent = 'Export Attendance';
     if (sidebarDesc) sidebarDesc.textContent = 'Generate official Department of Education attendance log sheets.';
-    if (brandTitle) brandTitle.textContent = 'Export Attendance';
     if (mobileTitle) mobileTitle.textContent = 'Export Attendance';
     if (welcomeDesc) welcomeDesc.textContent = 'Download CSV or print daily attendance rosters.';
     generateTeacherExportPreview();
@@ -110,7 +106,6 @@ function showTeacherTab(tab) {
   } else if (tab === 'leave') {
     if (sidebarTitle) sidebarTitle.textContent = 'Student Leave Requests';
     if (sidebarDesc) sidebarDesc.textContent = 'Review student medical, emergency, and excuse submissions.';
-    if (brandTitle) brandTitle.textContent = 'Student Leave Requests';
     if (mobileTitle) mobileTitle.textContent = 'Student Leave Requests';
     if (welcomeDesc) welcomeDesc.textContent = 'Review submitted excuse requests with supporting proof documents.';
     loadTeacherLeaveRequests();
