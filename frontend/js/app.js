@@ -87,7 +87,11 @@ let systemDataToken = null; // the auth token the lists above were loaded with
 const leaveTypeLabel = type => ({ half_day_am: 'Half day (morning)', half_day_pm: 'Half day (afternoon)' })[type] || 'Whole day';
 const leaveLabel = req => leaveTypeLabel(req.leave_type) + (req.subjects?.name ? ` - ${req.subjects.name} only` : '');
 // Old requests saved a leading "[Subject] " in the reason; hide it.
-const leaveReasonText = req => String(req.reason || '').replace(/^\[.*?\]\s*/, '').replace(/\s*\(Proof:[^)]*\)\s*$/, ''); // proof was removed; hide it on old requests
+const FILED_BY_RE = /\s*\[Filed by:\s*([^\]]+)\]\s*$/;
+// Who filed the request for the student (a trailing "[Filed by: X]" tag), or null.
+const leaveFiledBy = req => { const m = String(req.reason || '').match(FILED_BY_RE); return m ? m[1].trim() : null; };
+// Strip the tag first, or a reason that is only the tag would be eaten by the leading-bracket pattern.
+const leaveReasonText = req => String(req.reason || '').replace(FILED_BY_RE, '').replace(/^\[.*?\]\s*/, '').replace(/\s*\(Proof:[^)]*\)\s*$/, ''); // proof was removed; hide it on old requests
 let students = [];
 let teachers = [];
 let allLogs = [];

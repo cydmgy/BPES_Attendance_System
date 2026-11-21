@@ -197,10 +197,10 @@ function renderStudentToday(periods) {
     ? '<tr><td colspan="5" class="text-center py-4 text-muted">No classes scheduled today.</td></tr>'
     : list.map(p => `
       <tr>
-        <td><span class="small fw-medium text-dark">${shortTime(p.start_time)} – ${shortTime(p.end_time)}</span></td>
-        <td>${escapeHtml(p.subject?.name || '—')}<div class="small text-muted">${escapeHtml(p.subject?.code || '')}</div></td>
-        <td><span class="small text-muted">${escapeHtml(p.room || '—')}</span></td>
-        <td><span class="small text-dark">${escapeHtml(p.teacher?.full_name || '—')}</span></td>
+        <td>${shortTime(p.start_time)} – ${shortTime(p.end_time)}</td>
+        <td>${escapeHtml(p.subject?.name || '—')}<span class="bpes-cell-sub">${escapeHtml(p.subject?.code || '')}</span></td>
+        <td>${escapeHtml(p.room || '—')}</td>
+        <td>${escapeHtml(p.teacher?.full_name || '—')}</td>
         <td>${statusBadge(p.badge)}</td>
       </tr>`).join('');
 }
@@ -254,9 +254,9 @@ function renderStudentRecent() {
     ? '<tr><td colspan="4" class="text-center py-4 text-muted">No attendance events recorded yet.</td></tr>'
     : recent.map(l => `
       <tr>
-        <td><span class="fw-medium text-dark">${new Date(l.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</span></td>
-        <td><span class="small text-muted">${escapeHtml(l.rooms?.name || '—')}</span></td>
-        <td><span class="small text-dark">${new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></td>
+        <td><strong>${new Date(l.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' })}</strong></td>
+        <td>${escapeHtml(l.rooms?.name || '—')}</td>
+        <td>${new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
         <td>${statusBadge(l.status)}</td>
       </tr>`).join('');
 }
@@ -275,11 +275,11 @@ function renderStudentHistory() {
     ? '<tr><td colspan="5" class="text-center py-4 text-muted">No attendance history found.</td></tr>'
     : rows.map(l => `
       <tr>
-        <td><strong class="text-dark">${new Date(l.timestamp).toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></td>
-        <td><span class="small text-dark">${escapeHtml(l.class_sessions?.schedules?.subjects?.name || '—')}</span></td>
-        <td><span class="small text-muted">${escapeHtml(l.rooms?.name || '—')}</span></td>
+        <td><strong>${new Date(l.timestamp).toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</strong></td>
+        <td>${escapeHtml(l.class_sessions?.schedules?.subjects?.name || '—')}</td>
+        <td>${escapeHtml(l.rooms?.name || '—')}</td>
         <td>${statusBadge(l.status)}</td>
-        <td><span class="small text-dark fw-medium">${escapeHtml(l.class_sessions?.teacher?.full_name || '—')}</span></td>
+        <td>${escapeHtml(l.class_sessions?.teacher?.full_name || '—')}</td>
       </tr>`).join('');
 }
 
@@ -385,9 +385,9 @@ async function loadStudentLeaveHistory() {
       return `
         <tr>
           <td><span class="bpes-req-id">${escapeHtml(reqId)}</span></td>
-          <td><span class="text-nowrap small text-dark">${escapeHtml(date)}</span></td>
-          <td><span class="badge bg-light text-dark border">${escapeHtml(subject)}</span></td>
-          <td><span class="small text-secondary" style="max-width: 180px; display: inline-block;">${escapeHtml(displayReason)}</span></td>
+          <td class="text-nowrap">${escapeHtml(date)}</td>
+          <td>${escapeHtml(subject)}</td>
+          <td>${escapeHtml(displayReason)}</td>
           <td>${statusBadge}</td>
         </tr>
       `;

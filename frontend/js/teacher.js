@@ -168,10 +168,10 @@ function renderTeacherToday(periods) {
         const here = p.roster.filter(r => ['present', 'late', 'excused'].includes(r.log_status)).length;
         return `
           <tr>
-            <td><span class="small fw-medium text-dark">${shortTime(p.start_time)} – ${shortTime(p.end_time)}</span></td>
-            <td>${escapeHtml(p.subject?.name || '—')}<div class="small text-muted">${escapeHtml(p.section || '')} · ${escapeHtml(p.room || '—')}</div></td>
+            <td>${shortTime(p.start_time)} – ${shortTime(p.end_time)}</td>
+            <td>${escapeHtml(p.subject?.name || '—')}<span class="bpes-cell-sub">${escapeHtml(p.section || '')} · ${escapeHtml(p.room || '—')}</span></td>
             <td><span class="badge bg-light text-dark border">${escapeHtml(SESSION_LABELS[p.session_status] || p.session_status)}</span></td>
-            <td><span class="small text-dark">${here} / ${p.roster.length}</span></td>
+            <td>${here} / ${p.roster.length}</td>
           </tr>`;
       }).join('');
 }
@@ -300,12 +300,12 @@ function renderTeacherRecent(rows) {
             <td>
               <div class="d-flex align-items-center gap-2">
                 <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 30px; height: 30px; border-radius: 50%; background: #14532D; flex-shrink: 0;">${name.charAt(0).toUpperCase()}</div>
-                <strong class="text-dark">${name}</strong>
+                <strong>${name}</strong>
               </div>
             </td>
             <td>${statusBadge(r.badge)}</td>
-            <td><span class="small text-muted">${escapeHtml(r.period.room || '—')}</span></td>
-            <td><span class="small fw-medium text-dark">${timeOf(r.time)}</span></td>
+            <td>${escapeHtml(r.period.room || '—')}</td>
+            <td>${timeOf(r.time)}</td>
           </tr>`;
       }).join('');
 }
@@ -348,32 +348,32 @@ async function loadTeacherAttendance(isSilent = false) {
       const header = `
         <tr class="table-light">
           <td colspan="6">
-            <strong class="text-dark">${shortTime(p.start_time)}–${shortTime(p.end_time)} · ${escapeHtml(p.subject?.name || '—')}</strong>
-            <span class="small text-muted ms-2">${escapeHtml(p.section || '')} · ${escapeHtml(p.room || '—')}</span>
+            <strong>${shortTime(p.start_time)}–${shortTime(p.end_time)} · ${escapeHtml(p.subject?.name || '—')}</strong>
+            <span class="bpes-cell-sub d-inline ms-2">${escapeHtml(p.section || '')} · ${escapeHtml(p.room || '—')}</span>
             <span class="badge bg-light text-dark border ms-2">${escapeHtml(SESSION_LABELS[p.session_status] || p.session_status)}</span>
           </td>
         </tr>`;
       if (p.roster.length === 0) {
-        return header + '<tr><td colspan="6" class="small text-muted">No students in this section.</td></tr>';
+        return header + '<tr><td colspan="6" class="text-center py-4 text-muted">No students in this section.</td></tr>';
       }
       return header + p.roster.map(st => {
         const name = escapeHtml(st.full_name);
         if (st.log_id) teacherOverrideRows.set(st.log_id, { name: st.full_name, lrn: st.student_id, label: periodLabel(p), status: st.log_status });
         const action = st.log_id
           ? `<button class="bpes-btn-outline bpes-btn-sm" onclick="selectTeacherOverride('${st.log_id}')"><span>Override</span></button>`
-          : '<span class="small text-muted">No record yet</span>';
+          : '<span class="bpes-cell-muted">No record yet</span>';
         return `
           <tr>
             <td>
               <div class="d-flex align-items-center gap-2">
                 <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 30px; height: 30px; border-radius: 50%; background: #14532D; flex-shrink: 0;">${name.charAt(0).toUpperCase()}</div>
-                <strong class="text-dark">${name}</strong>
+                <strong>${name}</strong>
               </div>
             </td>
             <td><span class="bpes-cell-lrn">${escapeHtml(st.student_id)}</span></td>
-            <td><span class="small text-muted">${escapeHtml(p.subject?.name || '—')}</span></td>
+            <td>${escapeHtml(p.subject?.name || '—')}</td>
             <td>${statusBadge(st.badge)}</td>
-            <td><span class="small text-dark fw-medium">${timeOf(st.log_time)}</span></td>
+            <td>${timeOf(st.log_time)}</td>
             <td>${action}</td>
           </tr>`;
       }).join('');
@@ -480,11 +480,11 @@ async function generateTeacherExportPreview() {
       <tr>
         <td>${index + 1}</td>
         <td><code>${escapeHtml(r.student.student_id)}</code></td>
-        <td class="fw-bold text-dark">${escapeHtml(r.student.full_name)}</td>
+        <td class="fw-bold">${escapeHtml(r.student.full_name)}</td>
         <td><span class="badge bg-light text-dark border">${escapeHtml(r.period.section || '—')}</span></td>
         <td>${escapeHtml(r.period.room || '—')}</td>
         <td>${statusBadge(r.badge)}</td>
-        <td><span class="small text-muted">${timeOf(r.time)}</span></td>
+        <td>${timeOf(r.time)}</td>
       </tr>`).join('');
   } catch (err) {
     console.error('Export preview error', err);
@@ -548,6 +548,7 @@ async function loadTeacherLeaveRequests() {
 
       const subject = leaveLabel(req);
       const displayReason = leaveReasonText(req);
+      const filedBy = leaveFiledBy(req);
 
       const leaveDate = req.leave_date || 'Date';
       const leaveBadge = getLeaveStatusBadge(req.status);
@@ -556,21 +557,21 @@ async function loadTeacherLeaveRequests() {
       return `
         <tr>
           <td>
-            <strong class="text-dark d-block">${studentName}</strong>
-            <small class="text-muted">LRN: ${studentId}</small>
+            <strong>${studentName}</strong>
+            <span class="bpes-cell-sub">LRN: ${studentId}</span>
           </td>
-          <td><span class="badge bg-light text-dark border">${escapeHtml(subject)}</span></td>
-          <td><span class="small text-dark fw-medium">${escapeHtml(leaveDate)}</span></td>
-          <td><span class="small text-secondary" style="max-width: 200px; display: inline-block;">${escapeHtml(displayReason)}</span></td>
+          <td>${escapeHtml(subject)}</td>
+          <td>${escapeHtml(leaveDate)}</td>
+          <td>${escapeHtml(displayReason)}${filedBy ? `<span class="bpes-cell-sub">Filed by: ${escapeHtml(filedBy)}</span>` : ''}</td>
           <td>${leaveBadge}</td>
           <td>
             ${isPending ? `
-              <div class="d-flex gap-1">
-                <button class="bpes-btn-primary bpes-btn-sm py-1 px-2" style="font-size: 11px;" onclick="handleReviewLeave('${req.id}', 'approved')">Approve</button>
-                <button class="bpes-btn-outline bpes-btn-sm py-1 px-2 text-danger" style="font-size: 11px;" onclick="handleReviewLeave('${req.id}', 'rejected')">Decline</button>
+              <div class="d-flex gap-2">
+                <button class="bpes-btn-primary bpes-btn-sm bpes-review-btn" onclick="handleReviewLeave('${req.id}', 'approved')">Approve</button>
+                <button class="bpes-btn-outline bpes-btn-sm bpes-review-btn text-danger" onclick="handleReviewLeave('${req.id}', 'rejected')">Decline</button>
               </div>
             ` : `
-              <span class="small text-muted fst-italic">Reviewed</span>
+              <span class="bpes-cell-muted">Reviewed</span>
             `}
           </td>
         </tr>

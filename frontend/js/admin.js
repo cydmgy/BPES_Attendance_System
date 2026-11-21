@@ -459,8 +459,8 @@ function renderStudentsTable(list) {
   tbody.innerHTML = list.map(s => {
     const initials = s.full_name ? s.full_name.charAt(0).toUpperCase() : 'S';
     const guardian = (s.guardians && s.guardians.length > 0) ? s.guardians[0] : null;
-    const guardianHtml = guardian ? `<div class="small text-muted mt-1" style="font-size: 0.72rem;"><i class="fas fa-user-shield text-success me-1"></i>${escapeHtml(guardian.full_name)} (${escapeHtml(guardian.relationship || 'Guardian')}: ${escapeHtml(guardian.phone_number || '')})</div>` : '';
-    const rfidTag = (s.rfid_uid && s.rfid_uid !== '-') ? `<span class="fw-bold text-success">${escapeHtml(s.rfid_uid)}</span>` : `<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending RFID</span>`;
+    const guardianHtml = guardian ? `<div class="bpes-cell-sub mt-1"><i class="fas fa-user-shield text-success me-1"></i>${escapeHtml(guardian.full_name)} (${escapeHtml(guardian.relationship || 'Guardian')}: ${escapeHtml(guardian.phone_number || '')})</div>` : '';
+    const rfidTag = (s.rfid_uid && s.rfid_uid !== '-') ? `<span>${escapeHtml(s.rfid_uid)}</span>` : `<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pending RFID</span>`;
 
     return `
       <tr>
@@ -470,15 +470,15 @@ function renderStudentsTable(list) {
               ${initials}
             </div>
             <div>
-              <div class="fw-bold text-dark">${escapeHtml(s.full_name)}</div>
-              <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(s.student_id)}</div>
+              <div class="fw-bold">${escapeHtml(s.full_name)}</div>
+              <div class="bpes-cell-sub">${escapeHtml(s.student_id)}</div>
               ${guardianHtml}
             </div>
           </div>
         </td>
         <td><span class="badge bg-light text-dark border">Grade ${s.year_level || 1} &bull; ${escapeHtml(s.section || 'Diamond')}</span></td>
         <td>${rfidTag}</td>
-        <td><span class="small text-muted">${escapeHtml(sections.find(sec => sec.id === s.section_id)?.rooms?.name || '—')}</span></td>
+        <td>${escapeHtml(sections.find(sec => sec.id === s.section_id)?.rooms?.name || '—')}</td>
         <td><span class="badge rounded-pill bg-light text-success border px-2 py-1">Enrolled</span></td>
         <td>
           <button class="bpes-btn-outline bpes-btn-sm me-1" onclick="handleAdminSetStudentPin('${s.id}')">
@@ -580,16 +580,16 @@ function renderTeachersTable(list) {
               ${initials}
             </div>
             <div>
-              <div class="fw-bold text-dark">${escapeHtml(t.full_name)}</div>
-              <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(t.id ? t.id.slice(0, 8) : 'T-2025')}</div>
+              <div class="fw-bold">${escapeHtml(t.full_name)}</div>
+              <div class="bpes-cell-sub">${escapeHtml(t.id ? t.id.slice(0, 8) : 'T-2025')}</div>
             </div>
           </div>
         </td>
-        <td><span class="small fw-medium text-dark">${escapeHtml(t.role || 'Teacher I')}</span></td>
-        <td><span class="small text-muted">${escapeHtml(t.email)}</span></td>
+        <td>${escapeHtml(t.role || 'Teacher I')}</td>
+        <td>${escapeHtml(t.email)}</td>
         <td class="d-none d-xxl-table-cell"><span class="badge bg-light text-dark border">Regular</span></td>
         <td>${t.rfid_uid
-          ? `<span class="fw-bold text-success small">${escapeHtml(t.rfid_uid)}</span>
+          ? `<span>${escapeHtml(t.rfid_uid)}</span>
              <button class="btn btn-link btn-sm p-0 ms-1 text-muted" title="Replace card" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-rotate"></i></button>`
           : `<button class="bpes-btn-outline bpes-btn-sm" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-id-card me-1"></i> Assign card</button>`}</td>
         <td>
@@ -744,18 +744,18 @@ async function loadAdminLogs(isSilent = false) {
               <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 32px; height: 32px; border-radius: 50%; background: #14532D; flex-shrink: 0;">
                 ${initials}
               </div>
-              <strong class="text-dark">${name}</strong>
+              <strong>${name}</strong>
             </div>
           </td>
           <td><span class="bpes-cell-lrn">${id}</span></td>
           <td><span class="badge bg-light text-dark border">${escapeHtml(section)}</span></td>
-          <td><span class="small text-dark">${escapeHtml(subject)}</span></td>
-          <td><span class="small text-muted">${escapeHtml(teacher)}</span></td>
-          <td><span class="small text-muted">${escapeHtml(room)}</span></td>
+          <td>${escapeHtml(subject)}</td>
+          <td>${escapeHtml(teacher)}</td>
+          <td>${escapeHtml(room)}</td>
           <td>${badge}</td>
           <td>
-            <div class="small fw-semibold text-dark">${time}</div>
-            <div class="text-muted" style="font-size: 0.75rem;">${date}</div>
+            ${time}
+            <span class="bpes-cell-sub">${date}</span>
           </td>
         </tr>
       `;
@@ -807,7 +807,7 @@ function renderSectionsTable() {
         ${sec.home_room_id ? '' : '<option value="">No home room</option>'}${roomOptions(sec.home_room_id)}</select>`;
     return `
       <tr>
-        <td><strong class="text-dark">${escapeHtml(sec.section_name)}</strong></td>
+        <td><strong>${escapeHtml(sec.section_name)}</strong></td>
         <td>${gradeSelect}</td>
         <td>${roomSelect}</td>
         <td><span class="badge bg-light text-dark border">${count}</span></td>
@@ -922,7 +922,7 @@ async function loadAdminSubjects() {
   if (tbody) {
     tbody.innerHTML = subjects.length ? subjects.map(s => `
       <tr>
-        <td><strong class="text-dark">${escapeHtml(s.name)}</strong></td>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
         <td>${s.late_threshold_minutes ?? '—'}</td>
         <td>
           <button class="bpes-btn-outline bpes-btn-sm" onclick="editSubject('${s.id}')"><i class="fas fa-pen me-1"></i> Edit</button>
@@ -1026,11 +1026,11 @@ function renderSchedulesTable() {
     const archived = s.status === 'archived';
     return `
       <tr${archived ? ' class="text-muted"' : ''}>
-        <td><div class="fw-bold text-dark">${escapeHtml(s.day_of_week)}</div>
-            <div class="small">${shortTime(s.start_time)} – ${shortTime(s.end_time)}</div></td>
+        <td><strong>${escapeHtml(s.day_of_week)}</strong>
+            <span class="bpes-cell-sub">${shortTime(s.start_time)} – ${shortTime(s.end_time)}</span></td>
         <td>${escapeHtml(s.subjects?.name || '—')}</td>
         <td><span class="badge bg-light text-dark border">${escapeHtml(s.sections?.section_name || '—')}</span>
-            <div class="small text-muted">${escapeHtml(s.rooms?.name || '—')}</div></td>
+            <span class="bpes-cell-sub">${escapeHtml(s.rooms?.name || '—')}</span></td>
         <td>${escapeHtml(s.teacher?.full_name || '—')}<div>${co}</div>${subs}</td>
         <td>
           <button class="bpes-btn-outline bpes-btn-sm" onclick="openScheduleDetail('${s.id}')" title="Co-teachers and substitutes"><i class="fas fa-user-group me-1"></i> Manage</button>
@@ -1219,7 +1219,7 @@ async function loadNoClassDays() {
     tbody.innerHTML = data.days.length
       ? data.days.map(d => `
         <tr>
-          <td class="text-nowrap"><strong class="text-dark">${escapeHtml(d.day)}</strong></td>
+          <td class="text-nowrap"><strong>${escapeHtml(d.day)}</strong></td>
           <td>${escapeHtml(d.reason)}</td>
           <td><button class="bpes-btn-danger-outline bpes-btn-sm" onclick="removeNoClassDay('${escapeHtml(d.day)}')"><i class="fas fa-trash me-1"></i> Delete</button></td>
         </tr>`).join('')

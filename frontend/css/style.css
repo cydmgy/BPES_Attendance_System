@@ -25,7 +25,7 @@
 
   --color-text-main: #1C1C1C;
   --color-text-secondary: #557062;
-  --color-text-muted: #667F70;
+  --color-text-muted: #5A7263;
 
   --color-border: #DCE7E0;
   --color-border-input: #DCE7E0;
@@ -310,6 +310,7 @@ a:hover {
   justify-content: center;
   color: #FFFFFF;
   font-size: 19px;
+  flex-shrink: 0;
 }
 
 .bpes-brand-title {
@@ -428,7 +429,7 @@ a:hover {
 }
 
 .bpes-sidebar-subtitle {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 1px;
   color: var(--color-text-secondary);
@@ -857,7 +858,7 @@ a:hover {
 .bpes-table th {
   background-color: var(--color-bg-soft);
   padding: 10px 10px;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-primary);
   border-bottom: 1px solid var(--color-border);
@@ -866,12 +867,27 @@ a:hover {
 
 .bpes-table td {
   padding: 10px 10px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-main);
   border-bottom: 1px solid #EDF4F0;
   vertical-align: middle;
   white-space: normal;
   overflow-wrap: anywhere; /* a long email may break, instead of pushing Actions off-screen */
+}
+
+/* Second line under a cell value (LRN, section · room, "Filed by"); .bpes-cell-muted is the colour alone */
+.bpes-cell-sub {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.bpes-cell-muted { color: var(--color-text-muted); }
+
+/* Approve / Decline in the leave review row: 44px touch target */
+.bpes-review-btn {
+  font-size: 13px;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 .bpes-table td .badge,
