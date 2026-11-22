@@ -10,6 +10,7 @@ window.BpesSettings = (() => {
       me = (await axios.get(`${API_BASE}/api/account/me`)).data;
     } catch (err) {
       notify(role, errMsg(err, 'Could not load your account.'), 'error');
+      el.innerHTML = '<div class="text-muted p-3">Could not load your account. Try again later.</div>';
       return;
     }
     const minLen = role === 'student' ? 4 : 6;
