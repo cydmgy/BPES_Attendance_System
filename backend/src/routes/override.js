@@ -17,7 +17,7 @@ router.patch('/:log_id', auth, async (req, res) => {
     const { new_status, reason } = req.body;
 
     if (req.user?.role !== 'admin' && !req.user?.instructor_id) {
-      return res.status(403).json({ error: 'Only registered instructors or administrators can override attendance' });
+      return res.status(403).json({ error: 'Only registered teachers or administrators can override attendance' });
     }
 
     // Validate inputs
@@ -48,10 +48,10 @@ router.patch('/:log_id', auth, async (req, res) => {
     }
 
     // Audit record: the teacher's own row (the built-in admin has none)
-    let instructor = null;
+    let teacher = null;
     if (req.user.instructor_id) {
       const { data } = await supabase.from('instructors').select('id').eq('id', req.user.instructor_id).maybeSingle();
-      instructor = data;
+      teacher = data;
     }
 
     // Audit record first: if the change below fails there is a stray audit row, never an unaudited change
@@ -59,7 +59,7 @@ router.patch('/:log_id', auth, async (req, res) => {
       .from('attendance_overrides')
       .insert({
         attendance_log_id: log_id,
-        changed_by: instructor ? instructor.id : null,
+        changed_by: teacher ? teacher.id : null,
         old_status,
         new_status,
         reason: reason.trim(),

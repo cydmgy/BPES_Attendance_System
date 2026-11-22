@@ -7,7 +7,7 @@ const { logAudit } = require('../utils/audit');
 const { hashPassword, verifyPassword, checkAdminPassword } = require('./auth');
 
 const ADMIN_ROW = { id: true }; // admin_settings is a single row
-// An instructor row can have role 'admin'; only the built-in admin (no instructor_id) uses admin_settings.
+// A teacher row can have role 'admin'; only the built-in admin (no instructor_id) uses admin_settings.
 const isAdmin = req => req.user.role === 'admin' && !req.user.instructor_id;
 const entityOf = req => (req.user.role === 'student' ? 'student' : isAdmin(req) ? 'admin' : 'teacher');
 

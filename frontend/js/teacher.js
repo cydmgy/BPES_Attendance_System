@@ -466,7 +466,7 @@ async function submitAttendanceOverride(e) {
   try {
     await axios.patch(`${API_BASE}/api/override/${logId}`, {
       new_status: newStatus,
-      reason: reason || 'Manual instructor adjustment'
+      reason: reason || 'Manual teacher adjustment'
     });
 
     notify('teacher', `Attendance status updated to ${newStatus.toUpperCase()}!`, 'success');

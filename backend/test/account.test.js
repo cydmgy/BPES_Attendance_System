@@ -127,7 +127,7 @@ test('admin: env password works first, then a changed password replaces it', asy
   assert.equal((await call('GET', '/api/account/me', tok.admin)).json.full_name, 'Principal');
 });
 
-test('instructor with role admin uses their own teacher account, not admin_settings', async () => {
+test('teacher with role admin uses their own teacher account, not admin_settings', async () => {
   const IID = '44444444-4444-4444-4444-444444444444';
   tables.instructors.push({ id: IID, full_name: 'Head Teacher', email: 'head@bpes.test', role: 'admin', password_hash: await hashPassword('headpass') });
   const t = generateToken({ id: IID, instructor_id: IID, email: 'head@bpes.test', role: 'admin' });
