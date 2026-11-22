@@ -52,6 +52,13 @@ test('actor_name prefers full_name, then email, then username', async () => {
   assert.deepEqual(inserted.map(r => r.actor_name), ['Ana Cruz', 'b@x.ph']);
 });
 
+test('an instructor token is stored as actor_role teacher', async () => {
+  inserted.length = 0;
+  await logAudit({ user: { id: 't1', role: 'instructor' } }, entry);
+  await logAudit({ user: { id: 's1', role: 'student' } }, entry);
+  assert.deepEqual(inserted.map(r => r.actor_role), ['teacher', 'student']);
+});
+
 const app = express();
 app.use('/api/audit', require('../src/routes/audit'));
 let server, base;
@@ -69,6 +76,13 @@ test('GET /api/audit is 403 for a teacher and 200 for admin', async () => {
   const r = await get('/api/audit', 'admin');
   assert.equal(r.status, 200);
   assert.deepEqual(r.json, { rows: [], next_before: null });
+});
+
+test('GET /api/audit passes actor_role=teacher through to the filter', async () => {
+  selectRows = [];
+  calls.length = 0;
+  await get('/api/audit?actor_role=teacher', 'admin');
+  assert.deepEqual(calls.find(c => c[0] === 'eq' && c[1] === 'actor_role'), ['eq', 'actor_role', 'teacher']);
 });
 
 test('GET /api/audit caps limit at 200, filters, and returns next_before on a full page', async () => {

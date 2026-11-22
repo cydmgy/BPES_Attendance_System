@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { promisify } = require('util');
 const supabase = require('../supabase');
 const { generateToken } = require('../utils/token');
-const auth = require('../middleware/auth');
 const { likeEscape } = require('../utils/filter');
 
 const pbkdf2 = promisify(crypto.pbkdf2); // async: a class logging in together must not stall card taps
@@ -43,11 +42,12 @@ async function verifyPassword(password, stored) {
   return safeCompare(hash, originalHash);
 }
 
-const STUDENT_COLUMNS = 'id, student_id, full_name, rfid_uid, course, year_level, pin, must_change_password, sections(section_name)';
+// '*' so a database without must_change_password (migration 011) still logs students in; the response lists its fields one by one.
+const STUDENT_COLUMNS = '*, sections(section_name)';
 
 // ── POST /api/auth/student ───────────────────────────────────────
 // Authenticate student by Full Name (LRN / student_id as a fallback) + PIN.
-// A student with no PIN cannot log in: an admin sets one (PUT /api/students/:id).
+// A student with no PIN cannot log in: an admin sets one (PUT /api/students/:id/password).
 router.post('/student', async (req, res) => {
   try {
     const identifier = String(req.body.full_name || req.body.name || req.body.student_id || req.body.lrn || req.body.username || '').trim();
@@ -93,7 +93,7 @@ router.post('/student', async (req, res) => {
       return res.status(401).json({
         success: false,
         code: 'INCORRECT_PASSWORD',
-        error: 'Incorrect PIN.'
+        error: 'Incorrect password.'
       });
     }
     if (matches.length > 1) {
@@ -114,6 +114,7 @@ router.post('/student', async (req, res) => {
     const token = generateToken({
       id: student.id,
       student_id: student.student_id,
+      full_name: student.full_name,
       role: 'student'
     });
 
@@ -153,14 +154,14 @@ router.post('/teacher', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Password is required' });
     }
 
-    const { data: instructor, error } = await supabase
+    const { data: teacher, error } = await supabase
       .from('instructors')
       .select('id, full_name, email, role, password_hash')
       .ilike('email', likeEscape(email))
       .maybeSingle();
     if (error) throw error;
 
-    if (!instructor) {
+    if (!teacher) {
       return res.status(404).json({
         success: false,
         code: 'ACCOUNT_NOT_FOUND',
@@ -169,10 +170,10 @@ router.post('/teacher', async (req, res) => {
     }
 
     // No stored password = no login; an admin issues one (POST /api/teachers/:id/reset-password).
-    const isValid = !!instructor.password_hash && await verifyPassword(password, instructor.password_hash);
+    const isValid = !!teacher.password_hash && await verifyPassword(password, teacher.password_hash);
     // If stored as plain text, upgrade to salted hash on successful login
-    if (isValid && !instructor.password_hash.includes(':')) {
-      await supabase.from('instructors').update({ password_hash: await hashPassword(password) }).eq('id', instructor.id);
+    if (isValid && !teacher.password_hash.includes(':')) {
+      await supabase.from('instructors').update({ password_hash: await hashPassword(password) }).eq('id', teacher.id);
     }
 
     if (!isValid) {
@@ -185,21 +186,22 @@ router.post('/teacher', async (req, res) => {
 
     // Issue cryptographically secure signed session token
     const token = generateToken({
-      id: instructor.id,
-      instructor_id: instructor.id,
-      email: instructor.email,
-      role: instructor.role || 'instructor'
+      id: teacher.id,
+      instructor_id: teacher.id,
+      full_name: teacher.full_name,
+      email: teacher.email,
+      role: teacher.role || 'instructor'
     });
 
     return res.json({
       success: true,
       token,
       user: {
-        id: instructor.id,
-        name: instructor.full_name,
-        full_name: instructor.full_name,
-        email: instructor.email,
-        role: instructor.role || 'instructor'
+        id: teacher.id,
+        name: teacher.full_name,
+        full_name: teacher.full_name,
+        email: teacher.email,
+        role: teacher.role || 'instructor'
       }
     });
   } catch (err) {
@@ -268,52 +270,6 @@ router.post('/admin', async (req, res) => {
   } catch (err) {
     console.error('[POST /api/auth/admin]', err);
     return res.status(500).json({ success: false, error: 'Server authentication error' });
-  }
-});
-
-// ── POST /api/auth/change-pin ────────────────────────────────────
-// Allow logged-in student to update their PIN
-router.post('/change-pin', auth, async (req, res) => {
-  try {
-    if (req.user?.role !== 'student') {
-      return res.status(403).json({ error: 'Only students can change PIN' });
-    }
-
-    const { current_pin, new_pin } = req.body;
-    if (!current_pin || !new_pin) {
-      return res.status(400).json({ error: 'current_pin and new_pin are required' });
-    }
-
-    if (String(new_pin).trim().length < 4) {
-      return res.status(400).json({ error: 'New PIN must be at least 4 digits' });
-    }
-
-    const { data: student, error: fetchErr } = await supabase
-      .from('students')
-      .select('id, pin')
-      .eq('id', req.user.id)
-      .single();
-
-    if (fetchErr || !student) {
-      return res.status(404).json({ error: 'Student record not found' });
-    }
-
-    if (!(await verifyPassword(String(current_pin).trim(), student.pin))) {
-      return res.status(401).json({ error: 'Current PIN is incorrect' });
-    }
-
-    const hashedPin = await hashPassword(String(new_pin).trim());
-    const { error: updateErr } = await supabase
-      .from('students')
-      .update({ pin: hashedPin })
-      .eq('id', student.id);
-
-    if (updateErr) throw updateErr;
-
-    return res.json({ success: true, message: 'PIN updated successfully' });
-  } catch (err) {
-    console.error('[POST /api/auth/change-pin]', err);
-    return res.status(500).json({ error: 'Failed to update PIN' });
   }
 });
 

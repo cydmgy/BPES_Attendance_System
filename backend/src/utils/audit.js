@@ -6,7 +6,7 @@ async function logAudit(req, { action, entity, entityId, summary }) {
     const u = req.user || {};
     const { error } = await supabase.from('audit_log').insert({
       actor_id: u.id != null ? String(u.id) : null,
-      actor_role: u.role || 'unknown',
+      actor_role: u.role === 'instructor' ? 'teacher' : (u.role || 'unknown'), // tokens say 'instructor'; the audit page filters on 'teacher'
       actor_name: u.full_name || u.email || u.username || null,
       action, entity,
       entity_id: entityId != null ? String(entityId) : null,

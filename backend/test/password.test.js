@@ -76,6 +76,9 @@ test('creating a student returns temp_password once, and it logs in with must_ch
   const login = await call('POST', '/api/auth/student', null, { full_name: 'Dela Cruz, Juan A.', pin: 'delacruz9012' });
   assert.equal(login.status, 200, JSON.stringify(login.json));
   assert.equal(login.json.must_change_password, true);
+  assert.equal(require('../src/utils/token').verifyToken(login.json.token).payload.full_name, 'Dela Cruz, Juan A.');
+  const bad = await call('POST', '/api/auth/student', null, { full_name: 'Dela Cruz, Juan A.', pin: 'wrong-pass' });
+  assert.equal(bad.json.error, 'Incorrect password.');
 });
 
 test('a student id too short to build a password is 400', async () => {
