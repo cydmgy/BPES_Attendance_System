@@ -23,7 +23,11 @@ function initTeacherPortal() {
     if (el) el.value = today;
   });
 
-  setText('teacher-today-date', `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+  startLiveClock(() => {
+    setText('teacher-today-date', manilaTodayLabel());
+    refreshGreeting('teacher-greeting');
+  });
+  BpesProfile.load();
 
   // Room filter for the export tab
   const exportRoomSelect = document.getElementById('teacher-export-room');

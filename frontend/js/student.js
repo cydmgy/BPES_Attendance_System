@@ -11,10 +11,11 @@ function initStudentPortal() {
     stdLeaveDateEl.min = today;
   }
 
-  const todayDateBadge = document.getElementById('student-today-date');
-  if (todayDateBadge) {
-    todayDateBadge.textContent = `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }
+  startLiveClock(() => {
+    setText('student-today-date', manilaTodayLabel());
+    refreshGreeting('student-greeting');
+  });
+  BpesProfile.load();
 
   populateStudentSubjectDropdowns();
   checkDefaultPassword();

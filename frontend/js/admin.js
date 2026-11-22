@@ -12,16 +12,13 @@ let sections = [];
 let schedules = [];
 
 function initAdminPortal() {
-  const datePill = document.getElementById('admin-date-pill');
-  if (datePill) {
-    datePill.textContent = `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }
-  const streamDateEl = document.getElementById('adm-stream-date-display');
-  if (streamDateEl) {
-    const now = new Date();
-    const dateFormatted = now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
-    streamDateEl.textContent = `Today, ${dateFormatted}`;
-  }
+  startLiveClock(() => {
+    setText('admin-date-pill', manilaTodayLabel());
+    const dateFormatted = new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Manila', day: '2-digit', month: 'short', year: 'numeric' });
+    setText('adm-stream-date-display', `Today, ${dateFormatted}`);
+    refreshGreeting('admin-greeting');
+  });
+  BpesProfile.load();
 
   // Set default enrollment date to today
   const enrollDateInput = document.getElementById('enroll-date-input');

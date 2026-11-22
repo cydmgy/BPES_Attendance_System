@@ -62,6 +62,7 @@ window.BpesSettings = (() => {
       try {
         await axios.put(`${API_BASE}/api/account/profile`, { full_name });
         notify(role, 'Name saved.');
+        window.dispatchEvent(new CustomEvent('bpes:profile-changed', { detail: { full_name } }));
       } catch (err) { notify(role, errMsg(err, 'Could not save your name.'), 'error'); }
     });
 
@@ -94,6 +95,54 @@ window.BpesSettings = (() => {
 
   return { mount };
 })();
+
+// Signed-in user's card (sidebar + phone drawer): every [data-profile-card] element is filled from one place.
+window.BpesProfile = (() => {
+  const LABEL = { admin: 'Admin', teacher: 'Teacher', student: 'Student' };
+  let info = null;
+
+  function paint() {
+    document.querySelectorAll('[data-profile-card]').forEach(el => {
+      el.hidden = !info;
+      if (!info) return;
+      el.setAttribute('aria-label', `${info.name}, ${info.sub}. Open settings`);
+      el.innerHTML = `<span class="bpes-avatar" aria-hidden="true">${escapeHtml(info.name.charAt(0).toUpperCase())}</span>
+        <span class="bpes-profile-text"><span class="bpes-profile-name">${escapeHtml(info.name)}</span><span class="bpes-profile-sub">${escapeHtml(info.sub)}</span></span>`;
+    });
+  }
+
+  function set(role, name, lrn) {
+    const label = LABEL[role] || 'User';
+    info = { name: name || label, sub: role === 'student' && lrn ? `${label} · LRN ${lrn}` : label };
+    paint();
+  }
+
+  // Paint at once from the login response, then refine from /api/account/me; a failed call keeps the first paint.
+  async function load() {
+    const role = getAuthRole(), token = getAuthToken();
+    let u = {};
+    try { u = JSON.parse(sessionStorage.getItem('auth_user')) || {}; } catch (e) { /* use defaults */ }
+    set(role, u.full_name || u.name, u.student_id);
+    try {
+      const me = (await axios.get(`${API_BASE}/api/account/me`)).data;
+      if (getAuthToken() === token) set(role, me.full_name, me.student_id);
+    } catch (e) { /* keep the fallback */ }
+  }
+
+  window.addEventListener('bpes:profile-changed', ev => {
+    if (info && ev.detail?.full_name) { info.name = ev.detail.full_name; paint(); }
+  });
+
+  return { load, paint, clear() { info = null; paint(); } };
+})();
+
+function openProfileSettings() {
+  toggleMobileDrawer(false);
+  const role = getAuthRole();
+  if (role === 'admin') showAdminTab('settings');
+  else if (role === 'teacher') showTeacherTab('settings');
+  else if (role === 'student') showStudentTab('settings');
+}
 
 // Shared tab opener for the student and teacher portals (admin uses ADMIN_TABS).
 function openSettingsTab(role, pre, [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]) {

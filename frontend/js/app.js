@@ -34,6 +34,26 @@ function greetingWord() {
   return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
+// 'Today, 2:35 PM' on the Manila clock.
+function manilaTodayLabel() {
+  return `Today, ${new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' })}`;
+}
+
+// Swap only the greeting word, so 'Good morning, Ana!' becomes 'Good afternoon, Ana!' at noon.
+function refreshGreeting(id) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = el.textContent.replace(/^Good (morning|afternoon|evening|day)/, greetingWord());
+}
+
+// One live clock per page: runs update now and every 30 s; loadPage() stops it, so logins never stack timers.
+let liveClockTimer = null;
+function stopLiveClock() { clearInterval(liveClockTimer); liveClockTimer = null; }
+function startLiveClock(update) {
+  stopLiveClock();
+  update();
+  liveClockTimer = setInterval(update, 30000);
+}
+
 // Sidebar and drawer entries are <div onclick>: make them reachable and usable from the keyboard.
 function enhanceNavAccessibility() {
   document.querySelectorAll('.bpes-sidebar-item, .bpes-mobile-drawer-item').forEach(el => {
@@ -682,6 +702,7 @@ function logout() {
   sessionStorage.removeItem('auth_token');
   sessionStorage.removeItem('auth_user');
   delete axios.defaults.headers.common['Authorization'];
+  BpesProfile.clear();
   toggleMobileDrawer(false);
   loadPage('welcome');
 }
@@ -857,6 +878,7 @@ async function loadPage(page) {
   // Cleanup active intervals when changing pages
   if (typeof stopAutoRefreshLogs === 'function') stopAutoRefreshLogs();
   if (typeof stopTeacherAutoRefresh === 'function') stopTeacherAutoRefresh();
+  stopLiveClock();
   toggleMobileDrawer(false);
 
   let targetPage = (page === 'instructor') ? 'teacher' : (page || 'welcome');
