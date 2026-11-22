@@ -1724,6 +1724,18 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* Password field with show/hide eye (js/settings.js) */
+.bpes-pw-field { position: relative; }
+.bpes-pw-field .form-control { min-height: 44px; padding-right: 48px; }
+.bpes-pw-toggle {
+  position: absolute; top: 0; right: 0; width: 44px; height: 100%; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: var(--radius-input);
+  color: var(--color-subtle-green); cursor: pointer;
+}
+.bpes-pw-toggle:hover { color: var(--color-primary); }
+.bpes-pw-toggle:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: -3px; }
+
 /* ============================================================
    DASHBOARD CHARTS (js/charts.js)
    ============================================================ */

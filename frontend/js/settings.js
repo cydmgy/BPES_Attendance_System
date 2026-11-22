@@ -3,6 +3,16 @@
 window.BpesSettings = (() => {
   const errMsg = (err, fallback) => err.response?.data?.error || err.response?.data?.message || fallback;
 
+  // Password input with an eye button; the button never carries the value, it only flips the input type.
+  const pwField = (id, label, attrs) => `
+    <label class="form-label small text-muted" for="${id}">${label}</label>
+    <div class="bpes-pw-field mb-3">
+      <input id="${id}" type="password" class="form-control" ${attrs} required>
+      <button type="button" class="bpes-pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="${id}">
+        <i class="fas fa-eye" aria-hidden="true"></i>
+      </button>
+    </div>`;
+
   async function mount(el, role) {
     if (!el || el.dataset.mounted) return;
     let me;
@@ -37,10 +47,8 @@ window.BpesSettings = (() => {
         <div class="col-lg-6"><div class="bpes-card h-100">
           <div class="bpes-card-header"><h3 class="bpes-card-title">Change password</h3></div>
           <form id="settings-password-form" class="p-3">
-            <label class="form-label small text-muted" for="settings-current">Current password</label>
-            <input id="settings-current" type="password" class="form-control mb-3" autocomplete="current-password" required>
-            <label class="form-label small text-muted" for="settings-new">New password (at least ${minLen} characters)</label>
-            <input id="settings-new" type="password" class="form-control mb-3" autocomplete="new-password" minlength="${minLen}" required>
+            ${pwField('settings-current', 'Current password', 'autocomplete="current-password"')}
+            ${pwField('settings-new', `New password (at least ${minLen} characters)`, `autocomplete="new-password" minlength="${minLen}"`)}
             <button type="submit" class="bpes-btn-primary px-4 py-2">Change password</button>
           </form>
         </div></div>
@@ -57,7 +65,20 @@ window.BpesSettings = (() => {
       } catch (err) { notify(role, errMsg(err, 'Could not save your name.'), 'error'); }
     });
 
-    el.querySelector('#settings-password-form').addEventListener('submit', async ev => {
+    const pwForm = el.querySelector('#settings-password-form');
+    const setShown = (btn, show) => {
+      btn.previousElementSibling.type = show ? 'text' : 'password';
+      btn.setAttribute('aria-pressed', String(show));
+      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      btn.firstElementChild.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+    };
+    pwForm.addEventListener('click', ev => {
+      const btn = ev.target.closest('.bpes-pw-toggle');
+      if (btn) setShown(btn, btn.getAttribute('aria-pressed') !== 'true');
+    });
+    pwForm.addEventListener('reset', () => pwForm.querySelectorAll('.bpes-pw-toggle').forEach(b => setShown(b, false)));
+
+    pwForm.addEventListener('submit', async ev => {
       ev.preventDefault();
       const current_password = el.querySelector('#settings-current').value;
       const new_password = el.querySelector('#settings-new').value;
