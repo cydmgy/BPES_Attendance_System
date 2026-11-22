@@ -65,6 +65,7 @@ window.BpesSettings = (() => {
         await axios.post(`${API_BASE}/api/account/change-password`, { current_password, new_password });
         ev.target.reset();
         notify(role, 'Password changed.');
+        window.dispatchEvent(new Event('bpes:password-changed'));
       } catch (err) { notify(role, errMsg(err, 'Could not change the password.'), 'error'); }
     });
   }

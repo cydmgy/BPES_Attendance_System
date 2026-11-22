@@ -50,6 +50,10 @@
           <i class="fas fa-house-user"></i>
           <span>Dashboard</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-std-schedule" onclick="showStudentTab('schedule')">
+          <i class="fas fa-calendar-week"></i>
+          <span>Schedule</span>
+        </div>
         <div class="bpes-sidebar-item" id="sidebar-std-logs" onclick="showStudentTab('logs')">
           <i class="fas fa-clock"></i>
           <span>Attendance History</span>
@@ -73,6 +77,10 @@
     <!-- Main Content Panel -->
     <main class="bpes-main-content">
       <div id="student-alert-box"></div>
+      <div id="std-pw-banner" class="alert alert-warning d-none align-items-center justify-content-between flex-wrap gap-2" role="alert">
+        <span>Your password is still the default. Change it now.</span>
+        <button type="button" class="btn btn-sm btn-warning" onclick="showStudentTab('settings')">Open Settings</button>
+      </div>
 
       <!-- Welcome Banner -->
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
@@ -172,39 +180,6 @@
               </div>
             </div>
           </div>
-        </div>
-
-        <!-- Today's classes (live status per period) -->
-        <div class="bpes-card mb-4" id="std-today-card">
-          <div class="bpes-card-header flex-wrap gap-2">
-            <div>
-              <h3 class="bpes-card-title">Today's classes</h3>
-              <div class="bpes-card-subtitle">Live status of each period for your section.</div>
-            </div>
-            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-today-pill">0 classes</span>
-          </div>
-          <div class="bpes-table-wrapper">
-            <table class="bpes-table">
-              <thead>
-                <tr><th>Time</th><th>Subject</th><th>Room</th><th>Teacher</th><th>Status</th></tr>
-              </thead>
-              <tbody id="std-today-tbody">
-                <tr><td colspan="5" class="text-center py-4 text-muted">Loading today's classes...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Weekly timetable -->
-        <div class="bpes-card mb-4" id="std-week-card">
-          <div class="bpes-card-header flex-wrap gap-2">
-            <div>
-              <h3 class="bpes-card-title">My week</h3>
-              <div class="bpes-card-subtitle">Your section's timetable.</div>
-            </div>
-            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-week-pill">0 periods</span>
-          </div>
-          <div class="p-3" id="std-week-grid"><div class="text-center py-4 text-muted">Loading timetable...</div></div>
         </div>
 
         <!-- 2 Column Layout: attendance-card (Student info) & history-card -->
@@ -532,6 +507,19 @@
         </div>
       </section>
 
+      <section id="std-tab-schedule" class="d-none">
+        <div class="bpes-card mb-4" id="std-week-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div>
+              <h3 class="bpes-card-title">My week</h3>
+              <div class="bpes-card-subtitle">Your section's timetable.</div>
+            </div>
+            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-week-pill">0 periods</span>
+          </div>
+          <div class="p-3" id="std-week-grid"><div class="text-center py-4 text-muted">Loading timetable...</div></div>
+        </div>
+      </section>
+
       <section id="std-tab-settings" class="d-none"></section>
     </main>
   </div>
@@ -551,6 +539,10 @@
       <div class="bpes-mobile-drawer-item active" onclick="showStudentTab('overview'); closeStudentMobileDrawer();">
         <i class="fas fa-house-user"></i>
         <span>Dashboard</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('schedule'); closeStudentMobileDrawer();">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
       </div>
       <div class="bpes-mobile-drawer-item" onclick="showStudentTab('logs'); closeStudentMobileDrawer();">
         <i class="fas fa-clock"></i>
