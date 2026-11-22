@@ -225,10 +225,10 @@ function renderTeacherClasses({ schedules = [] }) {
       <div class="collapse${isOpen ? ' show' : ''}" id="${id}">
         <div class="row g-2 px-3 pb-3">
           ${g.sections.map(sec => `
-            <div class="col-md-6">
+            <div class="col-12">
               <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
                 <div class="fw-bold small text-success-emphasis">${escapeHtml(sec.section_name)}</div>
-                <button type="button" class="bpes-btn-outline bpes-btn-sm" data-section-id="${escapeHtml(sec.section_id)}" data-section-name="${escapeHtml(sec.section_name)}" onclick="openTeacherStudents(this)"><i class="fas fa-users me-1"></i>Students</button>
+                <button type="button" class="bpes-btn-outline bpes-btn-sm tch-students-btn ms-auto"data-section-id="${escapeHtml(sec.section_id)}" data-section-name="${escapeHtml(sec.section_name)}" onclick="openTeacherStudents(this)"><i class="fas fa-users me-1"></i>Students</button>
               </div>
               ${sec.subjects.map(subjectHtml).join('')}
             </div>`).join('')}

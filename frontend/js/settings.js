@@ -107,13 +107,14 @@ window.BpesProfile = (() => {
       if (!info) return;
       el.setAttribute('aria-label', `${info.name}, ${info.sub}. Open settings`);
       el.innerHTML = `<span class="bpes-avatar" aria-hidden="true">${escapeHtml(info.name.charAt(0).toUpperCase())}</span>
-        <span class="bpes-profile-text"><span class="bpes-profile-name">${escapeHtml(info.name)}</span><span class="bpes-profile-sub">${escapeHtml(info.sub)}</span></span>`;
+        <span class="bpes-profile-text"><span class="bpes-profile-name" title="${escapeHtml(info.name)}">${escapeHtml(info.name)}</span><span class="bpes-profile-sub">${escapeHtml(info.role)}</span>${info.lrn ? `<span class="bpes-profile-sub bpes-profile-lrn">LRN ${escapeHtml(info.lrn)}</span>` : ''}</span>`;
     });
   }
 
   function set(role, name, lrn) {
     const label = LABEL[role] || 'User';
-    info = { name: name || label, sub: role === 'student' && lrn ? `${label} · LRN ${lrn}` : label };
+    const showLrn = role === 'student' && lrn;
+    info = { name: name || label, role: label, lrn: showLrn ? lrn : '', sub: showLrn ? `${label} · LRN ${lrn}` : label };
     paint();
   }
 
