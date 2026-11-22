@@ -12,6 +12,7 @@ const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const { withSectionName } = require('../utils/section');
 const { canReviewLeave } = require('../utils/access');
+const { logAudit } = require('../utils/audit');
 const { isUuid, dayNameOf } = require('../utils/schedule');
 const { LEAVE_TYPES, leaveCoversPeriod, leaveTypesConflict } = require('../utils/leave');
 const { MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName, isSetupMissing } = require('../utils/attachment');
@@ -350,6 +351,7 @@ router.patch('/:id', auth, async (req, res) => {
     if (updateError) throw updateError;
     if (!updated?.length) return res.status(409).json({ error: 'Request was already reviewed' });
 
+    await logAudit(req, { action: action === 'approved' ? 'approve' : 'decline', entity: 'leave_request', entityId: req.params.id, summary: `${action === "approved" ? "Approved" : "Declined"} ${leave.leave_type} leave for ${leave.leave_date}` });
     return res.json({
       success: true,
       message: `Leave request ${action}`,

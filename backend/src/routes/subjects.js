@@ -5,6 +5,7 @@ const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
 const { cleanSubjectBody } = require('../utils/subject');
+const { logAudit } = require('../utils/audit');
 
 // GET /api/subjects — list all subjects
 router.get('/', auth, async (req, res) => {
@@ -33,6 +34,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       if (error.code === '23505') return res.status(409).json({ error: 'A subject with that name already exists' });
       throw error;
     }
+    await logAudit(req, { action: 'create', entity: 'subject', entityId: data.id, summary: `Created subject "${data.name}"` });
     return res.status(201).json({ message: 'Subject created', subject: data });
   } catch (err) {
     console.error('[POST /subjects]', err);
@@ -58,6 +60,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
       throw error;
     }
     if (!data) return res.status(404).json({ error: 'Subject not found' });
+    await logAudit(req, { action: 'update', entity: 'subject', entityId: data.id, summary: `Updated subject "${data.name}"` });
     return res.json({ message: 'Subject updated', subject: data });
   } catch (err) {
     console.error('[PUT /subjects/:id]', err);
@@ -82,6 +85,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
 
     const { error } = await supabase.from('subjects').delete().eq('id', req.params.id);
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'subject', entityId: req.params.id, summary: `Deleted subject ${req.params.id}` });
     return res.json({ success: true, message: 'Subject deleted successfully' });
   } catch (err) {
     console.error('[DELETE /subjects/:id]', err);

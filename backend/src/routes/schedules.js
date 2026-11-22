@@ -14,6 +14,7 @@ const adminOnly = require('../middleware/adminOnly');
 const { localDateStr } = require('../utils/time');
 const { addDays } = require('../utils/report');
 const { DAYS, isUuid, normTime, dayNameOf, overlaps, scheduleDbError } = require('../utils/schedule');
+const { logAudit } = require('../utils/audit');
 
 const SELECT = `id, subject_id, section_id, room_id, teacher_id, day_of_week, start_time, end_time, status,
   subjects(id, name, code), sections(id, section_name, grade_level), rooms(id, name),
@@ -148,6 +149,7 @@ router.post('/', async (req, res) => {
       if (mapped) return res.status(mapped.status).json(mapped.body);
       throw error;
     }
+    await logAudit(req, { action: 'create', entity: 'schedule', entityId: data.id, summary: `Created schedule ${day_of_week} ${start}-${end}` });
     return res.status(201).json({ schedule: await fetchOne(data.id) });
   } catch (err) {
     console.error('[POST /schedules]', err);
@@ -191,6 +193,7 @@ router.put('/:id', async (req, res) => {
       if (mapped) return res.status(mapped.status).json(mapped.body);
       throw error;
     }
+    await logAudit(req, { action: 'update', entity: 'schedule', entityId: req.params.id, summary: `Changed schedule ${Object.keys(u).join(", ")}` });
     return res.json({ schedule: await fetchOne(req.params.id) });
   } catch (err) {
     console.error('[PUT /schedules/:id]', err);
@@ -205,6 +208,7 @@ router.delete('/:id', async (req, res) => {
     const { error } = await supabase.from('schedules').delete().eq('id', req.params.id);
     if (error?.code === '23503') return fail(res, 409, 'Schedule has class session history; archive it instead');
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'schedule', entityId: req.params.id, summary: `Deleted schedule ${req.params.id}` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /schedules/:id]', err);
@@ -225,6 +229,7 @@ router.post('/:id/co-teachers', async (req, res) => {
     if (error?.code === '23505') return fail(res, 409, 'Already a co-teacher on this schedule');
     if (error?.code === '23503') return fail(res, 400, 'Teacher does not exist');
     if (error) throw error;
+    await logAudit(req, { action: 'create', entity: 'schedule', entityId: sched.id, summary: `Added co-teacher ${teacher_id} to schedule ${sched.day_of_week} ${sched.start_time}-${sched.end_time}` });
     return res.status(201).json({ schedule: await fetchOne(sched.id) });
   } catch (err) {
     console.error('[POST /schedules/:id/co-teachers]', err);
@@ -239,6 +244,7 @@ router.delete('/:id/co-teachers/:teacherId', async (req, res) => {
     const { error } = await supabase.from('schedule_co_teachers')
       .delete().eq('schedule_id', req.params.id).eq('teacher_id', req.params.teacherId);
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'schedule', entityId: req.params.id, summary: `Removed co-teacher ${req.params.teacherId} from schedule ${req.params.id}` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /schedules/:id/co-teachers]', err);
@@ -281,6 +287,7 @@ router.post('/:id/overrides', async (req, res) => {
     if (error?.code === '23505') return fail(res, 409, 'This schedule already has a substitute on that date');
     if (error?.code === '23503') return fail(res, 400, 'Teacher does not exist');
     if (error) throw error;
+    await logAudit(req, { action: 'create', entity: 'schedule_override', entityId: sched.id, summary: `Set substitute ${sub_teacher_id} for schedule ${sched.day_of_week} ${sched.start_time}-${sched.end_time} on ${override_date}` });
     return res.status(201).json({ schedule: await fetchOne(sched.id) });
   } catch (err) {
     console.error('[POST /schedules/:id/overrides]', err);
@@ -295,6 +302,7 @@ router.delete('/:id/overrides/:date', async (req, res) => {
     const { error } = await supabase.from('schedule_overrides')
       .delete().eq('schedule_id', req.params.id).eq('override_date', req.params.date);
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'schedule_override', entityId: req.params.id, summary: `Removed substitute on ${req.params.date} from schedule ${req.params.id}` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /schedules/:id/overrides]', err);

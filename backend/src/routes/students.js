@@ -15,6 +15,7 @@ const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
 const { sectionFields, withSectionName } = require('../utils/section');
 const { BUCKET, isTableMissing } = require('../utils/attachment');
+const { logAudit } = require('../utils/audit');
 
 const SAFE_STUDENT_COLUMNS = 'id, rfid_uid, student_id, full_name, course, year_level, section_id, created_at, sections(section_name)';
 
@@ -104,6 +105,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       if (gErr) console.warn('[POST /students] Failed to insert guardian record:', gErr.message);
     }
 
+    await logAudit(req, { action: 'create', entity: 'student', entityId: data.id, summary: `Created student "${data.full_name}"` });
     return res.status(201).json({ student: withSectionName(data) });
   } catch (err) {
     console.error('[POST /students]', err);
@@ -186,6 +188,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     }
     if (!data) return res.status(404).json({ error: 'Student not found' });
 
+    await logAudit(req, { action: 'update', entity: 'student', entityId: data.id, summary: `Updated student "${data.full_name}"` });
     return res.json({ student: withSectionName(data) });
   } catch (err) {
     console.error('[PUT /students/:id]', err);
@@ -220,6 +223,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
 
     if (error) throw error;
 
+    await logAudit(req, { action: 'delete', entity: 'student', entityId: req.params.id, summary: `Deleted student ${req.params.id}` });
     return res.json({ success: true, message: 'Student deleted' });
   } catch (err) {
     console.error('[DELETE /students/:id]', err);

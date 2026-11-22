@@ -6,6 +6,7 @@ const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
 const { isUuid } = require('../utils/schedule');
 const { parseGradeLevel } = require('../utils/section');
+const { logAudit } = require('../utils/audit');
 
 const SELECT = 'id, section_name, grade_level, home_room_id, created_at, rooms:home_room_id(id, name)';
 
@@ -36,6 +37,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
     if (error?.code === '23505') return res.status(409).json({ error: 'A section with this name already exists' });
     if (error?.code === '23503') return res.status(400).json({ error: 'Home room does not exist' });
     if (error) throw error;
+    await logAudit(req, { action: 'create', entity: 'section', entityId: data.id, summary: `Created section "${data.section_name}"` });
     return res.status(201).json({ section: data });
   } catch (err) {
     console.error('[POST /sections]', err);
@@ -80,6 +82,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     if (error?.code === '23503') return res.status(400).json({ error: 'Home room does not exist' });
     if (error) throw error;
 
+    await logAudit(req, { action: 'update', entity: 'section', entityId: data.id, summary: `Updated section "${data.section_name}"` });
     return res.json({ section: data });
   } catch (err) {
     console.error('[PUT /sections/:id]', err);
@@ -94,6 +97,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
     const { error } = await supabase.from('sections').delete().eq('id', req.params.id);
     if (error?.code === '23503') return res.status(409).json({ error: 'Section has class session history and cannot be deleted' });
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'section', entityId: req.params.id, summary: `Deleted section ${req.params.id}` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /sections/:id]', err);

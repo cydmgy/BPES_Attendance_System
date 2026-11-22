@@ -6,6 +6,7 @@ const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
 const { localDateStr } = require('../utils/time');
 const { parseNoClassDay } = require('../utils/noClassDay');
+const { logAudit } = require('../utils/audit');
 
 // GET /api/no-class-days -> { days: [{ day, reason }] } from today forward
 router.get('/', auth, async (req, res) => {
@@ -33,6 +34,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const { error: cErr } = await supabase.from('class_sessions').update({ status: 'cancelled' })
       .gte('session_date', parsed.day).lte('session_date', parsed.until).not('status', 'in', '(closed,cancelled)');
     if (cErr) throw cErr;
+    await logAudit(req, { action: 'create', entity: 'no_class_day', entityId: parsed.day, summary: `Set no-class day ${parsed.day}${parsed.until !== parsed.day ? " to " + parsed.until : ""}: ${parsed.reason}` });
     return res.status(201).json({ day: parsed });
   } catch (err) {
     console.error('[POST /no-class-days]', err);
@@ -46,6 +48,7 @@ router.delete('/:day', auth, adminOnly, async (req, res) => {
     const { error } = await supabase.from('no_class_days').delete().eq('day', req.params.day);
     if (error?.code === '22007' || error?.code === '22008') return res.status(400).json({ error: 'Invalid day' });
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'no_class_day', entityId: req.params.day, summary: `Removed no-class day ${req.params.day}` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /no-class-days/:day]', err);

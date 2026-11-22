@@ -7,6 +7,7 @@ const router = express.Router();
 const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const { canOverrideLog } = require('../utils/access');
+const { logAudit } = require('../utils/audit');
 
 // PATCH /api/override/:log_id
 // Body: { new_status: "present" | "late" | "absent" | "excused" | "unknown", reason: "..." }
@@ -84,6 +85,7 @@ router.patch('/:log_id', auth, async (req, res) => {
       throw updateError;
     }
 
+    await logAudit(req, { action: 'override', entity: 'attendance', entityId: log_id, summary: `Changed ${originalLog.students?.full_name || "student"} attendance from ${old_status} to ${new_status}: ${reason.trim()}` });
     return res.json({
       success: true,
       message: `Attendance changed from "${old_status}" to "${new_status}"`,
