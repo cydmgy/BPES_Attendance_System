@@ -27,6 +27,7 @@ const schedulesRoutes  = require('./src/routes/schedules');
 const sessionsRoutes   = require('./src/routes/sessions');
 const statsRoutes      = require('./src/routes/stats');
 const noClassDaysRoutes = require('./src/routes/noClassDays');
+const auditRoutes      = require('./src/routes/audit');
 
 // The admin password has no built-in fallback: production must not start without one.
 if (process.env.NODE_ENV === 'production' && !process.env.ADMIN_PASSWORD) {
@@ -89,6 +90,7 @@ app.use('/api/schedules',  schedulesRoutes);
 app.use('/api/sessions',   sessionsRoutes);
 app.use('/api/stats',      statsRoutes);
 app.use('/api/no-class-days', noClassDaysRoutes);
+app.use('/api/audit',      auditRoutes);
 
 // ── Health check (also used by ESP32 to verify connectivity) ───
 app.get('/api/ping', (req, res) => {
