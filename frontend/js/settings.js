@@ -13,6 +13,35 @@ window.BpesSettings = (() => {
       </button>
     </div>`;
 
+  const MAX_PICK = 10 * 1024 * 1024, MAX_UPLOAD = 1024 * 1024, TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const BAD_TYPE = 'Choose a JPG, PNG or WebP picture.', TOO_BIG = 'Picture is too large.';
+
+  // Circle content: the picture, or the initial. A failed <img> falls back to the initial (listener below).
+  const initialOf = name => (name || '?').charAt(0).toUpperCase();
+  const avatarInner = (url, name) => url
+    ? `<img class="bpes-avatar-img" src="${escapeHtml(url)}" alt="" decoding="async" data-initial="${escapeHtml(initialOf(name))}">`
+    : escapeHtml(initialOf(name));
+  document.addEventListener('error', ev => {
+    const img = ev.target;
+    if (img.classList?.contains('bpes-avatar-img')) img.replaceWith(document.createTextNode(img.dataset.initial || '?'));
+  }, true);
+
+  // Center-crop to a square 256px JPEG: small upload, and the re-encode drops EXIF/location data.
+  function prepPicture(file) {
+    return new Promise((resolve, reject) => {
+      const src = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(src);
+        const side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas');
+        c.width = c.height = 256;
+        c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
+        c.toBlob(b => (b ? resolve(b) : reject(new Error('read'))), 'image/jpeg', 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(src); reject(new Error('read')); };
+      img.src = src;
+    });
+  }
+
   async function mount(el, role) {
     if (!el || el.dataset.mounted) return;
     let me;
@@ -25,6 +54,18 @@ window.BpesSettings = (() => {
     }
     const minLen = role === 'student' ? 4 : 6;
     const e = escapeHtml;
+    const picture = `<div class="d-flex align-items-center gap-3 mb-3">
+         <span class="bpes-avatar bpes-avatar-lg" id="settings-avatar-preview" aria-hidden="true">${avatarInner(me.avatar_url, me.full_name)}</span>
+         <div>
+           <div class="d-flex flex-wrap gap-2">
+             <label class="bpes-btn-primary bpes-pick px-3 d-inline-flex align-items-center" for="settings-avatar-file" id="settings-avatar-pick">Change picture</label>
+             <input id="settings-avatar-file" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp">
+             <button type="button" id="settings-avatar-remove" class="btn btn-outline-secondary px-3" style="min-height:44px"${me.avatar_url ? '' : ' hidden'}>Remove picture</button>
+           </div>
+           <div class="small text-muted mt-1">JPG, PNG or WebP. Cropped to a square.</div>
+           <div id="settings-avatar-status" class="small mt-1" role="status" aria-live="polite"></div>
+         </div>
+       </div>`;
     const profile = role === 'student'
       ? `<dl class="row mb-0 small">
            <dt class="col-sm-4 text-muted">Name</dt><dd class="col-sm-8">${e(me.full_name)}</dd>
@@ -42,7 +83,7 @@ window.BpesSettings = (() => {
       <div class="row g-4">
         <div class="col-lg-6"><div class="bpes-card h-100">
           <div class="bpes-card-header"><h3 class="bpes-card-title">Profile</h3></div>
-          <div class="p-3">${profile}</div>
+          <div class="p-3">${picture}${profile}</div>
         </div></div>
         <div class="col-lg-6"><div class="bpes-card h-100">
           <div class="bpes-card-header"><h3 class="bpes-card-title">Change password</h3></div>
@@ -55,6 +96,45 @@ window.BpesSettings = (() => {
       </div>`;
     el.dataset.mounted = '1';
     if (me.must_change_password) notify(role, 'Please change your password.', 'warning');
+
+    const fileIn = el.querySelector('#settings-avatar-file'), rmBtn = el.querySelector('#settings-avatar-remove');
+    const pickLbl = el.querySelector('#settings-avatar-pick'), status = el.querySelector('#settings-avatar-status');
+    const say = (msg, bad) => { status.textContent = msg; status.className = 'small mt-1 ' + (bad ? 'text-danger' : 'text-muted'); notify(role, msg, bad ? 'error' : 'success'); };
+    const busy = on => { fileIn.disabled = rmBtn.disabled = on; pickLbl.classList.toggle('disabled', on); };
+    const applyAvatar = url => {
+      el.querySelector('#settings-avatar-preview').innerHTML = avatarInner(url, me.full_name);
+      rmBtn.hidden = !url;
+      window.dispatchEvent(new CustomEvent('bpes:profile-changed', { detail: { avatar_url: url } }));
+    };
+    const failText = err => err.response?.status === 415 ? BAD_TYPE : err.response?.status === 413 ? TOO_BIG : 'Could not save your picture. Try again later.';
+
+    fileIn.addEventListener('change', async () => {
+      const file = fileIn.files[0];
+      if (!file) return;
+      if (!TYPES.includes(file.type)) { fileIn.value = ''; return say(BAD_TYPE, true); }
+      if (file.size > MAX_PICK) { fileIn.value = ''; return say(TOO_BIG, true); }
+      busy(true); status.textContent = 'Uploading…';
+      try {
+        let blob;
+        try { blob = await prepPicture(file); } catch (e) { return say('That file could not be read as a picture.', true); }
+        if (blob.size > MAX_UPLOAD) return say(TOO_BIG, true);
+        const { data } = await axios.post(`${API_BASE}/api/account/avatar`, blob, { headers: { 'Content-Type': 'image/jpeg' } });
+        applyAvatar(data.avatar_url);
+        say('Picture updated.');
+      } catch (err) { say(failText(err), true); }
+      finally { fileIn.value = ''; busy(false); }
+    });
+
+    rmBtn.addEventListener('click', async () => {
+      if (!confirm('Remove your profile picture?')) return;
+      busy(true); status.textContent = 'Removing…';
+      try {
+        await axios.delete(`${API_BASE}/api/account/avatar`);
+        applyAvatar(null);
+        say('Picture removed.');
+      } catch (err) { say('Could not remove your picture. Try again later.', true); }
+      finally { busy(false); }
+    });
 
     el.querySelector('#settings-profile-form')?.addEventListener('submit', async ev => {
       ev.preventDefault();
@@ -92,7 +172,7 @@ window.BpesSettings = (() => {
     });
   }
 
-  return { mount };
+  return { mount, avatarInner };
 })();
 
 // Signed-in user's card (sidebar + phone drawer): every [data-profile-card] element is filled from one place.
@@ -101,11 +181,13 @@ window.BpesProfile = (() => {
   let info = null;
 
   function paint() {
+    const big = document.getElementById('student-avatar-big'); // student dashboard's large avatar
+    if (big && info?.avatar_url) big.innerHTML = BpesSettings.avatarInner(info.avatar_url, info.name);
     document.querySelectorAll('[data-profile-card]').forEach(el => {
       el.hidden = !info;
       if (!info) return;
       el.setAttribute('aria-label', `${info.name}, ${info.sub}. Open settings`);
-      el.innerHTML = `<span class="bpes-avatar" aria-hidden="true">${escapeHtml(info.name.charAt(0).toUpperCase())}</span>
+      el.innerHTML = `<span class="bpes-avatar" aria-hidden="true">${BpesSettings.avatarInner(info.avatar_url, info.name)}</span>
         <span class="bpes-profile-text"><span class="bpes-profile-name" title="${escapeHtml(info.name)}">${escapeHtml(info.name)}</span><span class="bpes-profile-sub">${escapeHtml(info.role)}</span>${info.lrn ? `<span class="bpes-profile-sub bpes-profile-lrn">LRN ${escapeHtml(info.lrn)}</span>` : ''}</span>`;
     });
   }
@@ -113,7 +195,7 @@ window.BpesProfile = (() => {
   function set(role, name, lrn) {
     const label = LABEL[role] || 'User';
     const showLrn = role === 'student' && lrn;
-    info = { name: name || label, role: label, lrn: showLrn ? lrn : '', sub: showLrn ? `${label} · LRN ${lrn}` : label };
+    info = { avatar_url: info?.avatar_url || null, name: name || label, role: label, lrn: showLrn ? lrn : '', sub: showLrn ? `${label} · LRN ${lrn}` : label };
     paint();
   }
 
@@ -125,12 +207,15 @@ window.BpesProfile = (() => {
     set(role, u.full_name || u.name, u.student_id);
     try {
       const me = (await axios.get(`${API_BASE}/api/account/me`)).data;
-      if (getAuthToken() === token) set(role, me.full_name, me.student_id);
+      if (getAuthToken() === token) { set(role, me.full_name, me.student_id); info.avatar_url = me.avatar_url || null; paint(); }
     } catch (e) { /* keep the fallback */ }
   }
 
   window.addEventListener('bpes:profile-changed', ev => {
-    if (info && ev.detail?.full_name) { info.name = ev.detail.full_name; paint(); }
+    if (!info) return;
+    if (ev.detail?.full_name) info.name = ev.detail.full_name;
+    if (ev.detail && 'avatar_url' in ev.detail) info.avatar_url = ev.detail.avatar_url;
+    paint();
   });
 
   return { load, paint, clear() { info = null; paint(); } };
