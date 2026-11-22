@@ -589,7 +589,7 @@
       <section id="adm-tab-schedules" class="d-none">
         <div class="row g-4">
           <div class="col-12 col-xl-4">
-            <div class="bpes-card mb-4">
+            <div class="bpes-card mb-4 mb-xl-0">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Add class period</h3>
                 <div class="bpes-card-subtitle">Pick a section; its home room is used automatically.</div>
@@ -606,7 +606,7 @@
                 </div>
                 <div class="bpes-form-group">
                   <label for="sch-teacher-input" class="bpes-label">Teacher</label>
-                  <select id="sch-teacher-input" class="bpes-select"></select>
+                  <select id="sch-teacher-input" class="bpes-select" onchange="refreshScheduleAvailability()"></select>
                 </div>
                 <div class="bpes-form-group">
                   <label for="sch-day-input" class="bpes-label">Day</label>
@@ -614,6 +614,10 @@
                     <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
                     <option>Thursday</option><option>Friday</option><option>Saturday</option>
                   </select>
+                </div>
+                <div class="bpes-form-group">
+                  <div class="bpes-label">Available times</div>
+                  <div id="sch-free-times" class="d-flex flex-wrap gap-2 small text-muted" aria-live="polite">Pick a day and a section to see free times</div>
                 </div>
                 <div class="row g-2">
                   <div class="col-6">
@@ -638,7 +642,7 @@
           </div>
 
           <div class="col-12 col-xl-8">
-            <div class="bpes-card">
+            <div class="bpes-card sch-table-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                   <h3 class="bpes-card-title">Timetable</h3>
@@ -655,7 +659,7 @@
                   </select>
                 </div>
               </div>
-              <div class="bpes-table-wrapper">
+              <div class="sch-table-body"><div class="table-scroll bpes-table-wrapper">
                 <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
@@ -670,7 +674,7 @@
                     <tr><td colspan="5" class="text-center py-4 text-muted">Loading schedules...</td></tr>
                   </tbody>
                 </table>
-              </div>
+              </div></div>
             </div>
           </div>
         </div>

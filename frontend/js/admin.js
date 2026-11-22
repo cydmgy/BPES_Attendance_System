@@ -1041,6 +1041,34 @@ async function loadAdminSchedules() {
     return;
   }
   renderSchedulesTable();
+  renderFreeTimes();
+}
+
+// Free-time chips for the picked day: busy = the section's, the teacher's and the home room's active periods.
+// Uses its own unfiltered fetch because the table above may be filtered by section or status.
+async function renderFreeTimes() {
+  const box = byId('sch-free-times');
+  if (!box) return;
+  const section = sections.find(s => s.id === byId('sch-section-input').value);
+  const day = byId('sch-day-input').value;
+  if (!section || !day) { box.textContent = 'Pick a day and a section to see free times'; return; }
+  const teacher = byId('sch-teacher-input').value;
+  let all;
+  try {
+    all = (await axios.get(`${API_BASE}/api/schedules`, { params: { status: 'active' } })).data.schedules || [];
+  } catch (err) { box.textContent = errMsg(err, 'Could not load free times'); return; }
+  const busy = all.filter(s => s.day_of_week === day && (s.section_id === section.id
+    || (teacher && s.teacher_id === teacher) || (section.home_room_id && s.room_id === section.home_room_id)))
+    .map(s => ({ start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5) }));
+  const free = ScheduleSlots.freeWindows(busy);
+  box.innerHTML = free.length ? free.map(w => `<button type="button" class="bpes-btn-outline bpes-btn-sm" onclick="pickFreeTime('${w.start}','${w.end}')">${escapeHtml(ScheduleSlots.to12h(w.start))} – ${escapeHtml(ScheduleSlots.to12h(w.end))}</button>`).join('')
+    : 'No free time that day';
+}
+
+function pickFreeTime(start, end) {
+  byId('sch-start-input').value = start;
+  byId('sch-end-input').value = end;
+  refreshScheduleAvailability();
 }
 
 function renderSchedulesTable() {
@@ -1081,6 +1109,7 @@ async function refreshScheduleAvailability() {
   const teacherSel = byId('sch-teacher-input');
   const hint = byId('sch-availability-hint');
   if (!sectionSel || !teacherSel) return;
+  renderFreeTimes();
 
   const section = sections.find(s => s.id === sectionSel.value);
   byId('sch-room-hint').textContent = !section ? ''

@@ -1813,3 +1813,11 @@ a:hover {
 .bpes-cal-block.is-short > strong { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bpes-cal-block.is-short > :nth-child(3) { order: 2; white-space: nowrap; }
 .bpes-cal-block.is-short > :nth-child(2) { order: 3; flex-basis: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Admin schedules: on xl the timetable card matches the Add form card's height and scrolls inside it */
+.sch-table-card .table-scroll { border: 0; }
+@media (min-width: 1200px) {
+  .sch-table-card { height: 100%; display: flex; flex-direction: column; }
+  .sch-table-body { position: relative; flex: 1 1 0; min-height: 0; }
+  .sch-table-body .table-scroll { position: absolute; inset: 0; max-height: none; }
+}
