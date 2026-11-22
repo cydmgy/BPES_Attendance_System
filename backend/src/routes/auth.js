@@ -43,7 +43,7 @@ async function verifyPassword(password, stored) {
   return safeCompare(hash, originalHash);
 }
 
-const STUDENT_COLUMNS = 'id, student_id, full_name, rfid_uid, course, year_level, pin, sections(section_name)';
+const STUDENT_COLUMNS = 'id, student_id, full_name, rfid_uid, course, year_level, pin, must_change_password, sections(section_name)';
 
 // ── POST /api/auth/student ───────────────────────────────────────
 // Authenticate student by Full Name (LRN / student_id as a fallback) + PIN.
@@ -120,6 +120,7 @@ router.post('/student', async (req, res) => {
     return res.json({
       success: true,
       token,
+      must_change_password: !!student.must_change_password,
       user: {
         id: student.id,
         name: student.full_name,

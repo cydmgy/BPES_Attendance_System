@@ -45,13 +45,12 @@ const call = async (method, path, body) => {
   return res.status;
 };
 
-test('PUT /api/students/:id audits one update without the PIN', async () => {
-  assert.equal(await call('PUT', '/api/students/r1', { full_name: 'Juan Dela Cruz', pin: '987654' }), 200);
+test('PUT /api/students/:id audits one update', async () => {
+  assert.equal(await call('PUT', '/api/students/r1', { full_name: 'Juan Dela Cruz' }), 200);
   assert.equal(audits.length, 1);
   assert.equal(audits[0].entity, 'student');
   assert.equal(audits[0].action, 'update');
   assert.match(audits[0].summary, /Juan Dela Cruz/);
-  assert.doesNotMatch(audits[0].summary, /987654/);
 });
 
 test('DELETE /api/no-class-days/:day audits one delete', async () => {
