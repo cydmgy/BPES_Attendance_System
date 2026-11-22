@@ -50,6 +50,14 @@
           <i class="fas fa-chart-pie"></i>
           <span>Dashboard</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-tch-schedule" onclick="showTeacherTab('schedule')">
+          <i class="fas fa-calendar-week"></i>
+          <span>Schedule</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-tch-classes" onclick="showTeacherTab('classes')">
+          <i class="fas fa-chalkboard-user"></i>
+          <span>Classes</span>
+        </div>
         <div class="bpes-sidebar-item" id="sidebar-tch-attendance" onclick="showTeacherTab('attendance')">
           <i class="fas fa-clipboard-check"></i>
           <span>Attendance</span>
@@ -98,27 +106,6 @@
       <section id="tch-tab-dashboard">
         <div id="tch-noclass-banner"></div>
 
-        <!-- Today first: what the teacher needs right now -->
-        <div class="bpes-card mb-4" id="tch-today-card">
-          <div class="bpes-card-header flex-wrap gap-2">
-            <div>
-              <h3 class="bpes-card-title">Today's classes</h3>
-              <div class="bpes-card-subtitle">Your periods, with how many students are in.</div>
-            </div>
-            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-today-pill">0 classes</span>
-          </div>
-          <div class="bpes-table-wrapper">
-            <table class="bpes-table">
-              <thead>
-                <tr><th>Time</th><th>Class</th><th>Status</th><th>In</th></tr>
-              </thead>
-              <tbody id="tch-today-tbody">
-                <tr><td colspan="4" class="text-center py-4 text-muted">Loading today's classes...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         <!-- 4 Metric KPI Cards -->
         <div class="bpes-stat-grid bpes-stat-grid--even mb-4">
           <div class="bpes-stat-card">
@@ -162,40 +149,6 @@
               <div class="bpes-stat-label">Absent</div>
               <div class="bpes-stat-value text-danger" id="tch-kpi-absent">0</div>
               <div class="bpes-stat-sub">Unexcused</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Reference row: timetable summary + grouped classes (collapsed by default) -->
-        <div class="row g-4 mb-4">
-          <div class="col-xl-5 col-12">
-            <div class="bpes-card h-100" id="tch-week-card">
-              <div class="bpes-card-header flex-wrap gap-2">
-                <div>
-                  <h3 class="bpes-card-title">My week</h3>
-                  <div class="bpes-card-subtitle">Your timetable, including upcoming substitutions.</div>
-                </div>
-                <button type="button" class="bpes-btn-outline bpes-btn-sm" onclick="openTeacherScheduleModal()">
-                  <i class="fas fa-table me-1"></i><span>Schedule</span>
-                </button>
-              </div>
-              <div class="p-3" id="tch-week-list">
-                <div class="small text-muted">Loading timetable...</div>
-              </div>
-            </div>
-          </div>
-          <div class="col-xl-7 col-12">
-            <div class="bpes-card h-100" id="tch-classes-card">
-              <div class="bpes-card-header flex-wrap gap-2">
-                <div>
-                  <h3 class="bpes-card-title">My classes</h3>
-                  <div class="bpes-card-subtitle">Open a grade to see its sections, subjects and weekly slots.</div>
-                </div>
-                <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-classes-pill">0 sections</span>
-              </div>
-              <div class="p-3" id="tch-classes-list">
-                <div class="small text-muted">Loading your classes...</div>
-              </div>
             </div>
           </div>
         </div>
@@ -272,12 +225,6 @@
                 <label class="bpes-label mb-1">Date</label>
                 <input type="date" id="teacher-analytics-date" class="bpes-input" onchange="loadTeacherAttendance()" style="height: 44px;">
               </div>
-            </div>
-
-            <div>
-              <button class="bpes-btn-outline bpes-btn-sm" onclick="loadTeacherAttendance()">
-                <i class="fas fa-rotate me-1"></i> Refresh
-              </button>
             </div>
           </div>
         </div>
@@ -518,6 +465,38 @@
         </div>
       </section>
 
+      <section id="tch-tab-schedule" class="d-none">
+        <div class="bpes-card" id="tch-week-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div>
+              <h3 class="bpes-card-title">My week</h3>
+              <div class="bpes-card-subtitle">Your timetable, including upcoming substitutions.</div>
+            </div>
+            <button type="button" class="bpes-btn-outline bpes-btn-sm" onclick="openTeacherScheduleModal()">
+              <i class="fas fa-table me-1"></i><span>Weekly grid</span>
+            </button>
+          </div>
+          <div class="p-3" id="tch-week-list">
+            <div class="small text-muted">Loading timetable...</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tch-tab-classes" class="d-none">
+        <div class="bpes-card" id="tch-classes-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div>
+              <h3 class="bpes-card-title">My classes</h3>
+              <div class="bpes-card-subtitle">Open a grade to see its sections, subjects and weekly slots.</div>
+            </div>
+            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="tch-classes-pill">0 sections</span>
+          </div>
+          <div class="p-3" id="tch-classes-list">
+            <div class="small text-muted">Loading your classes...</div>
+          </div>
+        </div>
+      </section>
+
       <section id="tch-tab-settings" class="d-none"></section>
     </main>
   </div>
@@ -537,6 +516,14 @@
       <div class="bpes-mobile-drawer-item active" onclick="showTeacherTab('dashboard'); closeTeacherMobileDrawer();">
         <i class="fas fa-chart-pie"></i>
         <span>Dashboard</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showTeacherTab('schedule'); closeTeacherMobileDrawer();">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showTeacherTab('classes'); closeTeacherMobileDrawer();">
+        <i class="fas fa-chalkboard-user"></i>
+        <span>Classes</span>
       </div>
       <div class="bpes-mobile-drawer-item" onclick="showTeacherTab('attendance'); closeTeacherMobileDrawer();">
         <i class="fas fa-clipboard-check"></i>

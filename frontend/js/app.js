@@ -755,6 +755,14 @@ function openTeacherMobileDrawer() {
         <i class="fas fa-home"></i>
         <span>Dashboard</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-schedule" onclick="selectTeacherDrawerTab('schedule')">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-classes" onclick="selectTeacherDrawerTab('classes')">
+        <i class="fas fa-chalkboard-user"></i>
+        <span>Classes</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-tch-attendance" onclick="selectTeacherDrawerTab('attendance')">
         <i class="fas fa-check-square"></i>
         <span>Attendance</span>

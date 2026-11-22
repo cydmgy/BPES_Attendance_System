@@ -66,7 +66,7 @@ const csvCell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
 // ── Teacher Tabs ──────────────────────────────────────────────
 
 function showTeacherTab(tab) {
-  const tabs = ['dashboard', 'attendance', 'export', 'leave', 'settings'];
+  const tabs = ['dashboard', 'schedule', 'classes', 'attendance', 'export', 'leave', 'settings'];
   tabs.forEach(t => {
     document.getElementById(`tch-tab-${t}`)?.classList.toggle('d-none', t !== tab);
     document.getElementById(`tablink-tch-${t}`)?.classList.toggle('active', t === tab);
@@ -80,10 +80,18 @@ function showTeacherTab(tab) {
 
   if (tab === 'dashboard') {
     if (sidebarTitle) sidebarTitle.textContent = 'Dashboard';
-    if (sidebarDesc) sidebarDesc.textContent = 'Today\'s classes, your weekly timetable, and leave review.';
+    if (sidebarDesc) sidebarDesc.textContent = 'Today\'s attendance at a glance.';
     if (mobileTitle) mobileTitle.textContent = 'Dashboard';
     if (welcomeDesc) welcomeDesc.textContent = "Welcome back! Here's what's happening with your classes today.";
     loadTeacherDashboardData();
+    stopTeacherAutoRefresh();
+  } else if (tab === 'schedule' || tab === 'classes') {
+    const isSchedule = tab === 'schedule';
+    if (sidebarTitle) sidebarTitle.textContent = isSchedule ? 'Schedule' : 'Classes';
+    if (sidebarDesc) sidebarDesc.textContent = isSchedule ? 'Your weekly timetable, including upcoming substitutions.' : "Your grades, sections and subjects, with each section's student list.";
+    if (mobileTitle) mobileTitle.textContent = isSchedule ? 'Schedule' : 'Classes';
+    if (welcomeDesc) welcomeDesc.textContent = isSchedule ? 'When and where you teach this week.' : 'Open a section to see its enrolled students.';
+    loadTeacherWeek();
     stopTeacherAutoRefresh();
   } else if (tab === 'attendance') {
     if (sidebarTitle) sidebarTitle.textContent = 'Attendance';
@@ -126,15 +134,12 @@ function stopTeacherAutoRefresh() {
   }
 }
 
-// ── Tab 1: Dashboard (today's classes, week, KPIs, recent taps) ───
+// ── Tab 1: Dashboard (KPIs, attendance mix, recent taps) ───
 
 async function loadTeacherDashboardData() {
   showNoClassBanner('tch-noclass-banner');
   try {
-    const [periods, weekRes] = await Promise.all([
-      fetchTeacherDay(manilaDate()),
-      axios.get(`${API_BASE}/api/schedules/my-week`).then(r => r.data).catch(() => ({ schedules: [], substitutions: [] })),
-    ]);
+    const periods = await fetchTeacherDay(manilaDate());
     const rows = rosterRows(periods);
     const count = s => rows.filter(r => r.status === s).length;
     const present = count('present'), late = count('late'), excused = count('excused'), absent = count('absent');
@@ -146,33 +151,25 @@ async function loadTeacherDashboardData() {
     setText('tch-kpi-absent', absent);
     setText('tch-kpi-present-sub', logged > 0 ? `${Math.round(((present + late + excused) / logged) * 100)}% attendance` : 'No records yet');
 
-    teacherWeekData = weekRes;
     BpesCharts.statusDonut('tch-mix-chart', { present, late, excused, absent }, 'tch-mix-legend', 'No attendance records in your classes yet today.');
-    renderTeacherToday(periods);
-    renderTeacherWeek(weekRes);
-    renderTeacherClasses(weekRes);
     renderTeacherRecent(rows);
   } catch (err) {
     console.error('Teacher dashboard data error:', err);
   }
 }
 
-function renderTeacherToday(periods) {
-  const tbody = document.getElementById('tch-today-tbody');
-  if (!tbody) return;
-  setText('tch-today-pill', `${periods.length} class${periods.length === 1 ? '' : 'es'}`);
-  tbody.innerHTML = periods.length === 0
-    ? '<tr><td colspan="4" class="text-center py-4 text-muted">No classes assigned to you today.</td></tr>'
-    : periods.map(p => {
-        const here = p.roster.filter(r => ['present', 'late', 'excused'].includes(r.log_status)).length;
-        return `
-          <tr>
-            <td>${shortTime(p.start_time)} – ${shortTime(p.end_time)}</td>
-            <td>${escapeHtml(p.subject?.name || '—')}<span class="bpes-cell-sub">${escapeHtml(p.section || '')} · ${escapeHtml(p.room || '—')}</span></td>
-            <td><span class="badge bg-light text-dark border">${escapeHtml(SESSION_LABELS[p.session_status] || p.session_status)}</span></td>
-            <td>${here} / ${p.roster.length}</td>
-          </tr>`;
-      }).join('');
+// Schedule and Classes tabs share one fetch of the teacher's timetable.
+async function loadTeacherWeek() {
+  try {
+    teacherWeekData = (await axios.get(`${API_BASE}/api/schedules/my-week`)).data;
+  } catch (err) {
+    console.error('Teacher timetable error:', err);
+    teacherWeekData = { schedules: [], substitutions: [] };
+    ['tch-week-list', 'tch-classes-list'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = '<div class="small text-danger">Could not load your timetable. Try again.</div>'; });
+    return;
+  }
+  renderTeacherWeek(teacherWeekData);
+  renderTeacherClasses(teacherWeekData);
 }
 
 function renderTeacherWeek({ schedules = [], substitutions = [] }) {
@@ -225,13 +222,56 @@ function renderTeacherClasses({ schedules = [] }) {
         <div class="row g-2 px-3 pb-3">
           ${g.sections.map(sec => `
             <div class="col-md-6">
-              <div class="fw-bold small text-success-emphasis mb-1">${escapeHtml(sec.section_name)}</div>
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                <div class="fw-bold small text-success-emphasis">${escapeHtml(sec.section_name)}</div>
+                <button type="button" class="bpes-btn-outline bpes-btn-sm" data-section-id="${escapeHtml(sec.section_id)}" data-section-name="${escapeHtml(sec.section_name)}" onclick="openTeacherStudents(this)"><i class="fas fa-users me-1"></i>Students</button>
+              </div>
               ${sec.subjects.map(subjectHtml).join('')}
             </div>`).join('')}
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// Masterlist modal, created once on <body> like the schedule modal. Server returns names alphabetical; 403 if not the teacher's section.
+async function openTeacherStudents(btn) {
+  const { sectionId, sectionName } = btn.dataset;
+  let el = document.getElementById('tch-students-modal');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tch-students-modal';
+    el.className = 'modal fade';
+    el.tabIndex = -1;
+    el.setAttribute('aria-labelledby', 'tch-students-title');
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tch-students-title"></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="tch-students-body"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+  }
+  const title = document.getElementById('tch-students-title');
+  const body = document.getElementById('tch-students-body');
+  title.textContent = `${sectionName} \u2014 Students`;
+  body.innerHTML = '<div class="text-center text-muted py-4">Loading students...</div>';
+  bootstrap.Modal.getOrCreateInstance(el).show();
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/sections/${encodeURIComponent(sectionId)}/students`);
+    const list = Array.isArray(data) ? data : (data.students || []);
+    title.textContent = `${sectionName} \u2014 Students (${list.length})`;
+    body.innerHTML = list.length
+      ? `<table class="bpes-table"><thead><tr><th>Name</th><th>LRN</th></tr></thead><tbody>${list.map(s => `<tr><td>${escapeHtml(s.full_name)}</td><td>${escapeHtml(s.student_id || '\u2014')}</td></tr>`).join('')}</tbody></table>`
+      : '<div class="text-center text-muted py-4">No students enrolled</div>';
+  } catch (err) {
+    body.innerHTML = `<div class="text-center text-danger py-4">${escapeHtml(err.response?.data?.error || 'Could not load students.')}</div>`;
+  }
 }
 
 // ── Schedule grid: days across, hours down (window.TeacherSchedule, js/teacher-schedule.js) ──
