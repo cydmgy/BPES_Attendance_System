@@ -28,6 +28,7 @@ function fakeDb() {
         if (k === 'single' || k === 'maybeSingle') return () => q.then.call(null, x => x, true);
         if (k === 'then') return (ok, one) => {
           if (dbError && table === 'admin_settings' && op === 'select') return ok({ data: null, error: dbError });
+          if (op === 'update' && store.failUpdate) return ok({ data: null, error: { message: 'column missing' } });
           if (op === 'update') rows().forEach(r => Object.assign(r, patch));
           const data = one === true ? (rows()[0] || null) : rows();
           return ok({ data, error: null });
@@ -38,8 +39,15 @@ function fakeDb() {
     });
     return q;
   };
-  return { from };
+  // Storage fake: records uploads/removals; signError makes signing fail.
+  const storage = { from: bucket => ({
+    upload: async (path, body, opts) => { store.uploads.push({ bucket, path, size: body.length, opts }); return { error: null }; },
+    remove: async paths => { store.removed.push(...paths); return { error: null }; },
+    createSignedUrl: async (path, secs) => store.signError ? { data: null, error: { message: 'boom' } } : { data: { signedUrl: `https://signed.test/${bucket}/${path}?t=${secs}` }, error: null },
+  }) };
+  return { from, storage };
 }
+const store = { uploads: [], removed: [], signError: false, failUpdate: false };
 const supabasePath = require.resolve('../src/supabase');
 require.cache[supabasePath] = { id: supabasePath, filename: supabasePath, loaded: true, exports: fakeDb() };
 
@@ -150,4 +158,83 @@ test('admin env fallback: missing table allowed, other lookup errors rejected', 
   const r = await login();
   dbError = null;
   assert.equal(r.status, 500);
+});
+
+// ── profile pictures ──
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+const rawCall = async (method, token, body, type = 'image/png') => {
+  const res = await fetch(base + '/api/account/avatar', {
+    method, body,
+    headers: { ...(type ? { 'content-type': type } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
+  });
+  return { status: res.status, json: await res.json().catch(() => ({})) };
+};
+const IID2 = '55555555-5555-5555-5555-555555555555';
+
+test('avatar: student upload stores the path, signs a link and audits without a file name', async () => {
+  const r = await rawCall('POST', tok.student, PNG);
+  assert.equal(r.status, 200);
+  assert.match(r.json.avatar_url, /^https:\/\/signed\.test\/avatars\/student\//);
+  assert.equal(tables.students.find(s => s.id === SID).avatar_path, `student/${SID}.png`);
+  const up = store.uploads.at(-1);
+  assert.deepEqual([up.bucket, up.path, up.opts.upsert, up.opts.contentType], ['avatars', `student/${SID}.png`, true, 'image/png']);
+  const a = tables.audit_log.find(x => x.entity === 'student' && /profile picture/.test(x.summary));
+  assert.ok(a);
+  assert.ok(!/png|\.jpg|\.webp/i.test(a.summary));
+});
+
+test('avatar: teacher goes to instructors, built-in admin upserts admin_settings, instructor-admin uses instructors', async () => {
+  assert.equal((await rawCall('POST', tok.teacher, PNG)).status, 200);
+  assert.equal(tables.instructors.find(i => i.id === TID).avatar_path, `teacher/${TID}.png`);
+
+  assert.equal((await rawCall('POST', tok.admin, PNG)).status, 200);
+  assert.equal(tables.admin_settings.find(r => r.id === true).avatar_path, 'admin/admin.png');
+
+  tables.instructors.push({ id: IID2, full_name: 'Head 2', email: 'h2@bpes.test', role: 'admin' });
+  const t = generateToken({ id: IID2, instructor_id: IID2, role: 'admin' });
+  assert.equal((await rawCall('POST', t, PNG)).status, 200);
+  assert.equal(tables.instructors.find(i => i.id === IID2).avatar_path, `teacher/${IID2}.png`);
+  assert.notEqual(tables.admin_settings.find(r => r.id === true).avatar_path, `teacher/${IID2}.png`);
+});
+
+test('avatar: wrong header, SVG bytes, empty body, oversize, no token', async () => {
+  assert.equal((await rawCall('POST', tok.student, PNG, 'image/jpeg')).status, 415);
+  assert.equal((await rawCall('POST', tok.student, PNG, 'text/plain')).status, 415);
+  assert.equal((await rawCall('POST', tok.student, Buffer.from('<svg></svg>'), 'image/png')).status, 415);
+  assert.equal((await rawCall('POST', tok.student, Buffer.alloc(0), 'image/png')).status, 400);
+  const big = Buffer.concat([PNG, Buffer.alloc(1048576)]);
+  assert.equal((await rawCall('POST', tok.student, big)).status, 413);
+  assert.equal((await rawCall('POST', null, PNG)).status, 401);
+  assert.equal((await rawCall('DELETE', null)).status, 401);
+});
+
+test('avatar: a failed row update returns 500 and removes the uploaded object', async () => {
+  store.removed.length = 0; store.failUpdate = true;
+  const r = await rawCall('POST', tok.student, PNG);
+  store.failUpdate = false;
+  assert.equal(r.status, 500);
+  assert.deepEqual(store.removed, [`student/${SID}.png`]);
+});
+
+test('me: avatar_url is a string with a picture, null without, and signing errors do not break /me', async () => {
+  assert.equal(typeof (await call('GET', '/api/account/me', tok.student)).json.avatar_url, 'string');
+  const IID3 = '66666666-6666-6666-6666-666666666666';
+  tables.instructors.push({ id: IID3, full_name: 'No Pic', email: 'np@bpes.test', role: 'instructor' });
+  const t = generateToken({ id: IID3, instructor_id: IID3, role: 'instructor' });
+  assert.equal((await call('GET', '/api/account/me', t)).json.avatar_url, null);
+  store.signError = true;
+  const r = await call('GET', '/api/account/me', tok.student);
+  store.signError = false;
+  assert.equal(r.status, 200);
+  assert.equal(r.json.avatar_url, null);
+});
+
+test('avatar: DELETE clears the column, removes the object and audits', async () => {
+  store.removed.length = 0;
+  const r = await rawCall('DELETE', tok.student, undefined, null);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json, { avatar_url: null });
+  assert.equal(tables.students.find(s => s.id === SID).avatar_path, null);
+  assert.deepEqual(store.removed, [`student/${SID}.png`]);
+  assert.ok(tables.audit_log.find(x => x.summary === 'Removed profile picture' && x.entity === 'student'));
 });

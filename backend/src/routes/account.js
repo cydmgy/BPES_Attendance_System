@@ -1,9 +1,9 @@
 // Self-service account endpoints for every role (student, teacher, admin).
 const express = require('express');
-const router = express.Router();
-const supabase = require('../supabase');
+const router = express.Router();const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
+const { MAX_AVATAR_BYTES, AVATAR_TYPES, BUCKET, sniffAvatarType, avatarPath } = require('../utils/avatar');
 const { hashPassword, verifyPassword, checkAdminPassword } = require('./auth');
 
 const ADMIN_ROW = { id: true }; // admin_settings is a single row
@@ -13,24 +13,44 @@ const entityOf = req => (req.user.role === 'student' ? 'student' : isAdmin(req) 
 
 router.use(auth);
 
-// GET /api/account/me
+// Signed link to a stored picture. Fails open: a missing picture or a signing error is just "no picture".
+const signAvatar = async path => {
+  if (!path) return null;
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
+    return error ? null : data?.signedUrl || null;
+  } catch { return null; }
+};
+// Where this user's picture path lives: their own row, never an id from the request.
+const avatarOwner = req => isAdmin(req) ? { table: 'admin_settings', role: 'admin' }
+  : { table: req.user.role === 'student' ? 'students' : 'instructors', role: req.user.role === 'student' ? 'student' : 'teacher' };
+const readAvatarPath = async (req, o) => {
+  const q = supabase.from(o.table).select('*');
+  const { data } = await (o.role === 'admin' ? q : q.eq('id', req.user.id)).maybeSingle();
+  return data?.avatar_path || null;
+};
+const saveAvatarPath = (req, o, path) => o.role === 'admin'
+  ? supabase.from('admin_settings').upsert({ ...ADMIN_ROW, avatar_path: path, updated_at: new Date().toISOString() })
+  : supabase.from(o.table).update({ avatar_path: path }).eq('id', req.user.id);
+
+// GET /api/account/me. select('*') on purpose: before migration 012 there is no avatar_path column, and that must not break /me.
 router.get('/me', async (req, res) => {
   try {
     const { role, id } = req.user;
     if (isAdmin(req)) {
-      const { data } = await supabase.from('admin_settings').select('display_name').maybeSingle();
-      return res.json({ role, full_name: data?.display_name || 'Administrator', email: null, student_id: null, section: null, must_change_password: false });
+      const { data } = await supabase.from('admin_settings').select('*').maybeSingle();
+      return res.json({ role, full_name: data?.display_name || 'Administrator', email: null, student_id: null, section: null, must_change_password: false, avatar_url: await signAvatar(data?.avatar_path) });
     }
     if (role === 'student') {
-      const { data, error } = await supabase.from('students').select('full_name, student_id, must_change_password, sections(section_name)').eq('id', id).maybeSingle();
+      const { data, error } = await supabase.from('students').select('*, sections(section_name)').eq('id', id).maybeSingle();
       if (error) throw error;
       if (!data) return res.status(404).json({ error: 'Account not found' });
-      return res.json({ role, full_name: data.full_name, email: null, student_id: data.student_id, section: data.sections?.section_name || null, must_change_password: !!data.must_change_password });
+      return res.json({ role, full_name: data.full_name, email: null, student_id: data.student_id, section: data.sections?.section_name || null, must_change_password: !!data.must_change_password, avatar_url: await signAvatar(data.avatar_path) });
     }
-    const { data, error } = await supabase.from('instructors').select('full_name, email').eq('id', id).maybeSingle();
+    const { data, error } = await supabase.from('instructors').select('*').eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Account not found' });
-    return res.json({ role, full_name: data.full_name, email: data.email, student_id: null, section: null, must_change_password: false });
+    return res.json({ role, full_name: data.full_name, email: data.email, student_id: null, section: null, must_change_password: false, avatar_url: await signAvatar(data.avatar_path) });
   } catch (err) {
     console.error('[GET /api/account/me]', err);
     return res.status(500).json({ error: 'Failed to load account' });
@@ -88,6 +108,55 @@ router.put('/profile', async (req, res) => {
   } catch (err) {
     console.error('[PUT /api/account/profile]', err);
     return res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// POST /api/account/avatar: raw image body, Content-Type is its type. Only ever the caller's own picture.
+router.post('/avatar', express.raw({ type: AVATAR_TYPES, limit: MAX_AVATAR_BYTES }), async (req, res) => {
+  try {
+    const contentType = (req.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (!AVATAR_TYPES.includes(contentType)) return res.status(415).json({ error: 'Only JPG, PNG or WebP pictures are allowed.' });
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (!body.length) return res.status(400).json({ error: 'The picture is empty.' });
+    if (sniffAvatarType(body) !== contentType) return res.status(415).json({ error: 'The file content does not match its type.' });
+
+    const o = avatarOwner(req);
+    const path = avatarPath(o.role, req.user.id, contentType);
+    const old = await readAvatarPath(req, o);
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType, upsert: true });
+    if (upErr) throw upErr;
+    const { error } = await saveAvatarPath(req, o, path);
+    if (error) {
+      await supabase.storage.from(BUCKET).remove([path]); // no orphan object
+      throw error;
+    }
+    if (old && old !== path) await supabase.storage.from(BUCKET).remove([old]).catch(() => {}); // same user, other extension
+    await logAudit(req, { action: 'update', entity: o.role, entityId: req.user.id, summary: 'Changed profile picture' });
+    return res.json({ avatar_url: await signAvatar(path) });
+  } catch (err) {
+    console.error('[POST /api/account/avatar]', err);
+    return res.status(500).json({ error: 'Failed to save the picture' });
+  }
+});
+
+// Without this the global handler answers an oversized upload with 500
+router.use((err, req, res, next) => err.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'The picture is larger than 1 MB.' })
+  : next(err));
+
+// DELETE /api/account/avatar
+router.delete('/avatar', async (req, res) => {
+  try {
+    const o = avatarOwner(req);
+    const old = await readAvatarPath(req, o);
+    const { error } = await saveAvatarPath(req, o, null);
+    if (error) throw error;
+    if (old) await supabase.storage.from(BUCKET).remove([old]).catch(() => {}); // best effort
+    await logAudit(req, { action: 'update', entity: o.role, entityId: req.user.id, summary: 'Removed profile picture' });
+    return res.json({ avatar_url: null });
+  } catch (err) {
+    console.error('[DELETE /api/account/avatar]', err);
+    return res.status(500).json({ error: 'Failed to remove the picture' });
   }
 });
 
