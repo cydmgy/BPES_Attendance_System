@@ -7,7 +7,9 @@ const { logAudit } = require('../utils/audit');
 const { hashPassword, verifyPassword, checkAdminPassword } = require('./auth');
 
 const ADMIN_ROW = { id: true }; // admin_settings is a single row
-const entityOf = req => (req.user.role === 'student' ? 'student' : req.user.role === 'admin' ? 'admin' : 'teacher');
+// An instructor row can have role 'admin'; only the built-in admin (no instructor_id) uses admin_settings.
+const isAdmin = req => req.user.role === 'admin' && !req.user.instructor_id;
+const entityOf = req => (req.user.role === 'student' ? 'student' : isAdmin(req) ? 'admin' : 'teacher');
 
 router.use(auth);
 
@@ -15,7 +17,7 @@ router.use(auth);
 router.get('/me', async (req, res) => {
   try {
     const { role, id } = req.user;
-    if (role === 'admin') {
+    if (isAdmin(req)) {
       const { data } = await supabase.from('admin_settings').select('display_name').maybeSingle();
       return res.json({ role, full_name: data?.display_name || 'Administrator', email: null, student_id: null, section: null, must_change_password: false });
     }
@@ -46,7 +48,7 @@ router.post('/change-password', async (req, res) => {
     if (next.length < min) return res.status(400).json({ error: `New password must be at least ${min} characters` });
 
     let ok, write;
-    if (role === 'admin') {
+    if (isAdmin(req)) {
       ok = await checkAdminPassword(current);
       write = hash => supabase.from('admin_settings').upsert({ ...ADMIN_ROW, password_hash: hash, updated_at: new Date().toISOString() });
     } else {
@@ -77,7 +79,7 @@ router.put('/profile', async (req, res) => {
     const name = String(req.body.full_name || '').trim();
     if (!name) return res.status(400).json({ error: 'full_name is required' });
 
-    const { error } = role === 'admin'
+    const { error } = isAdmin(req)
       ? await supabase.from('admin_settings').upsert({ ...ADMIN_ROW, display_name: name, updated_at: new Date().toISOString() })
       : await supabase.from('instructors').update({ full_name: name }).eq('id', id);
     if (error) throw error;

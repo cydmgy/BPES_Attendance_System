@@ -8,6 +8,7 @@ process.env.SESSION_SECRET = 'test-secret';
 process.env.NODE_ENV = 'test';
 process.env.ADMIN_PASSWORD = 'env-admin-pass';
 
+let dbError = null; // set to { code } to make admin_settings lookups fail
 const tables = { students: [], instructors: [], admin_settings: [], audit_log: [] };
 function fakeDb() {
   const from = table => {
@@ -26,6 +27,7 @@ function fakeDb() {
         if (k === 'ilike') return (c, v) => { filters.push(r => String(r[c]).toLowerCase() === String(v).toLowerCase()); return q; };
         if (k === 'single' || k === 'maybeSingle') return () => q.then.call(null, x => x, true);
         if (k === 'then') return (ok, one) => {
+          if (dbError && table === 'admin_settings' && op === 'select') return ok({ data: null, error: dbError });
           if (op === 'update') rows().forEach(r => Object.assign(r, patch));
           const data = one === true ? (rows()[0] || null) : rows();
           return ok({ data, error: null });
@@ -123,4 +125,29 @@ test('admin: env password works first, then a changed password replaces it', asy
   assert.equal((await login('newadmin1')).status, 200);
   assert.equal((await call('PUT', '/api/account/profile', tok.admin, { full_name: 'Principal' })).status, 200);
   assert.equal((await call('GET', '/api/account/me', tok.admin)).json.full_name, 'Principal');
+});
+
+test('instructor with role admin uses their own teacher account, not admin_settings', async () => {
+  const IID = '44444444-4444-4444-4444-444444444444';
+  tables.instructors.push({ id: IID, full_name: 'Head Teacher', email: 'head@bpes.test', role: 'admin', password_hash: await hashPassword('headpass') });
+  const t = generateToken({ id: IID, instructor_id: IID, email: 'head@bpes.test', role: 'admin' });
+  assert.equal((await call('GET', '/api/account/me', t)).json.full_name, 'Head Teacher');
+  assert.equal((await call('POST', '/api/account/change-password', t, { current_password: 'headpass', new_password: 'newhead1' })).status, 200);
+  assert.equal((await call('PUT', '/api/account/profile', t, { full_name: 'Head T.' })).status, 200);
+  assert.equal(tables.instructors.find(i => i.id === IID).full_name, 'Head T.');
+  assert.notEqual(tables.admin_settings[0].display_name, 'Head T.');
+  assert.equal((await call('POST', '/api/auth/teacher', null, { email: 'head@bpes.test', password: 'newhead1' })).status, 200);
+});
+
+test('admin env fallback: missing table allowed, other lookup errors rejected', async () => {
+  tables.admin_settings.length = 0;
+  const login = () => call('POST', '/api/auth/admin', null, { username: 'admin', password: 'env-admin-pass' });
+  dbError = { code: '42P01' };
+  assert.equal((await login()).status, 200);
+  dbError = { code: 'PGRST205' };
+  assert.equal((await login()).status, 200);
+  dbError = { code: '08006' };
+  const r = await login();
+  dbError = null;
+  assert.equal(r.status, 500);
 });

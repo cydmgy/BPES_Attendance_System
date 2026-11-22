@@ -209,9 +209,11 @@ router.post('/teacher', async (req, res) => {
 });
 
 // A password saved in admin_settings wins; otherwise ADMIN_PASSWORD (plain text).
-// If the lookup fails (migration 011 not applied yet) fall back to the env password so login never breaks.
+// Env fallback only when no hash is stored or the table is missing (migration 011 not applied); any other
+// lookup error throws, so a Supabase blip never re-enables the old password.
 async function checkAdminPassword(password) {
   const { data, error } = await supabase.from('admin_settings').select('password_hash').maybeSingle();
+  if (error && !['42P01', 'PGRST205'].includes(error.code)) throw error;
   if (!error && data?.password_hash) return verifyPassword(password, data.password_hash);
   return safeCompare(password, process.env.ADMIN_PASSWORD);
 }
