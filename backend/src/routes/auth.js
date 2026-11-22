@@ -207,8 +207,15 @@ router.post('/teacher', async (req, res) => {
   }
 });
 
+// A password saved in admin_settings wins; otherwise ADMIN_PASSWORD (plain text).
+// If the lookup fails (migration 011 not applied yet) fall back to the env password so login never breaks.
+async function checkAdminPassword(password) {
+  const { data, error } = await supabase.from('admin_settings').select('password_hash').maybeSingle();
+  if (!error && data?.password_hash) return verifyPassword(password, data.password_hash);
+  return safeCompare(password, process.env.ADMIN_PASSWORD);
+}
+
 // ── POST /api/auth/admin ─────────────────────────────────────────
-// Authenticate admin by username (admin) + ADMIN_PASSWORD from env (plain text)
 router.post('/admin', async (req, res) => {
   try {
     const username = (req.body.username || req.body.full_name || '').trim().toLowerCase();
@@ -222,7 +229,7 @@ router.post('/admin', async (req, res) => {
 
     // Timing-safe comparison to prevent side-channel timing attacks
     const isUsernameMatch = safeCompare(username, expectedUsername);
-    const isPasswordMatch = safeCompare(password, configuredPassword);
+    const isPasswordMatch = await checkAdminPassword(password);
 
     if (!isUsernameMatch) {
       return res.status(404).json({
@@ -311,3 +318,4 @@ module.exports = router;
 module.exports.hashPassword = hashPassword;
 module.exports.verifyPassword = verifyPassword;
 module.exports.safeCompare = safeCompare;
+module.exports.checkAdminPassword = checkAdminPassword;
