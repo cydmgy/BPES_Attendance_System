@@ -5,7 +5,7 @@ window.BpesSettings = (() => {
 
   // Password input with an eye button; the button never carries the value, it only flips the input type.
   const pwField = (id, label, attrs) => `
-    <label class="form-label small text-muted" for="${id}">${label}</label>
+    <label class="form-label" for="${id}">${label}</label>
     <div class="bpes-pw-field mb-3">
       <input id="${id}" type="password" class="form-control" ${attrs} required>
       <button type="button" class="bpes-pw-toggle" aria-label="Show password" aria-pressed="false" aria-controls="${id}">
@@ -57,45 +57,51 @@ window.BpesSettings = (() => {
     }
     const minLen = role === 'student' ? 4 : 6;
     const e = escapeHtml;
-    const picture = `<div class="d-flex align-items-center gap-3 mb-3">
+    const roleLabel = { admin: 'Administrator', teacher: 'Teacher', student: 'Student' }[role] || '';
+    const picture = `<div class="bpes-set-id">
          <span class="bpes-avatar bpes-avatar-lg" id="settings-avatar-preview" aria-hidden="true">${avatarInner(me.avatar_url, me.full_name)}</span>
-         <div>
-           <div class="d-flex flex-wrap gap-2">
+         <div class="bpes-set-id-body">
+           <div class="bpes-set-name">${e(me.full_name)}</div>
+           <div class="bpes-set-role">${e(roleLabel)}</div>
+           <div class="bpes-set-actions">
              <input id="settings-avatar-file" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp">
-             <label class="bpes-btn-primary bpes-pick px-3 d-inline-flex align-items-center" for="settings-avatar-file" id="settings-avatar-pick">Change picture</label>
-             <button type="button" id="settings-avatar-remove" class="btn btn-outline-secondary px-3" style="min-height:44px"${me.avatar_url ? '' : ' hidden'}>Remove picture</button>
+             <label class="bpes-btn-primary bpes-pick bpes-set-btn" for="settings-avatar-file" id="settings-avatar-pick">Change picture</label>
+             <button type="button" id="settings-avatar-remove" class="bpes-set-remove"${me.avatar_url ? '' : ' hidden'}>Remove picture</button>
            </div>
-           <div class="small text-muted mt-1">JPG, PNG or WebP. Cropped to a square.</div>
-           <div id="settings-avatar-status" class="small mt-1" role="status" aria-live="polite"></div>
          </div>
-       </div>`;
+       </div>
+       <div class="bpes-set-help">JPG, PNG or WebP. Cropped to a square.</div>
+       <div id="settings-avatar-status" class="small mt-1" role="status" aria-live="polite"></div>`;
     const profile = role === 'student'
-      ? `<dl class="row mb-0 small">
-           <dt class="col-sm-4 text-muted">Name</dt><dd class="col-sm-8">${e(me.full_name)}</dd>
-           <dt class="col-sm-4 text-muted">LRN</dt><dd class="col-sm-8">${e(me.student_id || '—')}</dd>
-           <dt class="col-sm-4 text-muted">Section</dt><dd class="col-sm-8">${e(me.section || '—')}</dd>
+      ? `<dl class="bpes-set-dl">
+           <dt>Name</dt><dd>${e(me.full_name)}</dd>
+           <dt>LRN</dt><dd>${e(me.student_id || '—')}</dd>
+           <dt>Section</dt><dd>${e(me.section || '—')}</dd>
          </dl>`
       : `<form id="settings-profile-form">
-           ${role === 'teacher' ? `<label class="form-label small text-muted">Login email</label>
-           <input class="form-control mb-3" value="${e(me.email || '')}" readonly>` : ''}
-           <label class="form-label small text-muted" for="settings-name">Full name</label>
-           <input id="settings-name" class="form-control mb-3" value="${e(me.full_name)}" required maxlength="120">
-           <button type="submit" class="bpes-btn-primary px-4 py-2">Save name</button>
+           ${role === 'teacher' ? `<label class="form-label" for="settings-email">Login email</label>
+           <input id="settings-email" class="form-control mb-3" value="${e(me.email || '')}" readonly>` : ''}
+           <label class="form-label" for="settings-name">Full name</label>
+           <input id="settings-name" class="form-control" value="${e(me.full_name)}" required maxlength="120">
+           <div class="bpes-set-foot"><button type="submit" class="bpes-btn-primary bpes-set-btn">Save name</button></div>
          </form>`;
     el.innerHTML = `
-      <div class="row g-4">
-        <div class="col-lg-6"><div class="bpes-card h-100">
-          <div class="bpes-card-header"><h3 class="bpes-card-title">Profile</h3></div>
-          <div class="p-3">${picture}${profile}</div>
-        </div></div>
-        <div class="col-lg-6"><div class="bpes-card h-100">
-          <div class="bpes-card-header"><h3 class="bpes-card-title">Change password</h3></div>
-          <form id="settings-password-form" class="p-3">
+      <div class="bpes-settings">
+        <section class="bpes-card bpes-set-card" aria-labelledby="settings-h-profile">
+          <h3 class="bpes-set-title" id="settings-h-profile">Profile</h3>
+          ${picture}
+          <hr class="bpes-set-hr">
+          ${profile}
+        </section>
+        <section class="bpes-card bpes-set-card" aria-labelledby="settings-h-password">
+          <h3 class="bpes-set-title" id="settings-h-password">Change password</h3>
+          <form id="settings-password-form">
             ${pwField('settings-current', 'Current password', 'autocomplete="current-password"')}
-            ${pwField('settings-new', `New password (at least ${minLen} characters)`, `autocomplete="new-password" minlength="${minLen}"`)}
-            <button type="submit" class="bpes-btn-primary px-4 py-2">Change password</button>
+            ${pwField('settings-new', 'New password', `autocomplete="new-password" minlength="${minLen}" aria-describedby="settings-new-help"`)}
+            <div class="bpes-set-help" id="settings-new-help">Use at least ${minLen} characters.</div>
+            <div class="bpes-set-foot"><button type="submit" class="bpes-btn-primary bpes-set-btn">Change password</button></div>
           </form>
-        </div></div>
+        </section>
       </div>`;
     el.dataset.mounted = '1';
     if (me.must_change_password) notify(role, 'Please change your password.', 'warning');
@@ -149,6 +155,7 @@ window.BpesSettings = (() => {
       try {
         await axios.put(`${API_BASE}/api/account/profile`, { full_name });
         notify(role, 'Name saved.');
+        el.querySelector('.bpes-set-name').textContent = full_name;
         window.dispatchEvent(new CustomEvent('bpes:profile-changed', { detail: { full_name } }));
       } catch (err) { notify(role, errMsg(err, 'Could not save your name.'), 'error'); }
     });

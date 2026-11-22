@@ -1793,6 +1793,43 @@ a:hover {
 .bpes-pw-toggle:hover { color: var(--color-primary); }
 .bpes-pw-toggle:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: -3px; }
 
+/* Settings page (js/settings.js): one narrow column of compact cards */
+.bpes-settings { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+.bpes-settings .bpes-set-card { padding: 20px; border-radius: 16px; }
+.bpes-set-title { font-size: 15px; font-weight: 700; color: var(--color-primary); margin: 0 0 14px; }
+.bpes-set-id { display: flex; align-items: center; gap: 14px; }
+.bpes-settings .bpes-avatar-lg { width: 64px; height: 64px; font-size: 24px; }
+.bpes-set-id-body { min-width: 0; }
+.bpes-set-name { font-size: 16px; font-weight: 700; color: var(--color-text-main); line-height: 1.25; overflow-wrap: anywhere; }
+.bpes-set-role { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px; }
+.bpes-set-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.bpes-settings .bpes-set-btn { padding: 0 18px; min-height: 40px; font-size: 14px; }
+.bpes-settings .bpes-pick { min-height: 40px; }
+.bpes-set-remove { background: none; border: 0; padding: 0 4px; min-height: 40px; font-size: 13px; font-weight: 600; color: var(--color-red); cursor: pointer; border-radius: 8px; }
+.bpes-set-remove:hover { text-decoration: underline; }
+.bpes-set-remove:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
+.bpes-set-remove:disabled { opacity: .6; cursor: default; }
+.bpes-set-remove[hidden] { display: none; }
+.bpes-set-help { font-size: 12px; color: var(--color-text-muted); margin: 10px 0 0; }
+.bpes-set-hr { border: 0; border-top: 1px solid var(--color-border); opacity: 1; margin: 16px 0; }
+.bpes-settings .form-label { font-size: 13px; font-weight: 600; color: var(--color-text-main); margin-bottom: 4px; }
+.bpes-settings .form-control { min-height: 40px; font-size: 14px; padding: 8px 12px; }
+.bpes-settings .bpes-pw-field { margin-bottom: 14px !important; }
+.bpes-settings .bpes-pw-field .form-control { min-height: 40px; padding-right: 48px; }
+.bpes-settings .bpes-pw-toggle { min-height: 40px; }
+.bpes-settings .bpes-pw-field + .bpes-set-help { margin-top: -6px; }
+.bpes-set-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+.bpes-set-dl { display: grid; grid-template-columns: minmax(80px, 120px) 1fr; gap: 8px 12px; margin: 0; font-size: 14px; }
+.bpes-set-dl dt { font-weight: 500; color: var(--color-text-secondary); }
+.bpes-set-dl dd { margin: 0; color: var(--color-text-main); overflow-wrap: anywhere; }
+@media (pointer: coarse) {
+  .bpes-settings .bpes-set-btn, .bpes-settings .bpes-pick, .bpes-set-remove, .bpes-settings .form-control, .bpes-settings .bpes-pw-field .form-control, .bpes-settings .bpes-pw-toggle { min-height: 44px; }
+}
+@media (max-width: 575.98px) {
+  .bpes-settings .bpes-set-card { padding: 16px; }
+  .bpes-set-foot .bpes-set-btn { width: 100%; }
+}
+
 /* ============================================================
    DASHBOARD CHARTS (js/charts.js)
    ============================================================ */
