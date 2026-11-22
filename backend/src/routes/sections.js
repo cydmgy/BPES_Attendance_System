@@ -7,6 +7,7 @@ const adminOnly = require('../middleware/adminOnly');
 const { isUuid } = require('../utils/schedule');
 const { parseGradeLevel } = require('../utils/section');
 const { logAudit } = require('../utils/audit');
+const { teachesSection } = require('../utils/access');
 
 const SELECT = 'id, section_name, grade_level, home_room_id, created_at, rooms:home_room_id(id, name)';
 
@@ -19,6 +20,23 @@ router.get('/', auth, async (req, res) => {
   } catch (err) {
     console.error('[GET /sections]', err);
     return res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
+
+// GET /api/sections/:id/students — names only, for the admin or a teacher who teaches the section
+router.get('/:id/students', auth, async (req, res) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid section id' });
+    if (req.user.role !== 'admin' && !(req.user.instructor_id && await teachesSection(req.user.instructor_id, req.params.id))) {
+      return res.status(403).json({ error: 'Not your section' });
+    }
+    const { data, error } = await supabase.from('students')
+      .select('id, full_name, student_id').eq('section_id', req.params.id).order('full_name');
+    if (error) throw error;
+    return res.json(data || []);
+  } catch (err) {
+    console.error('[GET /sections/:id/students]', err);
+    return res.status(500).json({ error: 'Failed to fetch roster' });
   }
 });
 
