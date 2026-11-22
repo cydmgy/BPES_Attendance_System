@@ -1794,7 +1794,7 @@ a:hover {
 .bpes-pw-toggle:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: -3px; }
 
 /* Settings page (js/settings.js): one narrow column of compact cards */
-.bpes-settings { max-width: 720px; display: flex; flex-direction: column; gap: 16px; }
+.bpes-settings { max-width: 720px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
 .bpes-settings .bpes-set-card { padding: 20px; border-radius: 16px; }
 .bpes-set-title { font-size: 15px; font-weight: 700; color: var(--color-primary); margin: 0 0 14px; }
 .bpes-set-id { display: flex; align-items: center; gap: 14px; }
@@ -1927,3 +1927,4 @@ a:hover {
   .sch-table-body { position: relative; flex: 1 1 0; min-height: 0; }
   .sch-table-body .table-scroll { position: absolute; inset: 0; max-height: none; }
 }
+.bpes-settings .form-control[readonly] { background: #f1f3f5; color: #6c757d; }

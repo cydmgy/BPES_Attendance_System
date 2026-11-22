@@ -57,7 +57,7 @@ window.BpesSettings = (() => {
     }
     const minLen = role === 'student' ? 4 : 6;
     const e = escapeHtml;
-    const roleLabel = { admin: 'Administrator', teacher: 'Teacher', student: 'Student' }[role] || '';
+    const roleLabel = { admin: 'Admin', teacher: 'Teacher', student: 'Student' }[role] || '';
     const picture = `<div class="bpes-set-id">
          <span class="bpes-avatar bpes-avatar-lg" id="settings-avatar-preview" aria-hidden="true">${avatarInner(me.avatar_url, me.full_name)}</span>
          <div class="bpes-set-id-body">
@@ -74,7 +74,6 @@ window.BpesSettings = (() => {
        <div id="settings-avatar-status" class="small mt-1" role="status" aria-live="polite"></div>`;
     const profile = role === 'student'
       ? `<dl class="bpes-set-dl">
-           <dt>Name</dt><dd>${e(me.full_name)}</dd>
            <dt>LRN</dt><dd>${e(me.student_id || '—')}</dd>
            <dt>Section</dt><dd>${e(me.section || '—')}</dd>
          </dl>`
