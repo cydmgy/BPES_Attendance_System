@@ -804,6 +804,10 @@ function openStudentMobileDrawer() {
         <i class="fas fa-home"></i>
         <span>Dashboard</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-std-schedule" onclick="selectStudentDrawerTab('schedule')">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-std-logs" onclick="selectStudentDrawerTab('logs')">
         <i class="fas fa-clock"></i>
         <span>Attendance History</span>
