@@ -16,11 +16,6 @@
       <div class="bpes-brand-title" id="admin-brand-title">Bagoong Pook Elementary School</div>
     </div>
     <!-- Center nav pills intentionally removed — navigation is in the sidebar -->
-    <div class="bpes-nav-right">
-      <div class="bpes-role-badge">Admin</div>
-      <div class="bpes-avatar" title="System Administrator">A</div>
-      <button class="bpes-btn-logout" onclick="logout()"><span>Logout</span></button>
-    </div>
   </header>
 
   <!-- Mobile Top Header (72px) -->
@@ -79,20 +74,15 @@
           <i class="fas fa-clock"></i>
           <span>Attendance Stream</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-settings" onclick="showAdminTab('settings')">
+          <i class="fas fa-gear"></i>
+          <span>Settings</span>
+        </div>
       </nav>
 
-      <!-- Sidebar User Footer & Logout -->
-      <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2 overflow-hidden">
-          <div class="bpes-avatar" style="background: var(--color-primary); color: #fff; width: 34px; height: 34px; font-size: 14px; border-radius: 50%;">A</div>
-          <div class="overflow-hidden">
-            <div class="small fw-bold text-dark text-truncate">Administrator</div>
-            <div class="text-muted text-truncate" style="font-size: 11px;">System Admin</div>
-          </div>
-        </div>
-        <button class="btn btn-sm btn-outline-danger border-0 p-2" onclick="logout()" title="Logout">
-          <i class="fas fa-arrow-right-from-bracket"></i>
-        </button>
+      <div class="bpes-sidebar-item text-danger mt-auto" id="sidebar-logout" onclick="logout()">
+        <i class="fas fa-arrow-right-from-bracket"></i>
+        <span>Logout</span>
       </div>
     </aside>
 
@@ -813,6 +803,7 @@
 
       </section>
 
+      <section id="adm-tab-settings" class="d-none"></section>
     </main>
   </div>
 
@@ -855,6 +846,10 @@
       <div class="bpes-mobile-drawer-item" onclick="showAdminTab('logs'); closeAdminMobileDrawer();">
         <i class="fas fa-clock"></i>
         <span>Attendance Stream</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('settings'); closeAdminMobileDrawer();">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </div>
       <hr>
       <div class="bpes-mobile-drawer-item text-danger" onclick="logout()">

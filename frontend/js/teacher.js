@@ -34,11 +34,7 @@ function initTeacherPortal() {
 
   // Update teacher name, email & avatar in sidebar & greeting
   if (currentTeacherUser && currentTeacherUser.name) {
-    setText('teacher-nav-badge', currentTeacherUser.name);
     setText('teacher-greeting', `${greetingWord()}, ${currentTeacherUser.name}!`);
-    setText('teacher-avatar', currentTeacherUser.name.charAt(0).toUpperCase());
-    setText('teacher-sidebar-user-name', currentTeacherUser.name);
-    setText('teacher-sidebar-user-email', currentTeacherUser.email || 'Faculty Member');
   }
 
   showTeacherTab('dashboard');
@@ -70,7 +66,7 @@ const csvCell = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
 // ── Teacher Tabs ──────────────────────────────────────────────
 
 function showTeacherTab(tab) {
-  const tabs = ['dashboard', 'attendance', 'export', 'leave'];
+  const tabs = ['dashboard', 'attendance', 'export', 'leave', 'settings'];
   tabs.forEach(t => {
     document.getElementById(`tch-tab-${t}`)?.classList.toggle('d-none', t !== tab);
     document.getElementById(`tablink-tch-${t}`)?.classList.toggle('active', t === tab);
@@ -109,6 +105,9 @@ function showTeacherTab(tab) {
     if (mobileTitle) mobileTitle.textContent = 'Student Leave Requests';
     if (welcomeDesc) welcomeDesc.textContent = 'Review submitted excuse requests with supporting proof documents.';
     loadTeacherLeaveRequests();
+    stopTeacherAutoRefresh();
+  } else if (tab === 'settings') {
+    openSettingsTab('teacher', 'tch', [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]);
     stopTeacherAutoRefresh();
   }
 }

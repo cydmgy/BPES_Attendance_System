@@ -275,6 +275,10 @@ a:hover {
   padding: 24px 20px;
 }
 
+/* Scrolling table wrapper: header stays visible */
+.table-scroll { max-height: 60vh; overflow: auto; }
+.table-scroll thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
+
 /* ============================================================
    DESKTOP TOP NAVBAR (72px, Figma Green)
    ============================================================ */

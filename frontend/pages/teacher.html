@@ -16,11 +16,6 @@
       <div class="bpes-brand-title" id="teacher-brand-title">Bagoong Pook Elementary School</div>
     </div>
     <!-- Center nav pills-->
-    <div class="bpes-nav-right">
-      <div class="bpes-role-badge" id="teacher-nav-badge">Teacher</div>
-      <div class="bpes-avatar" id="teacher-avatar">T</div>
-      <button class="bpes-btn-logout" onclick="logout()"><span>Logout</span></button>
-    </div>
   </header>
 
   <!-- Mobile Top Header (72px) -->
@@ -67,20 +62,15 @@
           <i class="fas fa-envelope-open-text"></i>
           <span>Student Leave Requests</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-tch-settings" onclick="showTeacherTab('settings')">
+          <i class="fas fa-gear"></i>
+          <span>Settings</span>
+        </div>
       </nav>
 
-      <!-- Sidebar User Footer & Logout -->
-      <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2 overflow-hidden">
-          <div class="bpes-avatar" style="background: var(--color-primary); color: #fff; width: 34px; height: 34px; font-size: 14px; border-radius: 50%;" id="teacher-avatar">T</div>
-          <div class="overflow-hidden">
-            <div class="small fw-bold text-dark text-truncate" id="teacher-sidebar-user-name">Teacher 1</div>
-            <div class="text-muted text-truncate" style="font-size: 11px;" id="teacher-sidebar-user-email">Faculty Member</div>
-          </div>
-        </div>
-        <button class="btn btn-sm btn-outline-danger border-0 p-2" onclick="logout()" title="Logout">
-          <i class="fas fa-arrow-right-from-bracket"></i>
-        </button>
+      <div class="bpes-sidebar-item text-danger mt-auto" id="sidebar-logout" onclick="logout()">
+        <i class="fas fa-arrow-right-from-bracket"></i>
+        <span>Logout</span>
       </div>
     </aside>
 
@@ -528,6 +518,7 @@
         </div>
       </section>
 
+      <section id="tch-tab-settings" class="d-none"></section>
     </main>
   </div>
 
@@ -558,6 +549,10 @@
       <div class="bpes-mobile-drawer-item" onclick="showTeacherTab('leave'); closeTeacherMobileDrawer();">
         <i class="fas fa-envelope-open-text"></i>
         <span>Student Leave Requests</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showTeacherTab('settings'); closeTeacherMobileDrawer();">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </div>
       <hr>
       <div class="bpes-mobile-drawer-item text-danger" onclick="logout()">

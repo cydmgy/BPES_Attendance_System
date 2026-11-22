@@ -36,7 +36,7 @@ function populateStudentSubjectDropdowns() {
 // ── Student Tabs ──────────────────────────────────────────────
 
 function showStudentTab(tab) {
-  const tabs = ['overview', 'logs', 'leave'];
+  const tabs = ['overview', 'logs', 'leave', 'settings'];
   tabs.forEach(t => {
     document.getElementById(`std-tab-${t}`)?.classList.toggle('d-none', t !== tab);
     document.getElementById(`tablink-std-${t}`)?.classList.toggle('active', t === tab);
@@ -66,6 +66,8 @@ function showStudentTab(tab) {
     if (mobileTitle) mobileTitle.textContent = 'File Excuse / Leave';
     if (welcomeDesc) welcomeDesc.textContent = 'Submit an absence request and track its review status.';
     loadStudentLeaveHistory();
+  } else if (tab === 'settings') {
+    openSettingsTab('student', 'std', [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]);
   }
 }
 
@@ -95,8 +97,6 @@ async function loadStudentPortalData() {
   const initials = displayName.charAt(0).toUpperCase();
 
   // Populate UI Profile fields
-  const navNameEl = document.getElementById('student-nav-name');
-  const avatarEl = document.getElementById('student-avatar');
   const avatarBigEl = document.getElementById('student-avatar-big');
   const cardNameEl = document.getElementById('std-card-name');
   const detailNameEl = document.getElementById('std-detail-name');
@@ -105,14 +105,7 @@ async function loadStudentPortalData() {
   const cardRfidEl = document.getElementById('std-card-rfid');
   const greetingEl = document.getElementById('student-greeting');
 
-  const sidebarUserName = document.getElementById('student-sidebar-user-name');
-  const sidebarUserLrn = document.getElementById('student-sidebar-user-lrn');
-
-  if (navNameEl) navNameEl.textContent = displayName;
-  if (avatarEl) avatarEl.textContent = initials;
   if (avatarBigEl) avatarBigEl.textContent = initials;
-  if (sidebarUserName) sidebarUserName.textContent = displayName;
-  if (sidebarUserLrn) sidebarUserLrn.textContent = `LRN: ${displayLrn}`;
   if (cardNameEl) cardNameEl.textContent = displayName;
   if (detailNameEl) detailNameEl.textContent = displayName;
   if (cardIdEl) cardIdEl.textContent = displayLrn;

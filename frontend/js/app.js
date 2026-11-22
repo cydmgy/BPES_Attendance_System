@@ -726,6 +726,10 @@ function openAdminMobileDrawer() {
         <i class="fas fa-clock-rotate-left"></i>
         <span>Attendance Stream</span>
       </a>
+      <a href="#" class="bpes-drawer-item" onclick="selectAdminDrawerTab('settings')">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
+      </a>
     `;
   }
   toggleMobileDrawer(true);
@@ -763,6 +767,10 @@ function openTeacherMobileDrawer() {
         <i class="fas fa-file-text"></i>
         <span>Student Leave Requests</span>
       </a>
+      <a href="#" class="bpes-drawer-item" onclick="selectTeacherDrawerTab('settings')">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
+      </a>
     `;
   }
   toggleMobileDrawer(true);
@@ -796,9 +804,9 @@ function openStudentMobileDrawer() {
         <i class="fas fa-file-text"></i>
         <span>File Excuse / Leave</span>
       </a>
-      <a href="#" class="bpes-drawer-item" onclick="toggleMobileDrawer(false); openChangePinModal();">
-        <i class="fas fa-key"></i>
-        <span>Change Security PIN</span>
+      <a href="#" class="bpes-drawer-item" onclick="selectStudentDrawerTab('settings')">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </a>
     `;
   }

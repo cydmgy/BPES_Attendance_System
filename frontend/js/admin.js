@@ -81,6 +81,7 @@ const ADMIN_TABS = {
               'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.'],
   logs:      ['Attendance Stream', 'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.',
               'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.'],
+  settings:  ['Settings', 'Your account name and password.', 'Manage your account name and password.'],
 };
 
 function showAdminTab(tab) {
@@ -103,7 +104,8 @@ function showAdminTab(tab) {
     return;
   }
   stopAutoRefreshLogs();
-  if (tab === 'dashboard') { loadAdminDashboard(); loadNoClassDays(); }
+  if (tab === 'settings') BpesSettings.mount(document.getElementById('adm-tab-settings'), 'admin');
+  else if (tab === 'dashboard') { loadAdminDashboard(); loadNoClassDays(); }
   else if (tab === 'students') loadAdminStudents();
   else if (tab === 'teachers') loadAdminTeachers();
   else if (tab === 'sections') loadAdminSections();
