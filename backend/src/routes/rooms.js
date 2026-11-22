@@ -4,6 +4,7 @@ const router = express.Router();
 const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
+const { logAudit } = require('../utils/audit');
 
 // GET /api/rooms — list all rooms
 router.get('/', auth, async (req, res) => {
@@ -36,6 +37,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       .single();
 
     if (error) throw error;
+    await logAudit(req, { action: 'create', entity: 'room', entityId: data.id, summary: `Created room "${data.name}"` });
     return res.status(201).json({ message: 'Room created', room: data });
   } catch (err) {
     console.error('[POST /rooms]', err);
@@ -65,6 +67,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Room not found' });
 
+    await logAudit(req, { action: 'update', entity: 'room', entityId: data.id, summary: `Updated room "${data.name}"` });
     return res.json({ message: 'Room updated', room: data });
   } catch (err) {
     console.error('[PUT /rooms/:id]', err);
@@ -75,12 +78,14 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 // DELETE /api/rooms/:id — delete a room
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { error } = await supabase
+    const { data: gone, error } = await supabase
       .from('rooms')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', req.params.id)
+      .select('name');
 
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'room', entityId: req.params.id, summary: `Deleted room "${gone?.[0]?.name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Room deleted successfully' });
   } catch (err) {
     console.error('[DELETE /rooms/:id]', err);

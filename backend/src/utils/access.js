@@ -34,4 +34,19 @@ async function canOverrideLog(supabase, user, log) {
   return !!s && canManageAny(supabase, user, [s.schedule_id], s.session_date);
 }
 
-module.exports = { canManageAny, canReviewLeave, canOverrideLog };
+// Does this teacher own, co-teach or substitute (any date) any schedule of the section?
+async function teachesSection(teacherId, sectionId) {
+  const supabase = require('../supabase'); // lazy: pure helpers above stay loadable without env
+  if (!teacherId) return false;
+  const { data } = await supabase.from('schedules').select('id, teacher_id').eq('section_id', sectionId);
+  const ids = (data || []).map(s => s.id);
+  if (!ids.length) return false;
+  if (data.some(s => s.teacher_id === teacherId)) return true;
+  const [co, sub] = await Promise.all([
+    supabase.from('schedule_co_teachers').select('schedule_id').in('schedule_id', ids).eq('teacher_id', teacherId).limit(1),
+    supabase.from('schedule_overrides').select('schedule_id').in('schedule_id', ids).eq('sub_teacher_id', teacherId).limit(1),
+  ]);
+  return [co, sub].some(r => r.data?.length > 0);
+}
+
+module.exports = { canManageAny, canReviewLeave, canOverrideLog, teachesSection };

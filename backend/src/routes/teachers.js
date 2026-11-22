@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
 const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
+const { logAudit } = require('../utils/audit');
 
 const COLS = 'id, full_name, email, role, rfid_uid, created_at';
 
@@ -74,6 +75,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       throw error;
     }
 
+    await logAudit(req, { action: 'create', entity: 'teacher', entityId: data.id, summary: `Created teacher "${data.full_name}"` });
     return res.status(201).json({ teacher: data, temp_password: password });
   } catch (err) {
     console.error('[POST /teachers]', err);
@@ -120,6 +122,7 @@ router.put('/:id', auth, async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Teacher not found' });
 
+    await logAudit(req, { action: 'update', entity: 'teacher', entityId: data.id, summary: `Updated teacher "${data.full_name}"` });
     return res.json({ message: 'Teacher updated successfully', teacher: data });
   } catch (err) {
     console.error('[PUT /teachers/:id]', err);
@@ -135,10 +138,11 @@ router.post('/:id/reset-password', auth, adminOnly, async (req, res) => {
       .from('instructors')
       .update({ password_hash: await hashPassword(password) })
       .eq('id', req.params.id)
-      .select('id')
+      .select('id, full_name')
       .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Teacher not found' });
+    await logAudit(req, { action: 'reset_password', entity: 'teacher', entityId: data.id, summary: `Reset password for teacher "${data.full_name}"` });
     return res.json({ temp_password: password });
   } catch (err) {
     console.error('[POST /teachers/:id/reset-password]', err);
@@ -149,12 +153,14 @@ router.post('/:id/reset-password', auth, adminOnly, async (req, res) => {
 // DELETE /api/teachers/:id — Remove teacher
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { error } = await supabase
+    const { data: gone, error } = await supabase
       .from('instructors')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', req.params.id)
+      .select('full_name');
 
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'teacher', entityId: req.params.id, summary: `Deleted teacher "${gone?.[0]?.full_name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Teacher deleted successfully' });
   } catch (err) {
     console.error('[DELETE /teachers]', err);

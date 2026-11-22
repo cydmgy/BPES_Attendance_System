@@ -15,6 +15,8 @@ const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
 const { sectionFields, withSectionName } = require('../utils/section');
 const { BUCKET, isTableMissing } = require('../utils/attachment');
+const { logAudit } = require('../utils/audit');
+const { defaultStudentPassword } = require('../utils/password');
 
 const SAFE_STUDENT_COLUMNS = 'id, rfid_uid, student_id, full_name, course, year_level, section_id, created_at, sections(section_name)';
 
@@ -48,7 +50,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
 // POST /api/students — register a new student (link RFID UID to student profile + optional guardian)
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
-    const { rfid_uid, student_id, full_name, course, year_level, section, section_id, pin, guardian } = req.body;
+    const { rfid_uid, student_id, full_name, course, year_level, section, section_id, guardian } = req.body;
 
     if (!student_id || !full_name) {
       return res.status(400).json({ error: 'student_id and full_name are required' });
@@ -64,9 +66,9 @@ router.post('/', auth, adminOnly, async (req, res) => {
     }
     const sec = await sectionFields(supabase, { section_id, section });
     if (!sec?.section_id) return res.status(400).json({ error: 'A valid section is required' });
-    if (!pin || String(pin).trim().length < 4) {
-      return res.status(400).json({ error: 'A PIN of at least 4 characters is required: the student logs in with it' });
-    }
+    let tempPassword;
+    try { tempPassword = defaultStudentPassword(full_name, student_id); }
+    catch (e) { return res.status(400).json({ error: 'Student ID (at least 4 characters) and a surname are needed to build the default password' }); }
 
     const newStudentData = {
       ...sec,
@@ -75,7 +77,8 @@ router.post('/', auth, adminOnly, async (req, res) => {
       full_name: String(full_name).trim(),
       course: course ? String(course).trim() : 'Elementary',
       year_level: year_level ? parseInt(year_level, 10) : 1,
-      pin: await hashPassword(String(pin).trim()),
+      pin: await hashPassword(tempPassword),
+      must_change_password: true,
     };
 
     const { data, error } = await supabase
@@ -104,7 +107,8 @@ router.post('/', auth, adminOnly, async (req, res) => {
       if (gErr) console.warn('[POST /students] Failed to insert guardian record:', gErr.message);
     }
 
-    return res.status(201).json({ student: withSectionName(data) });
+    await logAudit(req, { action: 'create', entity: 'student', entityId: data.id, summary: `Created student "${data.full_name}"` });
+    return res.status(201).json({ student: withSectionName(data), temp_password: tempPassword });
   } catch (err) {
     console.error('[POST /students]', err);
     return res.status(500).json({ error: 'Failed to register student' });
@@ -142,7 +146,7 @@ router.get('/:id', auth, async (req, res) => {
 // PUT /api/students/:id — update student info (partial safe update)
 router.put('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { rfid_uid, student_id, full_name, course, year_level, section, section_id, pin } = req.body;
+    const { rfid_uid, student_id, full_name, course, year_level, section, section_id } = req.body;
 
     const updates = {};
     if (rfid_uid !== undefined) {
@@ -160,10 +164,6 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
       const sec = await sectionFields(supabase, { section_id, section });
       if (!sec?.section_id) return res.status(400).json({ error: 'A valid section is required' });
       Object.assign(updates, sec);
-    }
-    if (pin !== undefined) {
-      if (String(pin).trim().length < 4) return res.status(400).json({ error: 'A PIN of at least 4 characters is required' });
-      updates.pin = await hashPassword(String(pin).trim());
     }
 
     if (Object.keys(updates).length === 0) {
@@ -186,10 +186,34 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     }
     if (!data) return res.status(404).json({ error: 'Student not found' });
 
+    await logAudit(req, { action: 'update', entity: 'student', entityId: data.id, summary: `Updated student "${data.full_name}"` });
     return res.json({ student: withSectionName(data) });
   } catch (err) {
     console.error('[PUT /students/:id]', err);
     return res.status(500).json({ error: 'Failed to update student' });
+  }
+});
+
+// PUT /api/students/:id/password — admin sets a new password; the student must change it at next login
+router.put('/:id/password', auth, adminOnly, async (req, res) => {
+  try {
+    const pw = String(req.body.new_password ?? '').trim();
+    if (pw.length < 4) return res.status(400).json({ error: 'The new password must be at least 4 characters' });
+
+    const { data, error } = await supabase
+      .from('students')
+      .update({ pin: await hashPassword(pw), must_change_password: true })
+      .eq('id', req.params.id)
+      .select('id, full_name')
+      .single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Student not found' });
+
+    await logAudit(req, { action: 'reset_password', entity: 'student', entityId: data.id, summary: `Reset password of student "${data.full_name}"` });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[PUT /students/:id/password]', err);
+    return res.status(500).json({ error: 'Failed to set password' });
   }
 });
 
@@ -213,13 +237,15 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       if (rmErr) throw rmErr;
     }
 
-    const { error } = await supabase
+    const { data: gone, error } = await supabase
       .from('students')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', req.params.id)
+      .select('full_name');
 
     if (error) throw error;
 
+    await logAudit(req, { action: 'delete', entity: 'student', entityId: req.params.id, summary: `Deleted student "${gone?.[0]?.full_name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Student deleted' });
   } catch (err) {
     console.error('[DELETE /students/:id]', err);

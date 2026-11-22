@@ -16,11 +16,6 @@
       <div class="bpes-brand-title" id="student-brand-title">Bagoong Pook Elementary School</div>
     </div>
     <!-- Center nav pills -->
-    <div class="bpes-nav-right">
-      <div class="bpes-role-badge" id="student-nav-name">Student</div>
-      <div class="bpes-avatar" id="student-avatar">S</div>
-      <button class="bpes-btn-logout" onclick="logout()"><span>Logout</span></button>
-    </div>
   </header>
 
   <!-- Mobile Top Header (72px) -->
@@ -32,9 +27,6 @@
       <div class="bpes-mobile-context">STUDENT / BPES PORTAL</div>
       <div class="bpes-mobile-title" id="student-mobile-header-title">Dashboard</div>
     </div>
-    <button class="bpes-hamburger-btn" onclick="logout()" title="Logout">
-      <i class="fas fa-arrow-right-from-bracket"></i>
-    </button>
   </div>
 
   <!-- Main Layout Area (Desktop: 2-Column Sidebar + Content) -->
@@ -55,6 +47,10 @@
           <i class="fas fa-house-user"></i>
           <span>Dashboard</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-std-schedule" onclick="showStudentTab('schedule')">
+          <i class="fas fa-calendar-week"></i>
+          <span>Schedule</span>
+        </div>
         <div class="bpes-sidebar-item" id="sidebar-std-logs" onclick="showStudentTab('logs')">
           <i class="fas fa-clock"></i>
           <span>Attendance History</span>
@@ -63,26 +59,26 @@
           <i class="fas fa-envelope-open-text"></i>
           <span>File Excuse/Leave</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-std-settings" onclick="showStudentTab('settings')">
+          <i class="fas fa-gear"></i>
+          <span>Settings</span>
+        </div>
       </nav>
 
-      <!-- Sidebar User Footer & Logout -->
-      <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2 overflow-hidden">
-          <div class="bpes-avatar" style="background: var(--color-primary); color: #fff; width: 34px; height: 34px; font-size: 14px; border-radius: 50%;" id="student-avatar">S</div>
-          <div class="overflow-hidden">
-            <div class="small fw-bold text-dark text-truncate" id="student-sidebar-user-name">Student</div>
-            <div class="text-muted text-truncate" style="font-size: 11px;" id="student-sidebar-user-lrn">LRN: —</div>
-          </div>
-        </div>
-        <button class="btn btn-sm btn-outline-danger border-0 p-2" onclick="logout()" title="Logout">
-          <i class="fas fa-arrow-right-from-bracket"></i>
-        </button>
+      <button type="button" class="bpes-profile-card mt-auto" id="student-profile-card" data-profile-card hidden onclick="openProfileSettings()"></button>
+      <div class="bpes-sidebar-item text-danger" id="sidebar-logout" onclick="logout()">
+        <i class="fas fa-arrow-right-from-bracket"></i>
+        <span>Logout</span>
       </div>
     </aside>
 
     <!-- Main Content Panel -->
     <main class="bpes-main-content">
       <div id="student-alert-box"></div>
+      <div id="std-pw-banner" class="alert alert-warning d-none align-items-center justify-content-between flex-wrap gap-2" role="alert">
+        <span>Your password is still the default. Change it now.</span>
+        <button type="button" class="btn btn-sm btn-warning" onclick="showStudentTab('settings')">Open Settings</button>
+      </div>
 
       <!-- Welcome Banner -->
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
@@ -184,39 +180,6 @@
           </div>
         </div>
 
-        <!-- Today's classes (live status per period) -->
-        <div class="bpes-card mb-4" id="std-today-card">
-          <div class="bpes-card-header flex-wrap gap-2">
-            <div>
-              <h3 class="bpes-card-title">Today's classes</h3>
-              <div class="bpes-card-subtitle">Live status of each period for your section.</div>
-            </div>
-            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-today-pill">0 classes</span>
-          </div>
-          <div class="bpes-table-wrapper">
-            <table class="bpes-table">
-              <thead>
-                <tr><th>Time</th><th>Subject</th><th>Room</th><th>Teacher</th><th>Status</th></tr>
-              </thead>
-              <tbody id="std-today-tbody">
-                <tr><td colspan="5" class="text-center py-4 text-muted">Loading today's classes...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Weekly timetable -->
-        <div class="bpes-card mb-4" id="std-week-card">
-          <div class="bpes-card-header flex-wrap gap-2">
-            <div>
-              <h3 class="bpes-card-title">My week</h3>
-              <div class="bpes-card-subtitle">Your section's timetable.</div>
-            </div>
-            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-week-pill">0 periods</span>
-          </div>
-          <div class="p-3" id="std-week-grid"><div class="text-center py-4 text-muted">Loading timetable...</div></div>
-        </div>
-
         <!-- 2 Column Layout: attendance-card (Student info) & history-card -->
         <div class="row g-4">
           
@@ -276,7 +239,7 @@
                 <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-history-pill">0 records</span>
               </div>
 
-              <div class="bpes-table-wrapper">
+              <div class="bpes-table-wrapper table-scroll">
                 <table class="bpes-table">
                   <thead>
                     <tr>
@@ -396,7 +359,7 @@
             <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-all-logs-count-pill">0 records</span>
           </div>
 
-          <div class="bpes-table-wrapper">
+          <div class="bpes-table-wrapper table-scroll">
             <table class="bpes-table">
               <thead>
                 <tr>
@@ -518,7 +481,7 @@
                 <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-leave-count-pill">0 requests</span>
               </div>
 
-              <div class="bpes-table-wrapper">
+              <div class="bpes-table-wrapper table-scroll">
                 <table class="bpes-table">
                   <thead>
                     <tr>
@@ -542,6 +505,20 @@
         </div>
       </section>
 
+      <section id="std-tab-schedule" class="d-none">
+        <div class="bpes-card mb-4" id="std-week-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div>
+              <h3 class="bpes-card-title">My week</h3>
+              <div class="bpes-card-subtitle">Your section's timetable.</div>
+            </div>
+            <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="std-week-pill">0 periods</span>
+          </div>
+          <div class="p-3" id="std-week-grid"><div class="text-center py-4 text-muted">Loading timetable...</div></div>
+        </div>
+      </section>
+
+      <section id="std-tab-settings" class="d-none"></section>
     </main>
   </div>
 
@@ -561,6 +538,10 @@
         <i class="fas fa-house-user"></i>
         <span>Dashboard</span>
       </div>
+      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('schedule'); closeStudentMobileDrawer();">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
+      </div>
       <div class="bpes-mobile-drawer-item" onclick="showStudentTab('logs'); closeStudentMobileDrawer();">
         <i class="fas fa-clock"></i>
         <span>Attendance History</span>
@@ -568,6 +549,10 @@
       <div class="bpes-mobile-drawer-item" onclick="showStudentTab('leave'); closeStudentMobileDrawer();">
         <i class="fas fa-envelope-open-text"></i>
         <span>File Excuse/Leave</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('settings'); closeStudentMobileDrawer();">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </div>
       <hr>
       <div class="bpes-mobile-drawer-item text-danger" onclick="logout()">

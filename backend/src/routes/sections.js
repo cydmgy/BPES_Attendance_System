@@ -6,6 +6,8 @@ const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
 const { isUuid } = require('../utils/schedule');
 const { parseGradeLevel } = require('../utils/section');
+const { logAudit } = require('../utils/audit');
+const { teachesSection } = require('../utils/access');
 
 const SELECT = 'id, section_name, grade_level, home_room_id, created_at, rooms:home_room_id(id, name)';
 
@@ -18,6 +20,23 @@ router.get('/', auth, async (req, res) => {
   } catch (err) {
     console.error('[GET /sections]', err);
     return res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
+
+// GET /api/sections/:id/students — names only, for the admin or a teacher who teaches the section
+router.get('/:id/students', auth, async (req, res) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid section id' });
+    if (req.user.role !== 'admin' && !(req.user.instructor_id && await teachesSection(req.user.instructor_id, req.params.id))) {
+      return res.status(403).json({ error: 'Not your section' });
+    }
+    const { data, error } = await supabase.from('students')
+      .select('id, full_name, student_id').eq('section_id', req.params.id).order('full_name');
+    if (error) throw error;
+    return res.json(data || []);
+  } catch (err) {
+    console.error('[GET /sections/:id/students]', err);
+    return res.status(500).json({ error: 'Failed to fetch roster' });
   }
 });
 
@@ -36,6 +55,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
     if (error?.code === '23505') return res.status(409).json({ error: 'A section with this name already exists' });
     if (error?.code === '23503') return res.status(400).json({ error: 'Home room does not exist' });
     if (error) throw error;
+    await logAudit(req, { action: 'create', entity: 'section', entityId: data.id, summary: `Created section "${data.section_name}"` });
     return res.status(201).json({ section: data });
   } catch (err) {
     console.error('[POST /sections]', err);
@@ -80,6 +100,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     if (error?.code === '23503') return res.status(400).json({ error: 'Home room does not exist' });
     if (error) throw error;
 
+    await logAudit(req, { action: 'update', entity: 'section', entityId: data.id, summary: `Updated section "${data.section_name}"` });
     return res.json({ section: data });
   } catch (err) {
     console.error('[PUT /sections/:id]', err);
@@ -91,9 +112,10 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
     if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Section not found' });
-    const { error } = await supabase.from('sections').delete().eq('id', req.params.id);
+    const { data: gone, error } = await supabase.from('sections').delete().eq('id', req.params.id).select('section_name');
     if (error?.code === '23503') return res.status(409).json({ error: 'Section has class session history and cannot be deleted' });
     if (error) throw error;
+    await logAudit(req, { action: 'delete', entity: 'section', entityId: req.params.id, summary: `Deleted section "${gone?.[0]?.section_name ?? req.params.id}"` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /sections/:id]', err);

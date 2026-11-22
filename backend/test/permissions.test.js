@@ -204,7 +204,7 @@ test('teacher login: right password 200, wrong 401, a name instead of an email 4
 test('admin registers a student with a guardian -> 201', async () => {
   Object.assign(stub, fakeDb({ instructors: null, sections: { id: OTHER_ID }, students: { id: 's', full_name: 'New Kid' }, guardians: null }));
   const res = await callJson('POST', '/api/students', tokens.admin, {
-    rfid_uid: 'F3062438', student_id: '123456', full_name: 'New Kid', section_id: OTHER_ID, pin: '1234',
+    rfid_uid: 'F3062438', student_id: '123456', full_name: 'New Kid', section_id: OTHER_ID,
     guardian: { full_name: 'Parent', phone_number: '0917' },
   });
   assert.equal(res.status, 201, JSON.stringify(res.json));

@@ -16,11 +16,6 @@
       <div class="bpes-brand-title" id="admin-brand-title">Bagoong Pook Elementary School</div>
     </div>
     <!-- Center nav pills intentionally removed — navigation is in the sidebar -->
-    <div class="bpes-nav-right">
-      <div class="bpes-role-badge">Admin</div>
-      <div class="bpes-avatar" title="System Administrator">A</div>
-      <button class="bpes-btn-logout" onclick="logout()"><span>Logout</span></button>
-    </div>
   </header>
 
   <!-- Mobile Top Header (72px) -->
@@ -32,9 +27,6 @@
       <div class="bpes-mobile-context">ADMIN / BPES PORTAL</div>
       <div class="bpes-mobile-title" id="admin-mobile-header-title">Student Enrollment</div>
     </div>
-    <button class="bpes-hamburger-btn" onclick="logout()" title="Logout">
-      <i class="fas fa-arrow-right-from-bracket"></i>
-    </button>
   </div>
 
   <!-- Main Layout Area (Desktop: 2-Column Sidebar + Content) -->
@@ -75,24 +67,28 @@
           <i class="fas fa-calendar-days"></i>
           <span>Schedules</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-noclass" onclick="showAdminTab('noclass')">
+          <i class="fas fa-calendar-xmark"></i>
+          <span>No class days</span>
+        </div>
         <div class="bpes-sidebar-item" id="sidebar-adm-logs" onclick="showAdminTab('logs')">
           <i class="fas fa-clock"></i>
           <span>Attendance Stream</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-audit" onclick="showAdminTab('audit')">
+          <i class="fas fa-clipboard-list"></i>
+          <span>Audit log</span>
+        </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-settings" onclick="showAdminTab('settings')">
+          <i class="fas fa-gear"></i>
+          <span>Settings</span>
+        </div>
       </nav>
 
-      <!-- Sidebar User Footer & Logout -->
-      <div class="mt-auto pt-3 border-top d-flex align-items-center justify-content-between">
-        <div class="d-flex align-items-center gap-2 overflow-hidden">
-          <div class="bpes-avatar" style="background: var(--color-primary); color: #fff; width: 34px; height: 34px; font-size: 14px; border-radius: 50%;">A</div>
-          <div class="overflow-hidden">
-            <div class="small fw-bold text-dark text-truncate">Administrator</div>
-            <div class="text-muted text-truncate" style="font-size: 11px;">System Admin</div>
-          </div>
-        </div>
-        <button class="btn btn-sm btn-outline-danger border-0 p-2" onclick="logout()" title="Logout">
-          <i class="fas fa-arrow-right-from-bracket"></i>
-        </button>
+      <button type="button" class="bpes-profile-card mt-auto" id="admin-profile-card" data-profile-card hidden onclick="openProfileSettings()"></button>
+      <div class="bpes-sidebar-item text-danger" id="sidebar-logout" onclick="logout()">
+        <i class="fas fa-arrow-right-from-bracket"></i>
+        <span>Logout</span>
       </div>
     </aside>
 
@@ -185,32 +181,6 @@
           </div>
         </div>
 
-        <div class="bpes-card mb-4">
-          <div class="bpes-card-header">
-            <div>
-              <h3 class="bpes-card-title">No-class days</h3>
-              <div class="bpes-card-subtitle">Holidays and suspensions. Adding a day cancels that day's unfinished class periods.</div>
-            </div>
-            <button type="button" class="bpes-btn-danger-outline bpes-btn-sm" id="ncd-suspend-btn" onclick="openSuspendModal()">
-              <i class="fas fa-ban me-1" aria-hidden="true"></i> Suspend classes today
-            </button>
-          </div>
-          <form class="d-flex flex-wrap align-items-end gap-2 mb-3" onsubmit="addNoClassDay(event)">
-            <div><label for="ncd-date" class="form-label small text-muted mb-0">From</label>
-              <input type="date" id="ncd-date" class="bpes-input" style="max-width: 180px;" required></div>
-            <div><label for="ncd-until" class="form-label small text-muted mb-0">To (optional)</label>
-              <input type="date" id="ncd-until" class="bpes-input" style="max-width: 180px;"></div>
-            <input type="text" id="ncd-reason" class="bpes-input flex-grow-1" style="min-width: 180px;" maxlength="200" placeholder="Reason (e.g. Holiday)" aria-label="Reason" required>
-            <button type="submit" class="bpes-btn-outline px-3"><i class="fas fa-plus me-1" aria-hidden="true"></i> Add</button>
-          </form>
-          <div class="bpes-table-wrapper">
-            <table class="bpes-table bpes-table-actions">
-              <thead><tr><th>Date</th><th>Reason</th><th>Action</th></tr></thead>
-              <tbody id="ncd-tbody"><tr><td colspan="3" class="text-center py-4 text-muted">Loading...</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
         <div class="row g-4 mb-4">
           <div class="col-xl-8">
             <div class="bpes-card h-100">
@@ -261,14 +231,11 @@
       <!-- TAB 1: Student Enrollment -->
       <!-- ============================================================ -->
       <section id="adm-tab-students">
-        <div class="row g-4">
-          
-          <!-- Left: enrollment-card  -->
-          <div class="col-12 col-xl-4">
-            <div class="bpes-card mb-4" id="enrollment-card">
-              
-              <!-- rfid-scanner sub-panel -->
-              <div class="p-4 rounded-4 text-center mb-4" onclick="startTapToEnrollInline()" style="background: var(--color-bg); border: 1px dashed var(--color-border); cursor: pointer;" title="Click to scan RFID card">
+        <!-- Tap-to-enroll: scan panel and submit button on the left, form on the right -->
+        <div class="bpes-card mb-4" id="enrollment-card">
+          <div class="row g-4 align-items-start">
+            <div class="col-12 col-lg-3">
+              <div class="p-4 rounded-4 text-center" onclick="startTapToEnrollInline()" style="background: var(--color-bg); border: 1px dashed var(--color-border); cursor: pointer;" title="Click to scan RFID card">
                 <div class="mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; border-radius: 50%; background: var(--color-primary-soft); color: var(--color-primary); font-size: 24px;">
                   <i class="fas fa-wifi" id="rfid-scan-icon"></i>
                 </div>
@@ -278,130 +245,113 @@
                   <i class="fas fa-id-card me-2"></i> Scan RFID card
                 </button>
               </div>
+              <!-- Desktop copy of the submit button (the form copy below shows on phones, after the fields) -->
+              <button type="submit" form="enrollment-form" id="btn-submit-enroll-side" class="bpes-btn-primary enroll-submit w-100 justify-content-center py-3 mt-3 d-none d-lg-flex">
+                <span>Enroll student</span>
+              </button>
+            </div>
 
-              <!-- enrollment-form -->
+            <div class="col-12 col-lg-9">
               <form id="enrollment-form" onsubmit="submitInlineEnrollForm(event)">
-                <div class="bpes-form-group">
-                  <label for="enroll-id-input" class="bpes-label">Student ID</label>
-                  <input type="text" id="enroll-id-input" class="bpes-input" placeholder="e.g. 109283740192" required>
-                </div>
-
-                <div class="bpes-form-group">
-                  <label for="enroll-name-input" class="bpes-label">Full name</label>
-                  <input type="text" id="enroll-name-input" class="bpes-input" placeholder="Last Name, First Name M.I." required>
-                </div>
-
-                <div class="row g-2">
+                <div class="row g-3">
+                  <div class="col-12 col-md-4">
+                    <label for="enroll-id-input" class="bpes-label">Student ID</label>
+                    <input type="text" id="enroll-id-input" class="bpes-input" placeholder="e.g. 109283740192" required>
+                  </div>
+                  <div class="col-12 col-md-8">
+                    <label for="enroll-name-input" class="bpes-label">Full name</label>
+                    <input type="text" id="enroll-name-input" class="bpes-input" placeholder="Surname, First M." aria-describedby="enroll-name-help" required>
+                    <div class="form-text" id="enroll-name-help">Surname, First M. (put a comma after multi-word surnames)</div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label for="enroll-section-input" class="bpes-label">Section (Room)</label>
+                    <select id="enroll-section-input" class="bpes-select" required>
+                      <option value="">Select section</option>
+                    </select>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label for="enroll-rfid-input" class="bpes-label">RFID card</label>
+                    <input type="text" id="enroll-rfid-input" class="bpes-input" placeholder="Scan or type UID" required>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label for="enroll-date-input" class="bpes-label">Enrollment date</label>
+                    <input type="date" id="enroll-date-input" class="bpes-input">
+                  </div>
                   <div class="col-12">
-                    <div class="bpes-form-group">
-                      <label for="enroll-section-input" class="bpes-label">Section (Room)</label>
-                      <select id="enroll-section-input" class="bpes-select" required>
-                        <option value="">Select section</option>
-                      </select>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                      <i class="fas fa-user-shield text-success"></i>
+                      <span class="fw-bold small text-dark">Guardian Information</span>
                     </div>
                   </div>
-                </div>
-
-                <div class="bpes-form-group">
-                  <label for="enroll-rfid-input" class="bpes-label">RFID card</label>
-                  <input type="text" id="enroll-rfid-input" class="bpes-input" placeholder="Scan or type UID" required>
-                </div>
-
-                <div class="bpes-form-group">
-                  <label for="enroll-pin-input" class="bpes-label">Login PIN</label>
-                  <input type="text" id="enroll-pin-input" class="bpes-input" placeholder="At least 4 characters" minlength="4" autocomplete="off" required>
-                </div>
-
-                <div class="bpes-form-group">
-                  <label for="enroll-date-input" class="bpes-label">Enrollment date</label>
-                  <input type="date" id="enroll-date-input" class="bpes-input">
-                </div>
-
-                <!-- Guardian Information Section -->
-                <div class="mt-3 pt-3 border-top">
-                  <div class="d-flex align-items-center gap-2 mb-2">
-                    <i class="fas fa-user-shield text-success"></i>
-                    <span class="fw-bold small text-dark">Guardian Information</span>
-                  </div>
-
-                  <div class="bpes-form-group">
+                  <div class="col-12 col-md-4">
                     <label for="enroll-guardian-name" class="bpes-label">Guardian full name</label>
                     <input type="text" id="enroll-guardian-name" class="bpes-input" placeholder="e.g. Maria dela Cruz" required>
                   </div>
-
-                  <div class="row g-2">
-                    <div class="col-12">
-                      <div class="bpes-form-group">
-                        <label for="enroll-guardian-phone" class="bpes-label">Phone number</label>
-                        <input type="tel" id="enroll-guardian-phone" class="bpes-input" placeholder="0912 345 6789" required>
-                      </div>
-                    </div>
-                    <div class="col-12">
-                      <div class="bpes-form-group">
-                        <label for="enroll-guardian-relation" class="bpes-label">Relationship</label>
-                        <select id="enroll-guardian-relation" class="bpes-select">
-                          <option value="Parent">Parent</option>
-                          <option value="Mother">Mother</option>
-                          <option value="Father">Father</option>
-                          <option value="Guardian">Guardian</option>
-                          <option value="Sibling">Sibling</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
+                  <div class="col-12 col-md-4">
+                    <label for="enroll-guardian-phone" class="bpes-label">Phone number</label>
+                    <input type="tel" id="enroll-guardian-phone" class="bpes-input" placeholder="0912 345 6789" required>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label for="enroll-guardian-relation" class="bpes-label">Relationship</label>
+                    <select id="enroll-guardian-relation" class="bpes-select">
+                      <option value="Parent">Parent</option>
+                      <option value="Mother">Mother</option>
+                      <option value="Father">Father</option>
+                      <option value="Guardian">Guardian</option>
+                      <option value="Sibling">Sibling</option>
+                      <option value="Other">Other</option>
+                    </select>
                   </div>
                 </div>
-
-                <button type="submit" id="btn-submit-enroll" class="bpes-btn-primary w-100 py-3 mt-3">
+                <button type="submit" id="btn-submit-enroll" class="bpes-btn-primary enroll-submit px-5 py-3 mt-3 d-lg-none">
                   <span>Enroll student</span>
                 </button>
               </form>
+            </div>
+          </div>
+        </div>
 
+        <!-- Enrolled students below, scrolls inside the card -->
+        <div class="bpes-card" id="enrolled-students-card">
+          <div class="bpes-card-header flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <h3 class="bpes-card-title">Enrolled students</h3>
+              <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="enrolled-count-pill">0 students</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <select id="adm-student-section-filter" class="bpes-select" aria-label="Filter by section" onchange="filterAdminStudents()" style="height: 38px; width: 200px; font-size: 13px;">
+                <option value="">All sections</option>
+              </select>
+              <input type="text" id="adm-student-search" class="bpes-input" placeholder="Search students..." oninput="filterAdminStudents()" style="height: 38px; width: 220px; font-size: 13px;">
             </div>
           </div>
 
-          <!-- Right: enrolled-students-card -->
-          <div class="col-12 col-xl-8">
-            <div class="bpes-card" id="enrolled-students-card">
-              <div class="bpes-card-header flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2">
-                  <h3 class="bpes-card-title">Enrolled students</h3>
-                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="enrolled-count-pill">0 students</span>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                  <input type="text" id="adm-student-search" class="bpes-input" placeholder="Search students..." oninput="filterAdminStudents()" style="height: 38px; width: 220px; font-size: 13px;">
-                </div>
-              </div>
-
-              <div class="bpes-table-wrapper">
-                <table class="bpes-table bpes-table-actions">
-                  <thead>
-                    <tr>
-                      <th>Student</th>
-                      <th>Section</th>
-                      <th>RFID</th>
-                      <th>Room</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="adm-students-tbody">
-                    <tr>
-                      <td colspan="6" class="text-center py-4 text-muted">
-                        <span class="spinner-border spinner-border-sm me-2"></span> Loading enrolled students...
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div class="d-flex justify-content-between align-items-center mt-3 pt-2 text-muted small">
-                <span id="adm-students-pagination-label">Showing records</span>
-                <span class="badge bg-light text-dark border">DepEd / BPES</span>
-              </div>
-            </div>
+          <div class="bpes-table-wrapper table-scroll">
+            <table class="bpes-table bpes-table-actions">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Section</th>
+                  <th>RFID</th>
+                  <th>Room</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adm-students-tbody">
+                <tr>
+                  <td colspan="6" class="text-center py-4 text-muted">
+                    <span class="spinner-border spinner-border-sm me-2"></span> Loading enrolled students...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
+          <div class="d-flex justify-content-between align-items-center mt-3 pt-2 text-muted small">
+            <span id="adm-students-pagination-label">Showing records</span>
+            <span class="badge bg-light text-dark border">DepEd / BPES</span>
+          </div>
         </div>
       </section>
 
@@ -565,7 +515,7 @@
                   <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="sections-count-pill">0 sections</span>
                 </div>
               </div>
-              <div class="bpes-table-wrapper">
+              <div class="bpes-table-wrapper table-scroll">
                 <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
@@ -623,7 +573,7 @@
                   <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="subjects-count-pill">0 subjects</span>
                 </div>
               </div>
-              <div class="bpes-table-wrapper">
+              <div class="bpes-table-wrapper table-scroll">
                 <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
@@ -648,7 +598,7 @@
       <section id="adm-tab-schedules" class="d-none">
         <div class="row g-4">
           <div class="col-12 col-xl-4">
-            <div class="bpes-card mb-4">
+            <div class="bpes-card mb-4 mb-xl-0">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Add class period</h3>
                 <div class="bpes-card-subtitle">Pick a section; its home room is used automatically.</div>
@@ -665,7 +615,7 @@
                 </div>
                 <div class="bpes-form-group">
                   <label for="sch-teacher-input" class="bpes-label">Teacher</label>
-                  <select id="sch-teacher-input" class="bpes-select"></select>
+                  <select id="sch-teacher-input" class="bpes-select" onchange="refreshScheduleAvailability()"></select>
                 </div>
                 <div class="bpes-form-group">
                   <label for="sch-day-input" class="bpes-label">Day</label>
@@ -673,6 +623,10 @@
                     <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
                     <option>Thursday</option><option>Friday</option><option>Saturday</option>
                   </select>
+                </div>
+                <div class="bpes-form-group">
+                  <div class="bpes-label">Available times</div>
+                  <div id="sch-free-times" class="d-flex flex-wrap gap-2 small text-muted" aria-live="polite">Pick a day and a section to see free times</div>
                 </div>
                 <div class="row g-2">
                   <div class="col-6">
@@ -697,7 +651,7 @@
           </div>
 
           <div class="col-12 col-xl-8">
-            <div class="bpes-card">
+            <div class="bpes-card sch-table-card">
               <div class="bpes-card-header flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                   <h3 class="bpes-card-title">Timetable</h3>
@@ -714,7 +668,7 @@
                   </select>
                 </div>
               </div>
-              <div class="bpes-table-wrapper">
+              <div class="sch-table-body"><div class="table-scroll bpes-table-wrapper">
                 <table class="bpes-table bpes-table-actions">
                   <thead>
                     <tr>
@@ -729,7 +683,7 @@
                     <tr><td colspan="5" class="text-center py-4 text-muted">Loading schedules...</td></tr>
                   </tbody>
                 </table>
-              </div>
+              </div></div>
             </div>
           </div>
         </div>
@@ -813,6 +767,80 @@
 
       </section>
 
+      <!-- ============================================================ -->
+      <!-- TAB: No class days -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-noclass" class="d-none">
+        <div class="bpes-card">
+          <div class="bpes-card-header">
+            <div>
+              <h3 class="bpes-card-title">No-class days</h3>
+              <div class="bpes-card-subtitle">Holidays and suspensions. Adding a day cancels that day's unfinished class periods.</div>
+            </div>
+            <button type="button" class="bpes-btn-danger-outline bpes-btn-sm" id="ncd-suspend-btn" onclick="openSuspendModal()">
+              <i class="fas fa-ban me-1" aria-hidden="true"></i> Suspend classes today
+            </button>
+          </div>
+          <form class="d-flex flex-wrap align-items-end gap-2 mb-3" onsubmit="addNoClassDay(event)">
+            <div><label for="ncd-date" class="form-label small text-muted mb-0">From</label>
+              <input type="date" id="ncd-date" class="bpes-input" style="max-width: 180px;" required></div>
+            <div><label for="ncd-until" class="form-label small text-muted mb-0">To (optional)</label>
+              <input type="date" id="ncd-until" class="bpes-input" style="max-width: 180px;"></div>
+            <input type="text" id="ncd-reason" class="bpes-input flex-grow-1" style="min-width: 180px;" maxlength="200" placeholder="Reason (e.g. Holiday)" aria-label="Reason" required>
+            <button type="submit" class="bpes-btn-outline px-3"><i class="fas fa-plus me-1" aria-hidden="true"></i> Add</button>
+          </form>
+          <div class="bpes-table-wrapper table-scroll">
+            <table class="bpes-table bpes-table-actions">
+              <thead><tr><th>Date</th><th>Reason</th><th>Action</th></tr></thead>
+              <tbody id="ncd-tbody"><tr><td colspan="3" class="text-center py-4 text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="adm-tab-audit" class="d-none">
+        <div class="bpes-card">
+          <div class="bpes-card-header">
+            <div>
+              <h3 class="bpes-card-title">Audit log</h3>
+              <div class="bpes-card-subtitle">Who changed what, and when. Newest first.</div>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <select id="audit-entity" class="bpes-input" style="max-width: 200px;" aria-label="Filter by what changed" onchange="loadAudit(true)">
+              <option value="">All changes</option>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="section">Section</option>
+              <option value="subject">Subject</option>
+              <option value="room">Room</option>
+              <option value="schedule">Schedule</option>
+              <option value="schedule_override">Schedule override</option>
+              <option value="no_class_day">No-class day</option>
+              <option value="leave_request">Leave request</option>
+              <option value="attendance">Attendance</option>
+              <option value="admin">Admin</option>
+            </select>
+            <select id="audit-role" class="bpes-input" style="max-width: 200px;" aria-label="Filter by who" onchange="loadAudit(true)">
+              <option value="">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="teacher">Teacher</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
+          <div class="bpes-table-wrapper table-scroll">
+            <table class="bpes-table">
+              <thead><tr><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Details</th></tr></thead>
+              <tbody id="audit-tbody"><tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="text-center mt-3">
+            <button type="button" id="audit-more" class="bpes-btn-outline px-3 d-none" onclick="loadAudit(false)">Load more</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="adm-tab-settings" class="d-none"></section>
     </main>
   </div>
 
@@ -852,9 +880,21 @@
         <i class="fas fa-calendar-days"></i>
         <span>Schedules</span>
       </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('noclass'); closeAdminMobileDrawer();">
+        <i class="fas fa-calendar-xmark"></i>
+        <span>No class days</span>
+      </div>
       <div class="bpes-mobile-drawer-item" onclick="showAdminTab('logs'); closeAdminMobileDrawer();">
         <i class="fas fa-clock"></i>
         <span>Attendance Stream</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('audit'); closeAdminMobileDrawer();">
+        <i class="fas fa-clipboard-list"></i>
+        <span>Audit log</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('settings'); closeAdminMobileDrawer();">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </div>
       <hr>
       <div class="bpes-mobile-drawer-item text-danger" onclick="logout()">
@@ -913,6 +953,47 @@
   </div>
 
   <!-- Suspend classes today: asks for a reason first -->
+  <div class="modal fade" id="enroll-pw-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Student enrolled</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2" id="enroll-pw-name"></p>
+          <div class="small text-muted">Default password (shown once)</div>
+          <div class="fw-bold fs-4 font-monospace user-select-all" id="enroll-pw-value"></div>
+          <p class="small text-muted mt-2 mb-0">Give this to the student. They must change it on first login.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="bpes-btn-primary px-3" data-bs-dismiss="modal">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="student-pw-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" onsubmit="confirmStudentPassword(event)" autocomplete="off">
+        <div class="modal-header">
+          <h5 class="modal-title">Change password</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2" id="student-pw-name"></p>
+          <label for="student-pw-input" class="bpes-label">New password</label>
+          <input type="password" id="student-pw-input" class="bpes-input" minlength="4" autocomplete="new-password" required>
+          <div class="form-text">At least 4 characters.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="bpes-btn-outline px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="bpes-btn-primary px-3" id="student-pw-confirm-btn">Change password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div class="modal fade" id="suspend-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <form class="modal-content" onsubmit="confirmSuspendToday(event)">

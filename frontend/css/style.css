@@ -275,6 +275,10 @@ a:hover {
   padding: 24px 20px;
 }
 
+/* Scrolling table wrapper: header stays visible */
+.table-scroll { max-height: 60vh; overflow: auto; }
+.table-scroll thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
+
 /* ============================================================
    DESKTOP TOP NAVBAR (72px, Figma Green)
    ============================================================ */
@@ -393,6 +397,7 @@ a:hover {
 }
 
 .bpes-avatar {
+  overflow: hidden;
   width: 36px;
   height: 36px;
   border-radius: var(--radius-pill);
@@ -404,6 +409,13 @@ a:hover {
   font-size: 15px;
   font-weight: 700;
 }
+
+.bpes-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bpes-avatar-lg { width: 72px; height: 72px; font-size: 28px; background: var(--color-primary); color: #fff; flex: none; }
+.bpes-pick { min-height: 44px; cursor: pointer; }
+.bpes-pick.disabled { opacity: .6; pointer-events: none; }
+#settings-avatar-file:focus-visible + .bpes-pick { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
+#student-avatar-big { overflow: hidden; }
 
 /* ============================================================
    DESKTOP 2-COLUMN LAYOUT (Sidebar + Main)
@@ -425,8 +437,10 @@ a:hover {
   position: sticky;
   top: 72px;
   height: calc(100vh - 72px);
-  overflow-y: auto;
+  overflow: hidden; /* only .bpes-sidebar-nav scrolls; profile card and Logout stay pinned */
 }
+
+.bpes-sidebar > * { flex-shrink: 0; }
 
 .bpes-sidebar-subtitle {
   font-size: 12px;
@@ -454,14 +468,20 @@ a:hover {
 .bpes-sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
+
+.bpes-sidebar .bpes-sidebar-nav { flex-shrink: 1; }
 
 .bpes-sidebar-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  min-height: 40px;
+  padding: 8px 14px;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
@@ -913,10 +933,11 @@ a:hover {
   position: sticky;
   right: 0;
   z-index: 1;
-  background: #FFFFFF;
-  box-shadow: -10px 0 10px -10px rgba(20, 83, 45, 0.22);
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.15);
 }
-.bpes-table-actions th:last-child { background: var(--color-bg-soft); }
+.bpes-table-actions th:last-child { z-index: 2; }
+/* th keeps the same background as the other headers (soft green, or white inside .table-scroll) */
+.bpes-table-actions td:last-child { background: #FFFFFF; }
 .bpes-table-actions tr:hover td:last-child { background-color: #F8FCF9; }
 
 /* Several buttons in one Actions cell: side by side on very wide screens, stacked below that so the table fits */
@@ -1001,7 +1022,7 @@ a:hover {
   background-color: var(--color-forest-green);
   display: none;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 0 16px;
   position: sticky;
   top: 0;
@@ -1076,9 +1097,21 @@ a:hover {
 }
 
 .bpes-drawer-header {
-  padding: 24px 20px;
+  position: relative;
+  flex-shrink: 0;
+  padding: 24px 68px 24px 20px;
   border-bottom: 1px solid var(--color-border);
 }
+
+.bpes-drawer-close {
+  position: absolute; top: 12px; right: 12px; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: var(--radius-pill);
+  font-size: 18px; color: var(--color-subtle-green); cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.bpes-drawer-close:hover { background: var(--color-primary-soft); color: var(--color-primary); }
+.bpes-drawer-close:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
 
 .bpes-drawer-context {
   font-size: 11px;
@@ -1098,6 +1131,8 @@ a:hover {
 .bpes-drawer-nav {
   padding: 16px 12px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1122,6 +1157,7 @@ a:hover {
 }
 
 .bpes-drawer-footer {
+  flex-shrink: 0;
   padding: 16px 20px;
   border-top: 1px solid var(--color-border);
 }
@@ -1719,6 +1755,80 @@ a:hover {
   outline: 3px solid rgba(20, 83, 45, 0.45);
   outline-offset: 2px;
 }
+/* Inside the scrolling navs a 2px outer ring would be clipped */
+.bpes-sidebar-nav .bpes-sidebar-item:focus-visible,
+.bpes-drawer-nav .bpes-drawer-item:focus-visible {
+  outline: 3px solid rgba(20, 83, 45, 0.45);
+  outline-offset: -3px;
+}
+
+/* Signed-in user card above Logout (sidebar and phone drawer) */
+.bpes-profile-card {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px;
+  padding: 8px 12px; text-align: left; cursor: pointer;
+  background: var(--color-bg-soft); border: 1px solid var(--color-border); border-radius: 12px;
+  transition: var(--transition-smooth);
+}
+.bpes-profile-card[hidden] { display: none; }
+.bpes-profile-card:hover { border-color: var(--color-border-hover); }
+.bpes-profile-card:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
+.bpes-profile-card .bpes-avatar { flex: none; background: var(--color-primary); color: #fff; }
+.bpes-profile-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.bpes-profile-name { font-size: 14px; font-weight: 700; color: var(--color-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bpes-profile-sub { font-size: 12px; color: var(--color-subtle-green); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bpes-profile-lrn { font-size: 11px; }
+
+/* Classes tab: Students button reachable on touch screens */
+@media (pointer: coarse) { .tch-students-btn { min-height: 44px; } }
+
+/* Password field with show/hide eye (js/settings.js) */
+.bpes-pw-field { position: relative; }
+.bpes-pw-field .form-control { min-height: 44px; padding-right: 48px; }
+.bpes-pw-toggle {
+  position: absolute; top: 0; right: 0; width: 44px; height: 100%; min-height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: var(--radius-input);
+  color: var(--color-subtle-green); cursor: pointer;
+}
+.bpes-pw-toggle:hover { color: var(--color-primary); }
+.bpes-pw-toggle:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: -3px; }
+
+/* Settings page (js/settings.js): one narrow column of compact cards */
+.bpes-settings { max-width: 720px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
+.bpes-settings .bpes-set-card { padding: 20px; border-radius: 16px; }
+.bpes-set-title { font-size: 15px; font-weight: 700; color: var(--color-primary); margin: 0 0 14px; }
+.bpes-set-id { display: flex; align-items: center; gap: 14px; }
+.bpes-settings .bpes-avatar-lg { width: 64px; height: 64px; font-size: 24px; }
+.bpes-set-id-body { min-width: 0; }
+.bpes-set-name { font-size: 16px; font-weight: 700; color: var(--color-text-main); line-height: 1.25; overflow-wrap: anywhere; }
+.bpes-set-role { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 8px; }
+.bpes-set-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.bpes-settings .bpes-set-btn { padding: 0 18px; min-height: 40px; font-size: 14px; }
+.bpes-settings .bpes-pick { min-height: 40px; }
+.bpes-set-remove { background: none; border: 0; padding: 0 4px; min-height: 40px; font-size: 13px; font-weight: 600; color: var(--color-red); cursor: pointer; border-radius: 8px; }
+.bpes-set-remove:hover { text-decoration: underline; }
+.bpes-set-remove:focus-visible { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
+.bpes-set-remove:disabled { opacity: .6; cursor: default; }
+.bpes-set-remove[hidden] { display: none; }
+.bpes-set-help { font-size: 12px; color: var(--color-text-muted); margin: 10px 0 0; }
+.bpes-set-hr { border: 0; border-top: 1px solid var(--color-border); opacity: 1; margin: 16px 0; }
+.bpes-settings .form-label { font-size: 13px; font-weight: 600; color: var(--color-text-main); margin-bottom: 4px; }
+.bpes-settings .form-control { min-height: 40px; font-size: 14px; padding: 8px 12px; }
+.bpes-settings .bpes-pw-field { margin-bottom: 14px !important; }
+.bpes-settings .bpes-pw-field .form-control { min-height: 40px; padding-right: 48px; }
+.bpes-settings .bpes-pw-toggle { min-height: 40px; }
+.bpes-settings .bpes-pw-field + .bpes-set-help { margin-top: -6px; }
+.bpes-set-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+.bpes-set-dl { display: grid; grid-template-columns: minmax(80px, 120px) 1fr; gap: 8px 12px; margin: 0; font-size: 14px; }
+.bpes-set-dl dt { font-weight: 500; color: var(--color-text-secondary); }
+.bpes-set-dl dd { margin: 0; color: var(--color-text-main); overflow-wrap: anywhere; }
+@media (pointer: coarse) {
+  .bpes-settings .bpes-set-btn, .bpes-settings .bpes-pick, .bpes-set-remove, .bpes-settings .form-control, .bpes-settings .bpes-pw-field .form-control, .bpes-settings .bpes-pw-toggle { min-height: 44px; }
+}
+@media (max-width: 575.98px) {
+  .bpes-settings .bpes-set-card { padding: 16px; }
+  .bpes-set-foot .bpes-set-btn { width: 100%; }
+}
 
 /* ============================================================
    DASHBOARD CHARTS (js/charts.js)
@@ -1809,3 +1919,12 @@ a:hover {
 .bpes-cal-block.is-short > strong { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bpes-cal-block.is-short > :nth-child(3) { order: 2; white-space: nowrap; }
 .bpes-cal-block.is-short > :nth-child(2) { order: 3; flex-basis: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Admin schedules: on xl the timetable card matches the Add form card's height and scrolls inside it */
+.sch-table-card .table-scroll { border: 0; }
+@media (min-width: 1200px) {
+  .sch-table-card { height: 100%; display: flex; flex-direction: column; }
+  .sch-table-body { position: relative; flex: 1 1 0; min-height: 0; }
+  .sch-table-body .table-scroll { position: absolute; inset: 0; max-height: none; }
+}
+.bpes-settings .form-control[readonly] { background: #f1f3f5; color: #6c757d; }

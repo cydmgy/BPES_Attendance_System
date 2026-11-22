@@ -11,15 +11,27 @@ function initStudentPortal() {
     stdLeaveDateEl.min = today;
   }
 
-  const todayDateBadge = document.getElementById('student-today-date');
-  if (todayDateBadge) {
-    todayDateBadge.textContent = `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }
+  startLiveClock(() => {
+    setText('student-today-date', manilaTodayLabel());
+    refreshGreeting('student-greeting');
+  });
+  BpesProfile.load();
 
   populateStudentSubjectDropdowns();
+  checkDefaultPassword();
   showStudentTab('overview');
   loadStudentPortalData();
 }
+
+// Persistent banner on every tab while the account still has the default PIN; /api/account/me is the source of truth.
+async function checkDefaultPassword() {
+  try {
+    const me = (await axios.get(`${API_BASE}/api/account/me`)).data;
+    document.getElementById('std-pw-banner')?.classList.toggle('d-none', !me.must_change_password);
+    document.getElementById('std-pw-banner')?.classList.toggle('d-flex', !!me.must_change_password);
+  } catch (err) { /* no banner if the check fails */ }
+}
+window.addEventListener('bpes:password-changed', checkDefaultPassword);
 
 function populateStudentSubjectDropdowns() {
   const filterSubj = document.getElementById('std-filter-subject');
@@ -36,7 +48,7 @@ function populateStudentSubjectDropdowns() {
 // ── Student Tabs ──────────────────────────────────────────────
 
 function showStudentTab(tab) {
-  const tabs = ['overview', 'logs', 'leave'];
+  const tabs = ['overview', 'schedule', 'logs', 'leave', 'settings'];
   tabs.forEach(t => {
     document.getElementById(`std-tab-${t}`)?.classList.toggle('d-none', t !== tab);
     document.getElementById(`tablink-std-${t}`)?.classList.toggle('active', t === tab);
@@ -54,6 +66,12 @@ function showStudentTab(tab) {
     if (mobileTitle) mobileTitle.textContent = 'Dashboard';
     if (welcomeDesc) welcomeDesc.textContent = 'Track your attendance, upcoming classes, and leave status.';
     loadStudentPortalData();
+  } else if (tab === 'schedule') {
+    if (sidebarTitle) sidebarTitle.textContent = 'Schedule';
+    if (sidebarDesc) sidebarDesc.textContent = "Your section's weekly timetable.";
+    if (mobileTitle) mobileTitle.textContent = 'Schedule';
+    if (welcomeDesc) welcomeDesc.textContent = 'See your classes for the week.';
+    loadStudentSchedule();
   } else if (tab === 'logs') {
     if (sidebarTitle) sidebarTitle.textContent = 'Attendance History';
     if (sidebarDesc) sidebarDesc.textContent = 'Review all personal attendance records with date, time, room, status, and teacher.';
@@ -66,6 +84,8 @@ function showStudentTab(tab) {
     if (mobileTitle) mobileTitle.textContent = 'File Excuse / Leave';
     if (welcomeDesc) welcomeDesc.textContent = 'Submit an absence request and track its review status.';
     loadStudentLeaveHistory();
+  } else if (tab === 'settings') {
+    openSettingsTab('student', 'std', [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]);
   }
 }
 
@@ -95,8 +115,6 @@ async function loadStudentPortalData() {
   const initials = displayName.charAt(0).toUpperCase();
 
   // Populate UI Profile fields
-  const navNameEl = document.getElementById('student-nav-name');
-  const avatarEl = document.getElementById('student-avatar');
   const avatarBigEl = document.getElementById('student-avatar-big');
   const cardNameEl = document.getElementById('std-card-name');
   const detailNameEl = document.getElementById('std-detail-name');
@@ -105,14 +123,7 @@ async function loadStudentPortalData() {
   const cardRfidEl = document.getElementById('std-card-rfid');
   const greetingEl = document.getElementById('student-greeting');
 
-  const sidebarUserName = document.getElementById('student-sidebar-user-name');
-  const sidebarUserLrn = document.getElementById('student-sidebar-user-lrn');
-
-  if (navNameEl) navNameEl.textContent = displayName;
-  if (avatarEl) avatarEl.textContent = initials;
   if (avatarBigEl) avatarBigEl.textContent = initials;
-  if (sidebarUserName) sidebarUserName.textContent = displayName;
-  if (sidebarUserLrn) sidebarUserLrn.textContent = `LRN: ${displayLrn}`;
   if (cardNameEl) cardNameEl.textContent = displayName;
   if (detailNameEl) detailNameEl.textContent = displayName;
   if (cardIdEl) cardIdEl.textContent = displayLrn;
@@ -134,18 +145,14 @@ async function loadStudentPortalData() {
     const results = await Promise.allSettled([
       axios.get(`${API_BASE}/api/attendance`, { params: { limit: 500 } }),
       axios.get(`${API_BASE}/api/attendance/weekly`, { params: { from: termFrom, to: today } }),
-      axios.get(`${API_BASE}/api/sessions/today`),
-      axios.get(`${API_BASE}/api/schedules/my-week`),
       axios.get(`${API_BASE}/api/attendance/trend`, { params: { days: 14 } }),
     ]);
-    const [logsData, reportData, todayData, weekData, trendData] = results.map(r => (r.status === 'fulfilled' ? r.value.data : null));
+    const [logsData, reportData, trendData] = results.map(r => (r.status === 'fulfilled' ? r.value.data : null));
 
     studentLogsCache = logsData?.logs || [];
     studentReport = reportData?.report?.[0] || null;
     renderStudentStats();
     BpesCharts.trendBars('std-trend-chart', trendData?.days || [], 'No classes held in the last 14 days.');
-    renderStudentToday(todayData?.periods);
-    renderStudentWeek(weekData?.schedules);
     renderStudentRecent();
     renderStudentHistory();
   } catch (err) {
@@ -186,23 +193,14 @@ function renderStudentStats() {
   setText('std-logs-teachers-sub', `${rooms.size} room${rooms.size === 1 ? '' : 's'} recorded`);
 }
 
-// ── Today's classes and the weekly timetable ─────────────────
+// ── Schedule tab: the weekly timetable ───────────────────────
 
-function renderStudentToday(periods) {
-  const tbody = document.getElementById('std-today-tbody');
-  if (!tbody) return;
-  const list = periods || [];
-  setText('std-today-pill', `${list.length} class${list.length === 1 ? '' : 'es'}`);
-  tbody.innerHTML = list.length === 0
-    ? '<tr><td colspan="5" class="text-center py-4 text-muted">No classes scheduled today.</td></tr>'
-    : list.map(p => `
-      <tr>
-        <td>${shortTime(p.start_time)} – ${shortTime(p.end_time)}</td>
-        <td>${escapeHtml(p.subject?.name || '—')}<span class="bpes-cell-sub">${escapeHtml(p.subject?.code || '')}</span></td>
-        <td>${escapeHtml(p.room || '—')}</td>
-        <td>${escapeHtml(p.teacher?.full_name || '—')}</td>
-        <td>${statusBadge(p.badge)}</td>
-      </tr>`).join('');
+async function loadStudentSchedule() {
+  try {
+    renderStudentWeek((await axios.get(`${API_BASE}/api/schedules/my-week`)).data.schedules);
+  } catch (err) {
+    console.error('Error fetching timetable:', err);
+  }
 }
 
 // Weekly timetable from TeacherSchedule.buildWeekCalendar (js/teacher-schedule.js): a time-proportional calendar from 768px up, stacked by day below.

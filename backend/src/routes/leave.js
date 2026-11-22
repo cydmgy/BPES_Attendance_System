@@ -1,7 +1,7 @@
 // /api/leave — Leave / Excuse Request management
 // POST  /api/leave          — File a new leave request (student or admin)
 // GET   /api/leave          — List leave requests (filterable by status)
-// PATCH /api/leave/:id      — Approve or reject a request (instructor or admin)
+// PATCH /api/leave/:id      — Approve or reject a request (teacher or admin)
 // POST  /api/leave/:id/attachments        — Student attaches a file (raw bytes) to a pending request
 // GET   /api/leave/:id/attachments/:attId — Short-lived signed URL to open a file
 
@@ -12,6 +12,7 @@ const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const { withSectionName } = require('../utils/section');
 const { canReviewLeave } = require('../utils/access');
+const { logAudit } = require('../utils/audit');
 const { isUuid, dayNameOf } = require('../utils/schedule');
 const { LEAVE_TYPES, leaveCoversPeriod, leaveTypesConflict } = require('../utils/leave');
 const { MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName, isSetupMissing } = require('../utils/attachment');
@@ -250,13 +251,13 @@ router.patch('/:id', auth, async (req, res) => {
 
     // Only teachers and admins review leave
     if (req.user?.role !== 'admin' && !req.user?.instructor_id) {
-      return res.status(403).json({ error: 'Only instructors or administrators can review leave requests' });
+      return res.status(403).json({ error: 'Only teachers or administrators can review leave requests' });
     }
     // Reviewer record (the built-in admin has none)
-    let instructor = null;
+    let teacher = null;
     if (req.user.instructor_id) {
       const { data } = await supabase.from('instructors').select('id').eq('id', req.user.instructor_id).maybeSingle();
-      instructor = data;
+      teacher = data;
     }
 
     // Fetch the leave request
@@ -279,7 +280,7 @@ router.patch('/:id', auth, async (req, res) => {
       return res.status(409).json({ error: `Request is already ${leave.status}` });
     }
 
-    const reviewerId = instructor ? instructor.id : null;
+    const reviewerId = teacher ? teacher.id : null;
 
     // Approved: first excuse the student in that date's sessions that already exist (open, no_teacher or closed),
     // only the leave's subject when it names one. Sessions not opened yet pick the leave up themselves
@@ -350,6 +351,7 @@ router.patch('/:id', auth, async (req, res) => {
     if (updateError) throw updateError;
     if (!updated?.length) return res.status(409).json({ error: 'Request was already reviewed' });
 
+    await logAudit(req, { action: action === 'approved' ? 'approve' : 'decline', entity: 'leave_request', entityId: req.params.id, summary: `${action === "approved" ? "Approved" : "Declined"} ${leave.leave_type} leave for ${leave.leave_date}` });
     return res.json({
       success: true,
       message: `Leave request ${action}`,

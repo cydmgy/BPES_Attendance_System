@@ -34,6 +34,26 @@ function greetingWord() {
   return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 }
 
+// 'Today, 2:35 PM' on the Manila clock.
+function manilaTodayLabel() {
+  return `Today, ${new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' })}`;
+}
+
+// Swap only the greeting word, so 'Good morning, Ana!' becomes 'Good afternoon, Ana!' at noon.
+function refreshGreeting(id) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = el.textContent.replace(/^Good (morning|afternoon|evening|day)/, greetingWord());
+}
+
+// One live clock per page: runs update now and every 30 s; loadPage() stops it, so logins never stack timers.
+let liveClockTimer = null;
+function stopLiveClock() { clearInterval(liveClockTimer); liveClockTimer = null; }
+function startLiveClock(update) {
+  stopLiveClock();
+  update();
+  liveClockTimer = setInterval(update, 30000);
+}
+
 // Sidebar and drawer entries are <div onclick>: make them reachable and usable from the keyboard.
 function enhanceNavAccessibility() {
   document.querySelectorAll('.bpes-sidebar-item, .bpes-mobile-drawer-item').forEach(el => {
@@ -682,6 +702,7 @@ function logout() {
   sessionStorage.removeItem('auth_token');
   sessionStorage.removeItem('auth_user');
   delete axios.defaults.headers.common['Authorization'];
+  BpesProfile.clear();
   toggleMobileDrawer(false);
   loadPage('welcome');
 }
@@ -706,7 +727,11 @@ function openAdminMobileDrawer() {
   if (titleLabel) titleLabel.textContent = 'Navigation';
   if (navContainer) {
     navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item active" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students')">
+      <a href="#" class="bpes-drawer-item active" id="drawer-item-adm-dashboard" onclick="selectAdminDrawerTab('dashboard')">
+        <i class="fas fa-gauge"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students')">
         <i class="fas fa-users"></i>
         <span>Student Enrollment</span>
       </a>
@@ -718,13 +743,29 @@ function openAdminMobileDrawer() {
         <i class="fas fa-layer-group"></i>
         <span>Sections</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-subjects" onclick="selectAdminDrawerTab('subjects')">
+        <i class="fas fa-book"></i>
+        <span>Subjects</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules')">
         <i class="fas fa-calendar-days"></i>
         <span>Schedules</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-noclass" onclick="selectAdminDrawerTab('noclass')">
+        <i class="fas fa-calendar-xmark"></i>
+        <span>No class days</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-adm-logs" onclick="selectAdminDrawerTab('logs')">
         <i class="fas fa-clock-rotate-left"></i>
         <span>Attendance Stream</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-audit" onclick="selectAdminDrawerTab('audit')">
+        <i class="fas fa-clipboard-list"></i>
+        <span>Audit log</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" onclick="selectAdminDrawerTab('settings')">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </a>
     `;
   }
@@ -751,6 +792,14 @@ function openTeacherMobileDrawer() {
         <i class="fas fa-home"></i>
         <span>Dashboard</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-schedule" onclick="selectTeacherDrawerTab('schedule')">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-classes" onclick="selectTeacherDrawerTab('classes')">
+        <i class="fas fa-chalkboard-user"></i>
+        <span>Classes</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-tch-attendance" onclick="selectTeacherDrawerTab('attendance')">
         <i class="fas fa-check-square"></i>
         <span>Attendance</span>
@@ -762,6 +811,10 @@ function openTeacherMobileDrawer() {
       <a href="#" class="bpes-drawer-item" id="drawer-item-tch-leave" onclick="selectTeacherDrawerTab('leave')">
         <i class="fas fa-file-text"></i>
         <span>Student Leave Requests</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" onclick="selectTeacherDrawerTab('settings')">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </a>
     `;
   }
@@ -788,6 +841,10 @@ function openStudentMobileDrawer() {
         <i class="fas fa-home"></i>
         <span>Dashboard</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-std-schedule" onclick="selectStudentDrawerTab('schedule')">
+        <i class="fas fa-calendar-week"></i>
+        <span>Schedule</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-std-logs" onclick="selectStudentDrawerTab('logs')">
         <i class="fas fa-clock"></i>
         <span>Attendance History</span>
@@ -796,9 +853,9 @@ function openStudentMobileDrawer() {
         <i class="fas fa-file-text"></i>
         <span>File Excuse / Leave</span>
       </a>
-      <a href="#" class="bpes-drawer-item" onclick="toggleMobileDrawer(false); openChangePinModal();">
-        <i class="fas fa-key"></i>
-        <span>Change Security PIN</span>
+      <a href="#" class="bpes-drawer-item" onclick="selectStudentDrawerTab('settings')">
+        <i class="fas fa-gear"></i>
+        <span>Settings</span>
       </a>
     `;
   }
@@ -821,6 +878,7 @@ async function loadPage(page) {
   // Cleanup active intervals when changing pages
   if (typeof stopAutoRefreshLogs === 'function') stopAutoRefreshLogs();
   if (typeof stopTeacherAutoRefresh === 'function') stopTeacherAutoRefresh();
+  stopLiveClock();
   toggleMobileDrawer(false);
 
   let targetPage = (page === 'instructor') ? 'teacher' : (page || 'welcome');
@@ -837,7 +895,7 @@ async function loadPage(page) {
   }
 
   try {
-    const response = await fetch(`pages/${targetPage}.html`);
+    const response = await fetch(`pages/${targetPage}.html`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`Failed to load page: ${targetPage} (${response.status})`);
     
     const html = await response.text();

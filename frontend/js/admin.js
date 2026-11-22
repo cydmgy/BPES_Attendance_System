@@ -12,16 +12,13 @@ let sections = [];
 let schedules = [];
 
 function initAdminPortal() {
-  const datePill = document.getElementById('admin-date-pill');
-  if (datePill) {
-    datePill.textContent = `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-  }
-  const streamDateEl = document.getElementById('adm-stream-date-display');
-  if (streamDateEl) {
-    const now = new Date();
-    const dateFormatted = now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
-    streamDateEl.textContent = `Today, ${dateFormatted}`;
-  }
+  startLiveClock(() => {
+    setText('admin-date-pill', manilaTodayLabel());
+    const dateFormatted = new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Manila', day: '2-digit', month: 'short', year: 'numeric' });
+    setText('adm-stream-date-display', `Today, ${dateFormatted}`);
+    refreshGreeting('admin-greeting');
+  });
+  BpesProfile.load();
 
   // Set default enrollment date to today
   const enrollDateInput = document.getElementById('enroll-date-input');
@@ -81,6 +78,10 @@ const ADMIN_TABS = {
               'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.'],
   logs:      ['Attendance Stream', 'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.',
               'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.'],
+  noclass:   ['No class days', 'Holidays and suspensions. Adding a day cancels that day\'s unfinished class periods.',
+              'Add holidays and suspensions, or lift a no-class day.'],
+  audit:     ['Audit log', 'Who changed what, and when.', 'See who changed something, for transparency.'],
+  settings:  ['Settings', 'Your account name and password.', 'Manage your account name and password.'],
 };
 
 function showAdminTab(tab) {
@@ -103,7 +104,10 @@ function showAdminTab(tab) {
     return;
   }
   stopAutoRefreshLogs();
-  if (tab === 'dashboard') { loadAdminDashboard(); loadNoClassDays(); }
+  if (tab === 'settings') BpesSettings.mount(document.getElementById('adm-tab-settings'), 'admin');
+  else if (tab === 'dashboard') loadAdminDashboard();
+  else if (tab === 'noclass') loadNoClassDays();
+  else if (tab === 'audit') loadAudit(true);
   else if (tab === 'students') loadAdminStudents();
   else if (tab === 'teachers') loadAdminTeachers();
   else if (tab === 'sections') loadAdminSections();
@@ -356,29 +360,27 @@ function stopTapPolling() {
 
 async function submitInlineEnrollForm(e) {
   e.preventDefault();
-  const btn = document.getElementById('btn-submit-enroll');
+  const btns = document.querySelectorAll('.enroll-submit'); // phone copy inside the form + desktop copy beside the scan panel
   const studentId = document.getElementById('enroll-id-input')?.value.trim();
   const fullName = document.getElementById('enroll-name-input')?.value.trim();
   const sectionId = document.getElementById('enroll-section-input')?.value;
   const rfidUid = document.getElementById('enroll-rfid-input')?.value.trim();
-  const pin = document.getElementById('enroll-pin-input')?.value.trim();
 
   // Guardian details
   const guardianName = document.getElementById('enroll-guardian-name')?.value.trim();
   const guardianPhone = document.getElementById('enroll-guardian-phone')?.value.trim();
   const guardianRelation = document.getElementById('enroll-guardian-relation')?.value;
 
-  if (btn) {
+  btns.forEach(btn => {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Enrolling...';
-  }
+  });
 
   try {
-    await axios.post(`${API_BASE}/api/students`, {
+    const res = await axios.post(`${API_BASE}/api/students`, {
       student_id: studentId,
       full_name: fullName,
       rfid_uid: rfidUid,
-      pin,
       course: 'Elementary',
       year_level: 1,
       section_id: sectionId,
@@ -389,7 +391,11 @@ async function submitInlineEnrollForm(e) {
       }
     });
 
-    notify('admin', `Student ${escapeHtml(fullName)} successfully enrolled!`, 'success');
+    document.getElementById('enroll-pw-name').textContent = `${fullName} is now enrolled.`;
+    document.getElementById('enroll-pw-value').textContent = res.data.temp_password || '(not returned)';
+    const pwModalEl = document.getElementById('enroll-pw-modal');
+    pwModalEl.addEventListener('hidden.bs.modal', () => { document.getElementById('enroll-pw-value').textContent = ''; }, { once: true });
+    bootstrap.Modal.getOrCreateInstance(pwModalEl).show();
     document.getElementById('enrollment-form')?.reset();
     
     // Reset date input
@@ -414,10 +420,10 @@ async function submitInlineEnrollForm(e) {
     const msg = err.response?.data?.error || err.message || 'Enrollment failed';
     notify('admin', `Enrollment error: ${msg}`, 'danger');
   } finally {
-    if (btn) {
+    btns.forEach(btn => {
       btn.disabled = false;
       btn.innerHTML = '<span>Enroll student</span>';
-    }
+    });
   }
 }
 
@@ -434,7 +440,8 @@ async function loadAdminStudents() {
     const countPill = document.getElementById('enrolled-count-pill');
     if (countPill) countPill.textContent = `${students.length} students`;
 
-    renderStudentsTable(students);
+    fillStudentSectionFilter();
+    filterAdminStudents();
     populateAdminSectionFilter();
   } catch (err) {
     console.error('Error loading students:', err);
@@ -448,11 +455,11 @@ function renderStudentsTable(list) {
   if (!tbody) return;
 
   if (paginationLabel) {
-    paginationLabel.textContent = `Showing ${list.length} student record${list.length === 1 ? '' : 's'}`;
+    paginationLabel.textContent = `Showing ${list.length} of ${students.length} student record${students.length === 1 ? '' : 's'}`;
   }
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No students enrolled yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">${students.length ? 'No students match.' : 'No students enrolled yet.'}</td></tr>`;
     return;
   }
 
@@ -481,8 +488,8 @@ function renderStudentsTable(list) {
         <td>${escapeHtml(sections.find(sec => sec.id === s.section_id)?.rooms?.name || '—')}</td>
         <td><span class="badge rounded-pill bg-light text-success border px-2 py-1">Enrolled</span></td>
         <td>
-          <button class="bpes-btn-outline bpes-btn-sm me-1" onclick="handleAdminSetStudentPin('${s.id}')">
-            <i class="fas fa-key me-1"></i> Set PIN
+          <button class="bpes-btn-outline bpes-btn-sm me-1" onclick="openStudentPasswordModal('${s.id}')">
+            <i class="fas fa-key me-1"></i> Change password
           </button>
           <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="handleAdminDeleteStudent('${s.id}')">
             <i class="fas fa-trash me-1"></i> Delete
@@ -493,32 +500,57 @@ function renderStudentsTable(list) {
   }).join('');
 }
 
+// Options come from the sections list loaded by loadAdminSections; the selection survives a reload.
+function fillStudentSectionFilter() {
+  const el = document.getElementById('adm-student-section-filter');
+  if (!el) return;
+  const prev = el.value;
+  el.innerHTML = '<option value="">All sections</option>' +
+    (sections || []).map(sec => `<option value="${escapeHtml(sec.id)}">${escapeHtml(sec.section_name)}</option>`).join('');
+  el.value = prev;
+}
+
 function filterAdminStudents() {
   const query = (document.getElementById('adm-student-search')?.value || '').toLowerCase();
-  if (!query) {
-    renderStudentsTable(students);
-    return;
-  }
+  const sectionId = document.getElementById('adm-student-section-filter')?.value || '';
   const filtered = students.filter(s =>
-    (s.full_name && s.full_name.toLowerCase().includes(query)) ||
-    (s.student_id && s.student_id.toLowerCase().includes(query)) ||
-    (s.section && s.section.toLowerCase().includes(query)) ||
-    (s.rfid_uid && s.rfid_uid.toLowerCase().includes(query))
+    (!sectionId || s.section_id === sectionId) &&
+    (!query ||
+      (s.full_name && s.full_name.toLowerCase().includes(query)) ||
+      (s.student_id && s.student_id.toLowerCase().includes(query)) ||
+      (s.section && s.section.toLowerCase().includes(query)) ||
+      (s.rfid_uid && s.rfid_uid.toLowerCase().includes(query)))
   );
   renderStudentsTable(filtered);
 }
 
-// A student with no PIN cannot log in; this is how an admin sets (or resets) one.
-async function handleAdminSetStudentPin(id) {
+// The admin types the new password; it is never written back into the page.
+let pwStudentId = null;
+function openStudentPasswordModal(id) {
+  pwStudentId = id;
   const name = students.find(s => s.id === id)?.full_name || 'this student';
-  const pin = (prompt(`New login PIN for "${name}" (at least 4 characters):`) || '').trim();
-  if (!pin) return;
-  if (pin.length < 4) return notify('admin', 'A PIN needs at least 4 characters', 'danger');
+  document.getElementById('student-pw-name').textContent = `Student: ${name}`;
+  document.getElementById('student-pw-input').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('student-pw-modal')).show();
+}
+
+async function confirmStudentPassword(e) {
+  e.preventDefault();
+  const input = document.getElementById('student-pw-input');
+  const btn = document.getElementById('student-pw-confirm-btn');
+  const pw = input.value;
+  const name = students.find(s => s.id === pwStudentId)?.full_name || 'the student';
+  if (pw.length < 4) return notify('admin', 'A password needs at least 4 characters', 'danger');
+  btn.disabled = true;
   try {
-    await axios.put(`${API_BASE}/api/students/${id}`, { pin });
-    notify('admin', `PIN set for "${escapeHtml(name)}"`, 'success');
+    await axios.put(`${API_BASE}/api/students/${pwStudentId}/password`, { new_password: pw });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('student-pw-modal')).hide();
+    notify('admin', `Password changed for "${escapeHtml(name)}"`, 'success');
   } catch (err) {
-    notify('admin', `Could not set PIN: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+    notify('admin', `Could not change password: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+  } finally {
+    input.value = '';
+    btn.disabled = false;
   }
 }
 
@@ -833,6 +865,7 @@ function fillAdminSelects() {
   const teacherOpts = (teachers || []).filter(t => t.role !== 'admin')
     .map(t => `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`).join('');
 
+  fillStudentSectionFilter();
   fill('enroll-section-input', '<option value="">Select section</option>' + sectionOpts);
   fill('sch-section-input', '<option value="">Select section</option>' + sectionOpts);
   fill('sch-filter-section', '<option value="">All sections</option>' + sectionOpts);
@@ -1007,6 +1040,34 @@ async function loadAdminSchedules() {
     return;
   }
   renderSchedulesTable();
+  renderFreeTimes();
+}
+
+// Free-time chips for the picked day: busy = the section's, the teacher's and the home room's active periods.
+// Uses its own unfiltered fetch because the table above may be filtered by section or status.
+async function renderFreeTimes() {
+  const box = byId('sch-free-times');
+  if (!box) return;
+  const section = sections.find(s => s.id === byId('sch-section-input').value);
+  const day = byId('sch-day-input').value;
+  if (!section || !day) { box.textContent = 'Pick a day and a section to see free times'; return; }
+  const teacher = byId('sch-teacher-input').value;
+  let all;
+  try {
+    all = (await axios.get(`${API_BASE}/api/schedules`, { params: { status: 'active' } })).data.schedules || [];
+  } catch (err) { box.textContent = errMsg(err, 'Could not load free times'); return; }
+  const busy = all.filter(s => s.day_of_week === day && (s.section_id === section.id
+    || (teacher && s.teacher_id === teacher) || (section.home_room_id && s.room_id === section.home_room_id)))
+    .map(s => ({ start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5) }));
+  const free = ScheduleSlots.freeWindows(busy);
+  box.innerHTML = free.length ? free.map(w => `<button type="button" class="bpes-btn-outline bpes-btn-sm" onclick="pickFreeTime('${w.start}','${w.end}')">${escapeHtml(ScheduleSlots.to12h(w.start))} – ${escapeHtml(ScheduleSlots.to12h(w.end))}</button>`).join('')
+    : 'No free time that day';
+}
+
+function pickFreeTime(start, end) {
+  byId('sch-start-input').value = start;
+  byId('sch-end-input').value = end;
+  refreshScheduleAvailability();
 }
 
 function renderSchedulesTable() {
@@ -1047,6 +1108,7 @@ async function refreshScheduleAvailability() {
   const teacherSel = byId('sch-teacher-input');
   const hint = byId('sch-availability-hint');
   if (!sectionSel || !teacherSel) return;
+  renderFreeTimes();
 
   const section = sections.find(s => s.id === sectionSel.value);
   byId('sch-room-hint').textContent = !section ? ''
@@ -1206,6 +1268,55 @@ async function removeSubstitute(date) {
   await scheduleDetailCall(() => axios.delete(detailUrl(`overrides/${date}`)));
   await loadAdminSchedules();
   renderScheduleDetail();
+}
+
+// ── Audit log ─────────────────────────────────────────────────
+
+const AUDIT_ACTIONS = {
+  create: 'Create', update: 'Update', delete: 'Delete', reset_password: 'Reset password',
+  change_password: 'Change password', approve: 'Approve', decline: 'Decline', override: 'Override',
+};
+const AUDIT_ENTITIES = {
+  student: 'Student', teacher: 'Teacher', section: 'Section', subject: 'Subject', room: 'Room',
+  schedule: 'Schedule', schedule_override: 'Schedule override', no_class_day: 'No-class day',
+  leave_request: 'Leave request', attendance: 'Attendance', admin: 'Admin',
+};
+let auditNextBefore = null;
+
+// reset = true starts from the newest row; false appends the next page.
+async function loadAudit(reset) {
+  const tbody = byId('audit-tbody');
+  const more = byId('audit-more');
+  if (!tbody) return;
+  const entity = byId('audit-entity').value;
+  const role = byId('audit-role').value;
+  const params = { limit: 50 };
+  if (entity) params.entity = entity;
+  if (role) params.actor_role = role;
+  if (!reset && auditNextBefore) params.before = auditNextBefore;
+  if (reset) {
+    auditNextBefore = null;
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr>';
+  }
+  more.classList.add('d-none');
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/audit`, { params });
+    const html = data.rows.map(r => `
+      <tr>
+        <td class="text-nowrap">${escapeHtml(new Date(r.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }))}</td>
+        <td>${escapeHtml(r.actor_name || '—')} <span class="bpes-badge bpes-badge-unassigned">${escapeHtml(({ admin: 'Admin', teacher: 'Teacher', instructor: 'Teacher', student: 'Student' })[r.actor_role] || r.actor_role || '')}</span></td>
+        <td class="text-nowrap">${escapeHtml(AUDIT_ACTIONS[r.action] || r.action)}</td>
+        <td class="text-nowrap">${escapeHtml(AUDIT_ENTITIES[r.entity] || r.entity)}</td>
+        <td style="white-space: normal; word-break: break-word;">${escapeHtml(r.summary || '')}</td>
+      </tr>`).join('');
+    if (reset) tbody.innerHTML = html || '<tr><td colspan="5" class="text-center py-4 text-muted">No activity recorded yet</td></tr>';
+    else tbody.insertAdjacentHTML('beforeend', html);
+    auditNextBefore = data.next_before || null;
+    more.classList.toggle('d-none', !auditNextBefore);
+  } catch (err) {
+    if (reset) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">The audit log is not available right now. Please try again later.</td></tr>';
+    notify('admin', escapeHtml(errMsg(err, 'Could not load the audit log')), 'danger');
+  }
 }
 
 // ── No-class days ─────────────────────────────────────────────
