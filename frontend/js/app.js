@@ -706,7 +706,11 @@ function openAdminMobileDrawer() {
   if (titleLabel) titleLabel.textContent = 'Navigation';
   if (navContainer) {
     navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item active" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students')">
+      <a href="#" class="bpes-drawer-item active" id="drawer-item-adm-dashboard" onclick="selectAdminDrawerTab('dashboard')">
+        <i class="fas fa-gauge"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students')">
         <i class="fas fa-users"></i>
         <span>Student Enrollment</span>
       </a>
@@ -717,6 +721,10 @@ function openAdminMobileDrawer() {
       <a href="#" class="bpes-drawer-item" id="drawer-item-adm-sections" onclick="selectAdminDrawerTab('sections')">
         <i class="fas fa-layer-group"></i>
         <span>Sections</span>
+      </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-subjects" onclick="selectAdminDrawerTab('subjects')">
+        <i class="fas fa-book"></i>
+        <span>Subjects</span>
       </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules')">
         <i class="fas fa-calendar-days"></i>
@@ -865,7 +873,7 @@ async function loadPage(page) {
   }
 
   try {
-    const response = await fetch(`pages/${targetPage}.html`);
+    const response = await fetch(`pages/${targetPage}.html`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`Failed to load page: ${targetPage} (${response.status})`);
     
     const html = await response.text();

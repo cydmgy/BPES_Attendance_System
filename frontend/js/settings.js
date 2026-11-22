@@ -35,13 +35,13 @@ window.BpesSettings = (() => {
           <div class="p-3">${profile}</div>
         </div></div>
         <div class="col-lg-6"><div class="bpes-card h-100">
-          <div class="bpes-card-header"><h3 class="bpes-card-title">Change ${role === 'student' ? 'PIN' : 'password'}</h3></div>
+          <div class="bpes-card-header"><h3 class="bpes-card-title">Change password</h3></div>
           <form id="settings-password-form" class="p-3">
-            <label class="form-label small text-muted" for="settings-current">Current ${role === 'student' ? 'PIN' : 'password'}</label>
+            <label class="form-label small text-muted" for="settings-current">Current password</label>
             <input id="settings-current" type="password" class="form-control mb-3" autocomplete="current-password" required>
-            <label class="form-label small text-muted" for="settings-new">New ${role === 'student' ? 'PIN' : 'password'} (at least ${minLen} characters)</label>
+            <label class="form-label small text-muted" for="settings-new">New password (at least ${minLen} characters)</label>
             <input id="settings-new" type="password" class="form-control mb-3" autocomplete="new-password" minlength="${minLen}" required>
-            <button type="submit" class="bpes-btn-primary px-4 py-2">Change ${role === 'student' ? 'PIN' : 'password'}</button>
+            <button type="submit" class="bpes-btn-primary px-4 py-2">Change password</button>
           </form>
         </div></div>
       </div>`;

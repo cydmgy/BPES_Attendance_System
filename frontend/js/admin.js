@@ -1307,7 +1307,7 @@ async function loadAudit(reset) {
     const html = data.rows.map(r => `
       <tr>
         <td class="text-nowrap">${escapeHtml(new Date(r.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }))}</td>
-        <td>${escapeHtml(r.actor_name || '—')} <span class="bpes-badge bpes-badge-unassigned">${escapeHtml(r.actor_role || '')}</span></td>
+        <td>${escapeHtml(r.actor_name || '—')} <span class="bpes-badge bpes-badge-unassigned">${escapeHtml(({ admin: 'Admin', teacher: 'Teacher', instructor: 'Teacher', student: 'Student' })[r.actor_role] || r.actor_role || '')}</span></td>
         <td class="text-nowrap">${escapeHtml(AUDIT_ACTIONS[r.action] || r.action)}</td>
         <td class="text-nowrap">${escapeHtml(AUDIT_ENTITIES[r.entity] || r.entity)}</td>
         <td style="white-space: normal; word-break: break-word;">${escapeHtml(r.summary || '')}</td>
