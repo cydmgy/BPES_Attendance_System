@@ -70,7 +70,6 @@ window.BpesSettings = (() => {
     const setShown = (btn, show) => {
       btn.previousElementSibling.type = show ? 'text' : 'password';
       btn.setAttribute('aria-pressed', String(show));
-      btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
       btn.firstElementChild.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
     };
     pwForm.addEventListener('click', ev => {

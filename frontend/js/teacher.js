@@ -36,7 +36,7 @@ function initTeacherPortal() {
       rooms.map(r => `<option value="${escapeHtml(r.name)}">${escapeHtml(r.name)}</option>`).join('');
   }
 
-  // Update teacher name, email & avatar in sidebar & greeting
+  // Set the welcome greeting
   if (currentTeacherUser && currentTeacherUser.name) {
     setText('teacher-greeting', `${greetingWord()}, ${currentTeacherUser.name}!`);
   }
@@ -228,7 +228,7 @@ function renderTeacherClasses({ schedules = [] }) {
             <div class="col-12">
               <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
                 <div class="fw-bold small text-success-emphasis">${escapeHtml(sec.section_name)}</div>
-                <button type="button" class="bpes-btn-outline bpes-btn-sm tch-students-btn ms-auto"data-section-id="${escapeHtml(sec.section_id)}" data-section-name="${escapeHtml(sec.section_name)}" onclick="openTeacherStudents(this)"><i class="fas fa-users me-1"></i>Students</button>
+                <button type="button" class="bpes-btn-outline bpes-btn-sm tch-students-btn" data-section-id="${escapeHtml(sec.section_id)}" data-section-name="${escapeHtml(sec.section_name)}" onclick="openTeacherStudents(this)"><i class="fas fa-users me-1"></i>Students</button>
               </div>
               ${sec.subjects.map(subjectHtml).join('')}
             </div>`).join('')}

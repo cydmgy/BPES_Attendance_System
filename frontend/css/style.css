@@ -927,6 +927,7 @@ a:hover {
   z-index: 1;
   box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.15);
 }
+.bpes-table-actions th:last-child { z-index: 2; }
 /* th keeps the same background as the other headers (soft green, or white inside .table-scroll) */
 .bpes-table-actions td:last-child { background: #FFFFFF; }
 .bpes-table-actions tr:hover td:last-child { background-color: #F8FCF9; }
@@ -1089,6 +1090,7 @@ a:hover {
 
 .bpes-drawer-header {
   position: relative;
+  flex-shrink: 0;
   padding: 24px 68px 24px 20px;
   border-bottom: 1px solid var(--color-border);
 }
@@ -1121,6 +1123,8 @@ a:hover {
 .bpes-drawer-nav {
   padding: 16px 12px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1145,6 +1149,7 @@ a:hover {
 }
 
 .bpes-drawer-footer {
+  flex-shrink: 0;
   padding: 16px 20px;
   border-top: 1px solid var(--color-border);
 }
@@ -1741,6 +1746,12 @@ a:hover {
 .bpes-btn-danger-outline:focus-visible {
   outline: 3px solid rgba(20, 83, 45, 0.45);
   outline-offset: 2px;
+}
+/* Inside the scrolling navs a 2px outer ring would be clipped */
+.bpes-sidebar-nav .bpes-sidebar-item:focus-visible,
+.bpes-drawer-nav .bpes-drawer-item:focus-visible {
+  outline: 3px solid rgba(20, 83, 45, 0.45);
+  outline-offset: -3px;
 }
 
 /* Signed-in user card above Logout (sidebar and phone drawer) */
