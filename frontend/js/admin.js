@@ -83,6 +83,7 @@ const ADMIN_TABS = {
               'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.'],
   noclass:   ['No class days', 'Holidays and suspensions. Adding a day cancels that day\'s unfinished class periods.',
               'Add holidays and suspensions, or lift a no-class day.'],
+  audit:     ['Audit log', 'Who changed what, and when.', 'See who changed something, for transparency.'],
   settings:  ['Settings', 'Your account name and password.', 'Manage your account name and password.'],
 };
 
@@ -109,6 +110,7 @@ function showAdminTab(tab) {
   if (tab === 'settings') BpesSettings.mount(document.getElementById('adm-tab-settings'), 'admin');
   else if (tab === 'dashboard') loadAdminDashboard();
   else if (tab === 'noclass') loadNoClassDays();
+  else if (tab === 'audit') loadAudit(true);
   else if (tab === 'students') loadAdminStudents();
   else if (tab === 'teachers') loadAdminTeachers();
   else if (tab === 'sections') loadAdminSections();
@@ -1269,6 +1271,55 @@ async function removeSubstitute(date) {
   await scheduleDetailCall(() => axios.delete(detailUrl(`overrides/${date}`)));
   await loadAdminSchedules();
   renderScheduleDetail();
+}
+
+// ── Audit log ─────────────────────────────────────────────────
+
+const AUDIT_ACTIONS = {
+  create: 'Create', update: 'Update', delete: 'Delete', reset_password: 'Reset password',
+  change_password: 'Change password', approve: 'Approve', decline: 'Decline', override: 'Override',
+};
+const AUDIT_ENTITIES = {
+  student: 'Student', teacher: 'Teacher', section: 'Section', subject: 'Subject', room: 'Room',
+  schedule: 'Schedule', schedule_override: 'Schedule override', no_class_day: 'No-class day',
+  leave_request: 'Leave request', attendance: 'Attendance', admin: 'Admin',
+};
+let auditNextBefore = null;
+
+// reset = true starts from the newest row; false appends the next page.
+async function loadAudit(reset) {
+  const tbody = byId('audit-tbody');
+  const more = byId('audit-more');
+  if (!tbody) return;
+  const entity = byId('audit-entity').value;
+  const role = byId('audit-role').value;
+  const params = { limit: 50 };
+  if (entity) params.entity = entity;
+  if (role) params.actor_role = role;
+  if (!reset && auditNextBefore) params.before = auditNextBefore;
+  if (reset) {
+    auditNextBefore = null;
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr>';
+  }
+  more.classList.add('d-none');
+  try {
+    const { data } = await axios.get(`${API_BASE}/api/audit`, { params });
+    const html = data.rows.map(r => `
+      <tr>
+        <td class="text-nowrap">${escapeHtml(new Date(r.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }))}</td>
+        <td>${escapeHtml(r.actor_name || '—')} <span class="bpes-badge bpes-badge-unassigned">${escapeHtml(r.actor_role || '')}</span></td>
+        <td class="text-nowrap">${escapeHtml(AUDIT_ACTIONS[r.action] || r.action)}</td>
+        <td class="text-nowrap">${escapeHtml(AUDIT_ENTITIES[r.entity] || r.entity)}</td>
+        <td style="white-space: normal; word-break: break-word;">${escapeHtml(r.summary || '')}</td>
+      </tr>`).join('');
+    if (reset) tbody.innerHTML = html || '<tr><td colspan="5" class="text-center py-4 text-muted">No activity recorded yet</td></tr>';
+    else tbody.insertAdjacentHTML('beforeend', html);
+    auditNextBefore = data.next_before || null;
+    more.classList.toggle('d-none', !auditNextBefore);
+  } catch (err) {
+    if (reset) tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">The audit log is not available right now. Please try again later.</td></tr>';
+    notify('admin', escapeHtml(errMsg(err, 'Could not load the audit log')), 'danger');
+  }
 }
 
 // ── No-class days ─────────────────────────────────────────────

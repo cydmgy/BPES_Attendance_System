@@ -75,6 +75,10 @@
           <i class="fas fa-clock"></i>
           <span>Attendance Stream</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-audit" onclick="showAdminTab('audit')">
+          <i class="fas fa-clipboard-list"></i>
+          <span>Audit log</span>
+        </div>
         <div class="bpes-sidebar-item" id="sidebar-adm-settings" onclick="showAdminTab('settings')">
           <i class="fas fa-gear"></i>
           <span>Settings</span>
@@ -789,6 +793,48 @@
         </div>
       </section>
 
+      <section id="adm-tab-audit" class="d-none">
+        <div class="bpes-card">
+          <div class="bpes-card-header">
+            <div>
+              <h3 class="bpes-card-title">Audit log</h3>
+              <div class="bpes-card-subtitle">Who changed what, and when. Newest first.</div>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <select id="audit-entity" class="bpes-input" style="max-width: 200px;" aria-label="Filter by what changed" onchange="loadAudit(true)">
+              <option value="">All changes</option>
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+              <option value="section">Section</option>
+              <option value="subject">Subject</option>
+              <option value="room">Room</option>
+              <option value="schedule">Schedule</option>
+              <option value="schedule_override">Schedule override</option>
+              <option value="no_class_day">No-class day</option>
+              <option value="leave_request">Leave request</option>
+              <option value="attendance">Attendance</option>
+              <option value="admin">Admin</option>
+            </select>
+            <select id="audit-role" class="bpes-input" style="max-width: 200px;" aria-label="Filter by who" onchange="loadAudit(true)">
+              <option value="">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="teacher">Teacher</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
+          <div class="bpes-table-wrapper table-scroll">
+            <table class="bpes-table">
+              <thead><tr><th>When</th><th>Who</th><th>Action</th><th>What</th><th>Details</th></tr></thead>
+              <tbody id="audit-tbody"><tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="text-center mt-3">
+            <button type="button" id="audit-more" class="bpes-btn-outline px-3 d-none" onclick="loadAudit(false)">Load more</button>
+          </div>
+        </div>
+      </section>
+
       <section id="adm-tab-settings" class="d-none"></section>
     </main>
   </div>
@@ -836,6 +882,10 @@
       <div class="bpes-mobile-drawer-item" onclick="showAdminTab('logs'); closeAdminMobileDrawer();">
         <i class="fas fa-clock"></i>
         <span>Attendance Stream</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('audit'); closeAdminMobileDrawer();">
+        <i class="fas fa-clipboard-list"></i>
+        <span>Audit log</span>
       </div>
       <div class="bpes-mobile-drawer-item" onclick="showAdminTab('settings'); closeAdminMobileDrawer();">
         <i class="fas fa-gear"></i>

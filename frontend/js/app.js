@@ -730,6 +730,10 @@ function openAdminMobileDrawer() {
         <i class="fas fa-clock-rotate-left"></i>
         <span>Attendance Stream</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-audit" onclick="selectAdminDrawerTab('audit')">
+        <i class="fas fa-clipboard-list"></i>
+        <span>Audit log</span>
+      </a>
       <a href="#" class="bpes-drawer-item" onclick="selectAdminDrawerTab('settings')">
         <i class="fas fa-gear"></i>
         <span>Settings</span>
