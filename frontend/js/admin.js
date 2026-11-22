@@ -81,6 +81,8 @@ const ADMIN_TABS = {
               'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.'],
   logs:      ['Attendance Stream', 'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.',
               'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.'],
+  noclass:   ['No class days', 'Holidays and suspensions. Adding a day cancels that day\'s unfinished class periods.',
+              'Add holidays and suspensions, or lift a no-class day.'],
   settings:  ['Settings', 'Your account name and password.', 'Manage your account name and password.'],
 };
 
@@ -105,7 +107,8 @@ function showAdminTab(tab) {
   }
   stopAutoRefreshLogs();
   if (tab === 'settings') BpesSettings.mount(document.getElementById('adm-tab-settings'), 'admin');
-  else if (tab === 'dashboard') { loadAdminDashboard(); loadNoClassDays(); }
+  else if (tab === 'dashboard') loadAdminDashboard();
+  else if (tab === 'noclass') loadNoClassDays();
   else if (tab === 'students') loadAdminStudents();
   else if (tab === 'teachers') loadAdminTeachers();
   else if (tab === 'sections') loadAdminSections();
@@ -363,7 +366,6 @@ async function submitInlineEnrollForm(e) {
   const fullName = document.getElementById('enroll-name-input')?.value.trim();
   const sectionId = document.getElementById('enroll-section-input')?.value;
   const rfidUid = document.getElementById('enroll-rfid-input')?.value.trim();
-  const pin = document.getElementById('enroll-pin-input')?.value.trim();
 
   // Guardian details
   const guardianName = document.getElementById('enroll-guardian-name')?.value.trim();
@@ -376,11 +378,10 @@ async function submitInlineEnrollForm(e) {
   }
 
   try {
-    await axios.post(`${API_BASE}/api/students`, {
+    const res = await axios.post(`${API_BASE}/api/students`, {
       student_id: studentId,
       full_name: fullName,
       rfid_uid: rfidUid,
-      pin,
       course: 'Elementary',
       year_level: 1,
       section_id: sectionId,
@@ -391,7 +392,11 @@ async function submitInlineEnrollForm(e) {
       }
     });
 
-    notify('admin', `Student ${escapeHtml(fullName)} successfully enrolled!`, 'success');
+    document.getElementById('enroll-pw-name').textContent = `${fullName} is now enrolled.`;
+    document.getElementById('enroll-pw-value').textContent = res.data.temp_password || '(not returned)';
+    const pwModalEl = document.getElementById('enroll-pw-modal');
+    pwModalEl.addEventListener('hidden.bs.modal', () => { document.getElementById('enroll-pw-value').textContent = ''; }, { once: true });
+    bootstrap.Modal.getOrCreateInstance(pwModalEl).show();
     document.getElementById('enrollment-form')?.reset();
     
     // Reset date input
@@ -436,7 +441,8 @@ async function loadAdminStudents() {
     const countPill = document.getElementById('enrolled-count-pill');
     if (countPill) countPill.textContent = `${students.length} students`;
 
-    renderStudentsTable(students);
+    fillStudentSectionFilter();
+    filterAdminStudents();
     populateAdminSectionFilter();
   } catch (err) {
     console.error('Error loading students:', err);
@@ -450,11 +456,11 @@ function renderStudentsTable(list) {
   if (!tbody) return;
 
   if (paginationLabel) {
-    paginationLabel.textContent = `Showing ${list.length} student record${list.length === 1 ? '' : 's'}`;
+    paginationLabel.textContent = `Showing ${list.length} of ${students.length} student record${students.length === 1 ? '' : 's'}`;
   }
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No students enrolled yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">${students.length ? 'No students match.' : 'No students enrolled yet.'}</td></tr>`;
     return;
   }
 
@@ -483,8 +489,8 @@ function renderStudentsTable(list) {
         <td>${escapeHtml(sections.find(sec => sec.id === s.section_id)?.rooms?.name || '—')}</td>
         <td><span class="badge rounded-pill bg-light text-success border px-2 py-1">Enrolled</span></td>
         <td>
-          <button class="bpes-btn-outline bpes-btn-sm me-1" onclick="handleAdminSetStudentPin('${s.id}')">
-            <i class="fas fa-key me-1"></i> Set PIN
+          <button class="bpes-btn-outline bpes-btn-sm me-1" onclick="openStudentPasswordModal('${s.id}')">
+            <i class="fas fa-key me-1"></i> Change password
           </button>
           <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="handleAdminDeleteStudent('${s.id}')">
             <i class="fas fa-trash me-1"></i> Delete
@@ -495,32 +501,57 @@ function renderStudentsTable(list) {
   }).join('');
 }
 
+// Options come from the sections list loaded by loadAdminSections; the selection survives a reload.
+function fillStudentSectionFilter() {
+  const el = document.getElementById('adm-student-section-filter');
+  if (!el) return;
+  const prev = el.value;
+  el.innerHTML = '<option value="">All sections</option>' +
+    (sections || []).map(sec => `<option value="${escapeHtml(sec.id)}">${escapeHtml(sec.section_name)}</option>`).join('');
+  el.value = prev;
+}
+
 function filterAdminStudents() {
   const query = (document.getElementById('adm-student-search')?.value || '').toLowerCase();
-  if (!query) {
-    renderStudentsTable(students);
-    return;
-  }
+  const sectionId = document.getElementById('adm-student-section-filter')?.value || '';
   const filtered = students.filter(s =>
-    (s.full_name && s.full_name.toLowerCase().includes(query)) ||
-    (s.student_id && s.student_id.toLowerCase().includes(query)) ||
-    (s.section && s.section.toLowerCase().includes(query)) ||
-    (s.rfid_uid && s.rfid_uid.toLowerCase().includes(query))
+    (!sectionId || s.section_id === sectionId) &&
+    (!query ||
+      (s.full_name && s.full_name.toLowerCase().includes(query)) ||
+      (s.student_id && s.student_id.toLowerCase().includes(query)) ||
+      (s.section && s.section.toLowerCase().includes(query)) ||
+      (s.rfid_uid && s.rfid_uid.toLowerCase().includes(query)))
   );
   renderStudentsTable(filtered);
 }
 
-// A student with no PIN cannot log in; this is how an admin sets (or resets) one.
-async function handleAdminSetStudentPin(id) {
+// The admin types the new password; it is never written back into the page.
+let pwStudentId = null;
+function openStudentPasswordModal(id) {
+  pwStudentId = id;
   const name = students.find(s => s.id === id)?.full_name || 'this student';
-  const pin = (prompt(`New login PIN for "${name}" (at least 4 characters):`) || '').trim();
-  if (!pin) return;
-  if (pin.length < 4) return notify('admin', 'A PIN needs at least 4 characters', 'danger');
+  document.getElementById('student-pw-name').textContent = `Student: ${name}`;
+  document.getElementById('student-pw-input').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('student-pw-modal')).show();
+}
+
+async function confirmStudentPassword(e) {
+  e.preventDefault();
+  const input = document.getElementById('student-pw-input');
+  const btn = document.getElementById('student-pw-confirm-btn');
+  const pw = input.value;
+  const name = students.find(s => s.id === pwStudentId)?.full_name || 'the student';
+  if (pw.length < 4) return notify('admin', 'A password needs at least 4 characters', 'danger');
+  btn.disabled = true;
   try {
-    await axios.put(`${API_BASE}/api/students/${id}`, { pin });
-    notify('admin', `PIN set for "${escapeHtml(name)}"`, 'success');
+    await axios.put(`${API_BASE}/api/students/${pwStudentId}/password`, { new_password: pw });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('student-pw-modal')).hide();
+    notify('admin', `Password changed for "${escapeHtml(name)}"`, 'success');
   } catch (err) {
-    notify('admin', `Could not set PIN: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+    notify('admin', `Could not change password: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+  } finally {
+    input.value = '';
+    btn.disabled = false;
   }
 }
 
@@ -835,6 +866,7 @@ function fillAdminSelects() {
   const teacherOpts = (teachers || []).filter(t => t.role !== 'admin')
     .map(t => `<option value="${t.id}">${escapeHtml(t.full_name)}</option>`).join('');
 
+  fillStudentSectionFilter();
   fill('enroll-section-input', '<option value="">Select section</option>' + sectionOpts);
   fill('sch-section-input', '<option value="">Select section</option>' + sectionOpts);
   fill('sch-filter-section', '<option value="">All sections</option>' + sectionOpts);

@@ -722,6 +722,10 @@ function openAdminMobileDrawer() {
         <i class="fas fa-calendar-days"></i>
         <span>Schedules</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-noclass" onclick="selectAdminDrawerTab('noclass')">
+        <i class="fas fa-calendar-xmark"></i>
+        <span>No class days</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-adm-logs" onclick="selectAdminDrawerTab('logs')">
         <i class="fas fa-clock-rotate-left"></i>
         <span>Attendance Stream</span>
