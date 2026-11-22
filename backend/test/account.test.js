@@ -208,12 +208,21 @@ test('avatar: wrong header, SVG bytes, empty body, oversize, no token', async ()
   assert.equal((await rawCall('DELETE', null)).status, 401);
 });
 
-test('avatar: a failed row update returns 500 and removes the uploaded object', async () => {
+test('avatar: a failed row update keeps the object when the path is unchanged (overwritten in place)', async () => {
   store.removed.length = 0; store.failUpdate = true;
-  const r = await rawCall('POST', tok.student, PNG);
+  const r = await rawCall('POST', tok.student, PNG); // row already points at student/<id>.png
   store.failUpdate = false;
   assert.equal(r.status, 500);
-  assert.deepEqual(store.removed, [`student/${SID}.png`]);
+  assert.deepEqual(store.removed, []);
+});
+
+test('avatar: a failed row update removes the new object when the extension differs', async () => {
+  const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32)]);
+  store.removed.length = 0; store.failUpdate = true;
+  const r = await rawCall('POST', tok.student, JPEG, 'image/jpeg'); // row points at .png
+  store.failUpdate = false;
+  assert.equal(r.status, 500);
+  assert.deepEqual(store.removed, [`student/${SID}.jpg`]);
 });
 
 test('me: avatar_url is a string with a picture, null without, and signing errors do not break /me', async () => {

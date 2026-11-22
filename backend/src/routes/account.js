@@ -1,6 +1,7 @@
 // Self-service account endpoints for every role (student, teacher, admin).
 const express = require('express');
-const router = express.Router();const supabase = require('../supabase');
+const router = express.Router();
+const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { MAX_AVATAR_BYTES, AVATAR_TYPES, BUCKET, sniffAvatarType, avatarPath } = require('../utils/avatar');
@@ -127,7 +128,7 @@ router.post('/avatar', express.raw({ type: AVATAR_TYPES, limit: MAX_AVATAR_BYTES
     if (upErr) throw upErr;
     const { error } = await saveAvatarPath(req, o, path);
     if (error) {
-      await supabase.storage.from(BUCKET).remove([path]); // no orphan object
+      if (path !== old) await supabase.storage.from(BUCKET).remove([path]); // no orphan; same path was overwritten in place and the row still points at it
       throw error;
     }
     if (old && old !== path) await supabase.storage.from(BUCKET).remove([old]).catch(() => {}); // same user, other extension
