@@ -94,10 +94,10 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
     if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Section not found' });
-    const { error } = await supabase.from('sections').delete().eq('id', req.params.id);
+    const { data: gone, error } = await supabase.from('sections').delete().eq('id', req.params.id).select('section_name');
     if (error?.code === '23503') return res.status(409).json({ error: 'Section has class session history and cannot be deleted' });
     if (error) throw error;
-    await logAudit(req, { action: 'delete', entity: 'section', entityId: req.params.id, summary: `Deleted section ${req.params.id}` });
+    await logAudit(req, { action: 'delete', entity: 'section', entityId: req.params.id, summary: `Deleted section "${gone?.[0]?.section_name ?? req.params.id}"` });
     return res.json({ success: true });
   } catch (err) {
     console.error('[DELETE /sections/:id]', err);

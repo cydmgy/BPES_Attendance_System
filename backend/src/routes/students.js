@@ -216,14 +216,15 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       if (rmErr) throw rmErr;
     }
 
-    const { error } = await supabase
+    const { data: gone, error } = await supabase
       .from('students')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', req.params.id)
+      .select('full_name');
 
     if (error) throw error;
 
-    await logAudit(req, { action: 'delete', entity: 'student', entityId: req.params.id, summary: `Deleted student ${req.params.id}` });
+    await logAudit(req, { action: 'delete', entity: 'student', entityId: req.params.id, summary: `Deleted student "${gone?.[0]?.full_name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Student deleted' });
   } catch (err) {
     console.error('[DELETE /students/:id]', err);

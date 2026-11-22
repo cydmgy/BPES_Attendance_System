@@ -83,9 +83,9 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       return res.status(409).json({ error: `Subject is in use by ${schedules} schedule(s) and ${leaves} leave request(s)` });
     }
 
-    const { error } = await supabase.from('subjects').delete().eq('id', req.params.id);
+    const { data: gone, error } = await supabase.from('subjects').delete().eq('id', req.params.id).select('name');
     if (error) throw error;
-    await logAudit(req, { action: 'delete', entity: 'subject', entityId: req.params.id, summary: `Deleted subject ${req.params.id}` });
+    await logAudit(req, { action: 'delete', entity: 'subject', entityId: req.params.id, summary: `Deleted subject "${gone?.[0]?.name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Subject deleted successfully' });
   } catch (err) {
     console.error('[DELETE /subjects/:id]', err);

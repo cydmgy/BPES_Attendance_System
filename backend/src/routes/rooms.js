@@ -78,13 +78,14 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 // DELETE /api/rooms/:id — delete a room
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { error } = await supabase
+    const { data: gone, error } = await supabase
       .from('rooms')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', req.params.id)
+      .select('name');
 
     if (error) throw error;
-    await logAudit(req, { action: 'delete', entity: 'room', entityId: req.params.id, summary: `Deleted room ${req.params.id}` });
+    await logAudit(req, { action: 'delete', entity: 'room', entityId: req.params.id, summary: `Deleted room "${gone?.[0]?.name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Room deleted successfully' });
   } catch (err) {
     console.error('[DELETE /rooms/:id]', err);

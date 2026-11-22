@@ -153,13 +153,14 @@ router.post('/:id/reset-password', auth, adminOnly, async (req, res) => {
 // DELETE /api/teachers/:id — Remove teacher
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { error } = await supabase
+    const { data: gone, error } = await supabase
       .from('instructors')
       .delete()
-      .eq('id', req.params.id);
+      .eq('id', req.params.id)
+      .select('full_name');
 
     if (error) throw error;
-    await logAudit(req, { action: 'delete', entity: 'teacher', entityId: req.params.id, summary: `Deleted teacher ${req.params.id}` });
+    await logAudit(req, { action: 'delete', entity: 'teacher', entityId: req.params.id, summary: `Deleted teacher "${gone?.[0]?.full_name ?? req.params.id}"` });
     return res.json({ success: true, message: 'Teacher deleted successfully' });
   } catch (err) {
     console.error('[DELETE /teachers]', err);

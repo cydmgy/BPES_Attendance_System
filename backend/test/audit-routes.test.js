@@ -8,14 +8,15 @@ process.env.SESSION_SECRET = 'test-secret';
 
 const audits = [];
 const ROW = { id: 'r1', full_name: 'Juan Dela Cruz', name: 'Room 1', email: 'j@x.ph' };
-// Any table chains; audit_log inserts are recorded; single/maybeSingle yield ROW, awaiting a chain yields [].
+// A delete chain returns the deleted row. Any table chains; audit_log inserts are recorded; single/maybeSingle yield ROW, awaiting a chain yields [].
 const fake = {
   from: (table) => {
+    let deleting = false;
     const q = new Proxy({}, { get: (_, k) => {
       if (k === 'insert' && table === 'audit_log') return row => (audits.push(row), Promise.resolve({ error: null }));
       if (k === 'single' || k === 'maybeSingle') return () => Promise.resolve({ data: ROW, error: null });
-      if (k === 'then') return ok => ok({ data: [], error: null });
-      return () => q;
+      if (k === 'then') return ok => ok({ data: deleting ? [ROW] : [], error: null });
+      return (...a) => (k === 'delete' && (deleting = true), q);
     } });
     return q;
   },
@@ -70,4 +71,10 @@ test('teacher reset-password is audited as reset_password, and room create as cr
   assert.deepEqual([audits[0].entity, audits[0].action], ['teacher', 'reset_password']);
   assert.equal(await call('POST', '/api/rooms', { name: 'Room 1' }), 201);
   assert.deepEqual([audits[0].entity, audits[0].action], ['room', 'create']);
+});
+
+test('DELETE /api/students/:id names the deleted student in the summary', async () => {
+  assert.equal(await call('DELETE', '/api/students/r1'), 200);
+  assert.deepEqual([audits[0].entity, audits[0].action], ['student', 'delete']);
+  assert.match(audits[0].summary, /Juan Dela Cruz/);
 });
