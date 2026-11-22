@@ -231,7 +231,7 @@
       <!-- TAB 1: Student Enrollment -->
       <!-- ============================================================ -->
       <section id="adm-tab-students">
-        <!-- Tap-to-enroll: wide card on top -->
+        <!-- Tap-to-enroll: scan panel and submit button on the left, form on the right -->
         <div class="bpes-card mb-4" id="enrollment-card">
           <div class="row g-4 align-items-start">
             <div class="col-12 col-lg-3">
@@ -245,6 +245,10 @@
                   <i class="fas fa-id-card me-2"></i> Scan RFID card
                 </button>
               </div>
+              <!-- Desktop copy of the submit button (the form copy below shows on phones, after the fields) -->
+              <button type="submit" form="enrollment-form" id="btn-submit-enroll-side" class="bpes-btn-primary enroll-submit w-100 justify-content-center py-3 mt-3 d-none d-lg-flex">
+                <span>Enroll student</span>
+              </button>
             </div>
 
             <div class="col-12 col-lg-9">
@@ -299,7 +303,7 @@
                     </select>
                   </div>
                 </div>
-                <button type="submit" id="btn-submit-enroll" class="bpes-btn-primary px-5 py-3 mt-3">
+                <button type="submit" id="btn-submit-enroll" class="bpes-btn-primary enroll-submit px-5 py-3 mt-3 d-lg-none">
                   <span>Enroll student</span>
                 </button>
               </form>

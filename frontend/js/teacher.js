@@ -250,7 +250,7 @@ async function openTeacherStudents(btn) {
     el.setAttribute('aria-labelledby', 'tch-students-title');
     el.setAttribute('aria-hidden', 'true');
     el.innerHTML = `
-      <div class="modal-dialog modal-dialog-scrollable">
+      <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="tch-students-title"></h5>
@@ -271,7 +271,7 @@ async function openTeacherStudents(btn) {
     const list = Array.isArray(data) ? data : (data.students || []);
     title.textContent = `${sectionName} \u2014 Students (${list.length})`;
     body.innerHTML = list.length
-      ? `<table class="bpes-table"><thead><tr><th>Name</th><th>LRN</th></tr></thead><tbody>${list.map(s => `<tr><td>${escapeHtml(s.full_name)}</td><td>${escapeHtml(s.student_id || '\u2014')}</td></tr>`).join('')}</tbody></table>`
+      ? `<div class="table-scroll"><table class="bpes-table"><thead><tr><th>Name</th><th>LRN</th></tr></thead><tbody>${list.map(s => `<tr><td>${escapeHtml(s.full_name)}</td><td>${escapeHtml(s.student_id || '\u2014')}</td></tr>`).join('')}</tbody></table></div>`
       : '<div class="text-center text-muted py-4">No students enrolled</div>';
   } catch (err) {
     body.innerHTML = `<div class="text-center text-danger py-4">${escapeHtml(err.response?.data?.error || 'Could not load students.')}</div>`;

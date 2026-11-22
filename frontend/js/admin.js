@@ -360,7 +360,7 @@ function stopTapPolling() {
 
 async function submitInlineEnrollForm(e) {
   e.preventDefault();
-  const btn = document.getElementById('btn-submit-enroll');
+  const btns = document.querySelectorAll('.enroll-submit'); // phone copy inside the form + desktop copy beside the scan panel
   const studentId = document.getElementById('enroll-id-input')?.value.trim();
   const fullName = document.getElementById('enroll-name-input')?.value.trim();
   const sectionId = document.getElementById('enroll-section-input')?.value;
@@ -371,10 +371,10 @@ async function submitInlineEnrollForm(e) {
   const guardianPhone = document.getElementById('enroll-guardian-phone')?.value.trim();
   const guardianRelation = document.getElementById('enroll-guardian-relation')?.value;
 
-  if (btn) {
+  btns.forEach(btn => {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Enrolling...';
-  }
+  });
 
   try {
     const res = await axios.post(`${API_BASE}/api/students`, {
@@ -420,10 +420,10 @@ async function submitInlineEnrollForm(e) {
     const msg = err.response?.data?.error || err.message || 'Enrollment failed';
     notify('admin', `Enrollment error: ${msg}`, 'danger');
   } finally {
-    if (btn) {
+    btns.forEach(btn => {
       btn.disabled = false;
       btn.innerHTML = '<span>Enroll student</span>';
-    }
+    });
   }
 }
 

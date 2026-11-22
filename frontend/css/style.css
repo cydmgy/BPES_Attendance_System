@@ -917,10 +917,10 @@ a:hover {
   position: sticky;
   right: 0;
   z-index: 1;
-  background: #FFFFFF;
-  box-shadow: -10px 0 10px -10px rgba(20, 83, 45, 0.22);
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.15);
 }
-.bpes-table-actions th:last-child { background: var(--color-bg-soft); }
+/* th keeps the same background as the other headers (soft green, or white inside .table-scroll) */
+.bpes-table-actions td:last-child { background: #FFFFFF; }
 .bpes-table-actions tr:hover td:last-child { background-color: #F8FCF9; }
 
 /* Several buttons in one Actions cell: side by side on very wide screens, stacked below that so the table fits */
