@@ -414,7 +414,7 @@ a:hover {
 .bpes-avatar-lg { width: 72px; height: 72px; font-size: 28px; background: var(--color-primary); color: #fff; flex: none; }
 .bpes-pick { min-height: 44px; cursor: pointer; }
 .bpes-pick.disabled { opacity: .6; pointer-events: none; }
-.bpes-pick:has(+ #settings-avatar-file:focus-visible) { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
+#settings-avatar-file:focus-visible + .bpes-pick { outline: 3px solid rgba(20, 83, 45, 0.45); outline-offset: 2px; }
 #student-avatar-big { overflow: hidden; }
 
 /* ============================================================

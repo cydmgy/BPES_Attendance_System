@@ -32,10 +32,13 @@ window.BpesSettings = (() => {
       const src = URL.createObjectURL(file), img = new Image();
       img.onload = () => {
         URL.revokeObjectURL(src);
-        const side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas');
-        c.width = c.height = 256;
-        c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
-        c.toBlob(b => (b ? resolve(b) : reject(new Error('read'))), 'image/jpeg', 0.85);
+        try {
+          const side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas'), g = c.getContext('2d');
+          c.width = c.height = 256;
+          g.fillStyle = '#fff'; g.fillRect(0, 0, 256, 256); // JPEG has no alpha: transparent PNG/WebP would turn black
+          g.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256);
+          c.toBlob(b => (b ? resolve(b) : reject(new Error('read'))), 'image/jpeg', 0.85);
+        } catch (e) { reject(e); }
       };
       img.onerror = () => { URL.revokeObjectURL(src); reject(new Error('read')); };
       img.src = src;
@@ -58,8 +61,8 @@ window.BpesSettings = (() => {
          <span class="bpes-avatar bpes-avatar-lg" id="settings-avatar-preview" aria-hidden="true">${avatarInner(me.avatar_url, me.full_name)}</span>
          <div>
            <div class="d-flex flex-wrap gap-2">
-             <label class="bpes-btn-primary bpes-pick px-3 d-inline-flex align-items-center" for="settings-avatar-file" id="settings-avatar-pick">Change picture</label>
              <input id="settings-avatar-file" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp">
+             <label class="bpes-btn-primary bpes-pick px-3 d-inline-flex align-items-center" for="settings-avatar-file" id="settings-avatar-pick">Change picture</label>
              <button type="button" id="settings-avatar-remove" class="btn btn-outline-secondary px-3" style="min-height:44px"${me.avatar_url ? '' : ' hidden'}>Remove picture</button>
            </div>
            <div class="small text-muted mt-1">JPG, PNG or WebP. Cropped to a square.</div>
@@ -114,11 +117,13 @@ window.BpesSettings = (() => {
       if (!TYPES.includes(file.type)) { fileIn.value = ''; return say(BAD_TYPE, true); }
       if (file.size > MAX_PICK) { fileIn.value = ''; return say(TOO_BIG, true); }
       busy(true); status.textContent = 'Uploading…';
+      const token = getAuthToken();
       try {
         let blob;
         try { blob = await prepPicture(file); } catch (e) { return say('That file could not be read as a picture.', true); }
         if (blob.size > MAX_UPLOAD) return say(TOO_BIG, true);
         const { data } = await axios.post(`${API_BASE}/api/account/avatar`, blob, { headers: { 'Content-Type': 'image/jpeg' } });
+        if (getAuthToken() !== token) return; // a different user signed in meanwhile
         applyAvatar(data.avatar_url);
         say('Picture updated.');
       } catch (err) { say(failText(err), true); }
@@ -128,8 +133,10 @@ window.BpesSettings = (() => {
     rmBtn.addEventListener('click', async () => {
       if (!confirm('Remove your profile picture?')) return;
       busy(true); status.textContent = 'Removing…';
+      const token = getAuthToken();
       try {
         await axios.delete(`${API_BASE}/api/account/avatar`);
+        if (getAuthToken() !== token) return;
         applyAvatar(null);
         say('Picture removed.');
       } catch (err) { say('Could not remove your picture. Try again later.', true); }
@@ -182,7 +189,7 @@ window.BpesProfile = (() => {
 
   function paint() {
     const big = document.getElementById('student-avatar-big'); // student dashboard's large avatar
-    if (big && info?.avatar_url) big.innerHTML = BpesSettings.avatarInner(info.avatar_url, info.name);
+    if (big) big.innerHTML = info ? BpesSettings.avatarInner(info.avatar_url, info.name) : '';
     document.querySelectorAll('[data-profile-card]').forEach(el => {
       el.hidden = !info;
       if (!info) return;
