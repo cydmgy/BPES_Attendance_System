@@ -626,8 +626,8 @@ function renderTeachersTable(list) {
              <button class="btn btn-link btn-sm p-0 ms-1 text-muted" title="Replace card" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-rotate"></i></button>`
           : `<button class="bpes-btn-outline bpes-btn-sm" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-id-card me-1"></i> Assign card</button>`}</td>
         <td>
-          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="resetTeacherPassword('${t.id}')">
-            <i class="fas fa-key me-1"></i> Reset password
+          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="changeTeacherPassword('${t.id}')">
+            <i class="fas fa-key me-1"></i> Change password
           </button>
           <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="handleAdminDeleteTeacher('${t.id}')">
             <i class="fas fa-trash me-1"></i> Delete
@@ -702,14 +702,17 @@ function showTempPassword(name, pw) {
   prompt(`One-time password for ${name} (copy it now, it is not shown again):`, pw);
 }
 
-async function resetTeacherPassword(id) {
+async function changeTeacherPassword(id) {
   const t = teachers.find(x => x.id === id);
-  if (!t || !confirm(`Issue a new password for "${t.full_name}"? Their current one stops working.`)) return;
+  if (!t) return;
+  const pw = prompt(`New password for ${t.full_name} (at least 6 characters). Their current one stops working.`);
+  if (pw === null) return;
+  if (pw.trim().length < 6) { notify('admin', 'Password must be at least 6 characters', 'danger'); return; }
   try {
-    const res = await axios.post(`${API_BASE}/api/teachers/${id}/reset-password`);
-    showTempPassword(t.full_name, res.data.temp_password);
+    await axios.put(`${API_BASE}/api/teachers/${id}`, { password: pw.trim() });
+    notify('admin', `Password changed for "${escapeHtml(t.full_name)}"`, 'success');
   } catch (err) {
-    notify('admin', err.response?.data?.error || 'Could not reset password', 'danger');
+    notify('admin', err.response?.data?.error || 'Could not change password', 'danger');
   }
 }
 
