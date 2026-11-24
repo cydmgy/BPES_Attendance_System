@@ -201,22 +201,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/schedules/:id — blocked once class sessions exist (archive instead)
-router.delete('/:id', async (req, res) => {
-  try {
-    if (!isUuid(req.params.id)) return fail(res, 404, 'Schedule not found');
-    const { data: gone, error } = await supabase.from('schedules').delete().eq('id', req.params.id)
-      .select('day_of_week, start_time, end_time, sections(section_name)');
-    if (error?.code === '23503') return fail(res, 409, 'Schedule has class session history; archive it instead');
-    if (error) throw error;
-    await logAudit(req, { action: 'delete', entity: 'schedule', entityId: req.params.id, summary: `Deleted schedule ${gone?.[0] ? `${gone[0].day_of_week} ${gone[0].start_time}-${gone[0].end_time} (${gone[0].sections?.section_name})` : req.params.id}` });
-    return res.json({ success: true });
-  } catch (err) {
-    console.error('[DELETE /schedules/:id]', err);
-    return fail(res, 500, 'Failed to delete schedule');
-  }
-});
-
 // POST /api/schedules/:id/co-teachers { teacher_id }
 router.post('/:id/co-teachers', async (req, res) => {
   try {
