@@ -44,7 +44,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
 // POST /api/teachers — Add new teacher
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
-    const { full_name, email, role = 'instructor', rfid_uid } = req.body;
+    const { full_name, email, rfid_uid } = req.body;
 
     if (!full_name || !email) {
       return res.status(400).json({ error: 'Full name and email are required' });
@@ -58,7 +58,6 @@ router.post('/', auth, adminOnly, async (req, res) => {
       rfid_uid: rfid.value,
       full_name: full_name.trim(),
       email: email.trim().toLowerCase(),
-      role: role === 'admin' ? 'admin' : 'instructor',
       password_hash: await hashPassword(password)
     };
 
@@ -93,11 +92,10 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ error: 'Permission denied' });
     }
 
-    const { full_name, email, role, password, rfid_uid } = req.body;
+    const { full_name, email, password, rfid_uid } = req.body;
     const updates = {};
     if (full_name !== undefined) updates.full_name = full_name.trim();
     if (email !== undefined)     updates.email = email.trim().toLowerCase();
-    if (role !== undefined && req.user?.role === 'admin') updates.role = role;
     if (password !== undefined) {
       // A teacher changes their own password in Settings (it checks the current one); here only an admin resets it.
       if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Change your password in Settings' });

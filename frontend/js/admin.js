@@ -587,7 +587,7 @@ async function loadAdminTeachers() {
     renderTeachersTable(teachers);
   } catch (err) {
     console.error('Error loading teachers', err);
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">Failed to load teachers</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-danger">Failed to load teachers</td></tr>`;
   }
 }
 
@@ -601,7 +601,7 @@ function renderTeachersTable(list) {
   }
 
   if (list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No teachers registered yet.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-muted">No teachers registered yet.</td></tr>`;
     return;
   }
 
@@ -620,9 +620,7 @@ function renderTeachersTable(list) {
             </div>
           </div>
         </td>
-        <td>${escapeHtml(t.role || 'Teacher I')}</td>
         <td>${escapeHtml(t.email)}</td>
-        <td class="d-none d-xxl-table-cell"><span class="badge bg-light text-dark border">Regular</span></td>
         <td>${t.rfid_uid
           ? `<span>${escapeHtml(t.rfid_uid)}</span>
              <button class="btn btn-link btn-sm p-0 ms-1 text-muted" title="Replace card" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-rotate"></i></button>`
@@ -648,8 +646,7 @@ function filterAdminTeachers() {
   }
   const filtered = teachers.filter(t =>
     (t.full_name && t.full_name.toLowerCase().includes(query)) ||
-    (t.email && t.email.toLowerCase().includes(query)) ||
-    (t.role && t.role.toLowerCase().includes(query))
+    (t.email && t.email.toLowerCase().includes(query))
   );
   renderTeachersTable(filtered);
 }
@@ -659,7 +656,6 @@ async function submitInlineTeacherForm(e) {
   const btn = document.getElementById('btn-submit-teacher');
   const name = document.getElementById('tch-name-input')?.value.trim();
   const email = document.getElementById('tch-email-input')?.value.trim();
-  const position = document.getElementById('tch-position-input')?.value;
   const rfidUid = document.getElementById('tch-rfid-input')?.value.trim();
 
   if (btn) {
@@ -671,7 +667,6 @@ async function submitInlineTeacherForm(e) {
     const res = await axios.post(`${API_BASE}/api/teachers`, {
       full_name: name,
       email: email,
-      role: position || 'Teacher I',
       rfid_uid: rfidUid
     });
 
