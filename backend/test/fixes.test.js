@@ -77,3 +77,10 @@ test('creating a teacher is refused, not saved, when the card-clash lookup itsel
   assert.notEqual(r.status, 201);
   assert.equal(writes.some(w => w.table === 'instructors' && w.k === 'insert'), false);
 });
+
+test('an admin password under 6 characters is a 400, not a silent 200', async () => {
+  answer = updatedTeacher;
+  const r = await call('PUT', `/api/teachers/${TEACHER}`, 'admin', { full_name: 'Ms T', password: 'abc' });
+  assert.equal(r.status, 400);
+  assert.equal(writes.length, 0);
+});

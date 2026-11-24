@@ -101,7 +101,8 @@ router.put('/:id', auth, async (req, res) => {
     if (password !== undefined) {
       // A teacher changes their own password in Settings (it checks the current one); here only an admin resets it.
       if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Change your password in Settings' });
-      if (String(password).trim().length >= 6) updates.password_hash = await hashPassword(String(password).trim());
+      if (String(password).trim().length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      updates.password_hash = await hashPassword(String(password).trim());
     }
 
     if (rfid_uid !== undefined && req.user?.role === 'admin') {
