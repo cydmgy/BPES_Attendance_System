@@ -284,10 +284,6 @@ async function loadSystemData() {
 
     updateBackendStatusUI(true);
 
-    if (activePortal === 'login') {
-      populateLoginStudentPicker();
-    }
-
   } catch (err) {
     console.error('Data initialization error:', err);
     isBackendOnline = false;
@@ -328,32 +324,6 @@ async function retryBackendConnection() {
     badge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Checking ${escapeHtml(API_BASE)}...`;
   }
   await loadSystemData();
-}
-
-function populateLoginStudentPicker() {
-  const pickerWrapper = document.getElementById('student-picker-wrapper');
-  const picker = document.getElementById('login-student-picker');
-  if (picker && students.length > 0) {
-    picker.innerHTML = '<option value="">-- Choose enrolled student to auto-fill --</option>' +
-      students.map(s => `<option value="${s.id}">${escapeHtml(s.full_name)} (LRN: ${escapeHtml(s.student_id)})</option>`).join('');
-    if (pickerWrapper) pickerWrapper.classList.remove('d-none');
-  }
-}
-
-function onSelectStudentProfile(studentId) {
-  if (!studentId) return;
-  const matched = students.find(s => s.id === studentId);
-  if (matched) {
-    const userInput = document.getElementById('login-username') || document.getElementById('student-login-lrn');
-    const pinInput = document.getElementById('login-password') || document.getElementById('student-login-pin');
-    if (userInput) userInput.value = matched.student_id;
-    if (pinInput) {
-      const defaultPin = matched.student_id && matched.student_id.length >= 4 
-        ? matched.student_id.slice(-4) 
-        : matched.student_id;
-      pinInput.value = defaultPin;
-    }
-  }
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -924,7 +894,6 @@ async function loadPage(page) {
     // Initialize specific page controllers
     if (targetPage === 'login') {
       updateBackendStatusUI(isBackendOnline);
-      populateLoginStudentPicker();
     } else if (targetPage === 'student' && typeof initStudentPortal === 'function') {
       initStudentPortal();
     } else if (targetPage === 'teacher' && typeof initTeacherPortal === 'function') {

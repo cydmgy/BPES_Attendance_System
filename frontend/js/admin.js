@@ -1034,6 +1034,16 @@ async function refreshRooms() {
   await loadAdminSections();
 }
 
+// The save already worked, so a failed refresh must not read as a failed save (a retry would add a duplicate room).
+async function reloadRooms() {
+  try {
+    await refreshRooms();
+    renderRoomsTable();
+  } catch (err) {
+    notify('admin', 'Saved, but the room list could not refresh. Reload the page.', 'warning');
+  }
+}
+
 function renderRoomsTable() {
   if (byId('rooms-count-pill')) byId('rooms-count-pill').textContent = `${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
   const tbody = byId('adm-rooms-tbody');
@@ -1100,8 +1110,7 @@ async function submitRoomForm(e) {
     else await axios.post(`${API_BASE}/api/rooms`, body);
     notify('admin', id ? 'Room updated' : 'Room added', 'success');
     resetRoomForm();
-    await refreshRooms();
-    renderRoomsTable();
+    await reloadRooms();
   } catch (err) {
     notify('admin', errMsg(err, 'Could not save room'), 'danger');
   } finally {
@@ -1115,8 +1124,7 @@ async function deleteRoom(id) {
   try {
     await axios.delete(`${API_BASE}/api/rooms/${id}`);
     notify('admin', 'Room deleted', 'warning');
-    await refreshRooms();
-    renderRoomsTable();
+    await reloadRooms();
   } catch (err) {
     notify('admin', errMsg(err, 'Could not delete room'), 'danger');
   }
