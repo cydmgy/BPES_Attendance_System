@@ -2,8 +2,7 @@
 // GET    /                              list (filters: section_id, teacher_id, room_id, day, status=active|archived|all)
 // GET    /availability?day&start&end    busy rooms/teachers/sections for a slot (exclude_id = schedule being edited)
 // POST   /                              create — room is always the section's home room
-// PUT    /:id                           update subject/teacher/day/times/status
-// DELETE /:id
+// PUT    /:id                           update subject/teacher/day/times/status (archive = status 'archived'; there is no delete)
 // POST   /:id/co-teachers               { teacher_id }      DELETE /:id/co-teachers/:teacherId
 // POST   /:id/overrides                 { override_date, sub_teacher_id }   DELETE /:id/overrides/:date
 const express = require('express');
