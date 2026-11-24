@@ -169,27 +169,26 @@ test('verifyPassword accepts new and legacy hashes, rejects a wrong password', a
   assert.equal(await verifyPassword('1234', null), false);
 });
 
-// ── Student login: names repeat, the PIN picks the student ──────────────
-test('student login: same name, different PINs -> each PIN opens its own student', async () => {
-  const a = { id: 'a', full_name: 'Maria Santos', student_id: '1111', pin: await hashPassword('1111') };
-  const b = { id: 'b', full_name: 'Maria Santos', student_id: '2222', pin: await hashPassword('2222') };
-  Object.assign(stub, fakeDb({ students: [a, b] }));
-  const first = await callJson('POST', '/api/auth/student', null, { full_name: 'Maria Santos', pin: '1111' });
-  assert.equal(first.status, 200);
-  assert.equal(first.json.user.id, 'a');
-  assert.equal((await callJson('POST', '/api/auth/student', null, { full_name: 'maria santos', pin: '2222' })).json.user.id, 'b');
-  assert.equal(await call('POST', '/api/auth/student', null, { full_name: 'Maria Santos', pin: '0000' }), 401);
+// ── Student login: LRN (students.student_id) + PIN ──────────────────────
+// The fake database ignores filters, so each test hands it the one row (or none) the lookup would find.
+test('student login: the LRN plus the right PIN is 200, a wrong PIN is 401', async () => {
+  const a = { id: 'a', full_name: 'Maria Santos', student_id: '111111111111', pin: await hashPassword('1111') };
+  Object.assign(stub, fakeDb({ students: a }));
+  const ok = await callJson('POST', '/api/auth/student', null, { student_id: '111111111111', pin: '1111' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.user.id, 'a');
+  assert.equal(await call('POST', '/api/auth/student', null, { student_id: '111111111111', pin: '2222' }), 401);
 });
 
-test('student login: same name and same PIN is refused (409), not guessed', async () => {
-  const pin = await hashPassword('1234');
-  Object.assign(stub, fakeDb({ students: [{ id: 'a', full_name: 'Maria Santos', pin }, { id: 'b', full_name: 'Maria Santos', pin }] }));
-  assert.equal(await call('POST', '/api/auth/student', null, { full_name: 'Maria Santos', pin: '1234' }), 409);
+test('student login: a full name alone is 400, an LRN that matches nobody is 404', async () => {
+  Object.assign(stub, fakeDb({ students: null }));
+  assert.equal(await call('POST', '/api/auth/student', null, { full_name: 'Maria Santos', pin: '1111' }), 400);
+  assert.equal(await call('POST', '/api/auth/student', null, { student_id: '999999999999', pin: '1111' }), 404);
 });
 
 test('student login: no PIN set means no login, even with the last 4 digits of the LRN', async () => {
-  Object.assign(stub, fakeDb({ students: [{ id: 'a', full_name: 'Old Student', student_id: '123456789012', pin: null }] }));
-  assert.equal(await call('POST', '/api/auth/student', null, { full_name: 'Old Student', pin: '9012' }), 401);
+  Object.assign(stub, fakeDb({ students: { id: 'a', full_name: 'Old Student', student_id: '123456789012', pin: null } }));
+  assert.equal(await call('POST', '/api/auth/student', null, { student_id: '123456789012', pin: '9012' }), 401);
 });
 
 // ── Teacher login: email + password only ─────────────────────────────────

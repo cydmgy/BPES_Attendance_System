@@ -346,8 +346,7 @@ function onSelectStudentProfile(studentId) {
   if (matched) {
     const userInput = document.getElementById('login-username') || document.getElementById('student-login-lrn');
     const pinInput = document.getElementById('login-password') || document.getElementById('student-login-pin');
-    // Fill with student's full name
-    if (userInput) userInput.value = matched.full_name || matched.student_id;
+    if (userInput) userInput.value = matched.student_id;
     if (pinInput) {
       const defaultPin = matched.student_id && matched.student_id.length >= 4 
         ? matched.student_id.slice(-4) 
@@ -447,7 +446,7 @@ async function handleUnifiedLogin(e) {
   if (!username || !password) {
     showAuthErrorPopup({
       title: 'Missing Credentials',
-      message: 'Please enter both your full name and password to sign in.',
+      message: 'Please enter both your LRN (teachers: email) and password to sign in.',
       type: 'warning',
       isNotFound: false
     });
@@ -510,12 +509,11 @@ async function handleUnifiedLogin(e) {
       }
     }
 
-    // 3. Authenticate Student by Full Name (or LRN)
+    // 3. Authenticate Student by LRN
     let studentResponse = null;
     let studentErrData = null;
     try {
       studentResponse = await axios.post(`${API_BASE}/api/auth/student`, {
-        full_name: username,
         student_id: username,
         pin: password
       });

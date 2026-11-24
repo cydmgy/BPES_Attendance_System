@@ -46,64 +46,42 @@ async function verifyPassword(password, stored) {
 const STUDENT_COLUMNS = '*, sections(section_name)';
 
 // ── POST /api/auth/student ───────────────────────────────────────
-// Authenticate student by Full Name (LRN / student_id as a fallback) + PIN.
+// Authenticate student by LRN (students.student_id, unique) + PIN.
 // A student with no PIN cannot log in: an admin sets one (PUT /api/students/:id/password).
 router.post('/student', async (req, res) => {
   try {
-    const identifier = String(req.body.full_name || req.body.name || req.body.student_id || req.body.lrn || req.body.username || '').trim();
+    const identifier = String(req.body.student_id || req.body.lrn || req.body.username || '').trim();
     const pin = String(req.body.pin || req.body.password || '').trim();
 
     if (!identifier) {
-      return res.status(400).json({ success: false, error: 'Full name or Student ID / LRN is required' });
+      return res.status(400).json({ success: false, error: 'LRN is required' });
     }
     if (!pin) {
       return res.status(400).json({ success: false, error: 'PIN / Password is required' });
     }
 
-    // Full names are not unique: take every match, and let the PIN pick the student.
-    let { data: candidates, error: errName } = await supabase
+    const { data: student, error: errId } = await supabase
       .from('students')
       .select(STUDENT_COLUMNS)
-      .ilike('full_name', likeEscape(identifier));
-    if (errName) throw errName;
+      .eq('student_id', identifier)
+      .maybeSingle();
+    if (errId) throw errId;
 
-    if (!candidates?.length) {
-      const { data: byId, error: errId } = await supabase
-        .from('students')
-        .select(STUDENT_COLUMNS)
-        .eq('student_id', identifier);
-      if (errId) throw errId;
-      candidates = byId;
-    }
-
-    if (!candidates?.length) {
+    if (!student) {
       return res.status(404).json({
         success: false,
         code: 'ACCOUNT_NOT_FOUND',
-        error: `Account does not exist. No student record found for "${identifier}".`
+        error: `Account does not exist. No student record found for LRN "${identifier}".`
       });
     }
 
-    const matches = [];
-    for (const s of candidates) {
-      if (s.pin && await verifyPassword(pin, s.pin)) matches.push(s);
-    }
-
-    if (matches.length === 0) {
+    if (!student.pin || !(await verifyPassword(pin, student.pin))) {
       return res.status(401).json({
         success: false,
         code: 'INCORRECT_PASSWORD',
         error: 'Incorrect password.'
       });
     }
-    if (matches.length > 1) {
-      return res.status(409).json({
-        success: false,
-        code: 'AMBIGUOUS_ACCOUNT',
-        error: 'Two students have this name and PIN. Ask the school administrator to change one PIN.'
-      });
-    }
-    const student = matches[0];
 
     // Upgrade a plain-text PIN to a salted hash
     if (!student.pin.includes(':')) {
