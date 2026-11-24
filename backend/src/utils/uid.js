@@ -12,7 +12,8 @@ function normalizeUid(raw) {
 
 // True if any row of `table` (students | instructors) already holds this card. Both tables share one reader.
 async function uidInUse(client, table, raw, exceptId = null) {
-  const { data } = await client.from(table).select('id').or(normalizeUid(raw).orFilter).limit(2);
+  const { data, error } = await client.from(table).select('id').or(normalizeUid(raw).orFilter).limit(2);
+  if (error) throw error; // fail closed: a failed lookup must not read as "card is free"
   return (data || []).some(r => r.id !== exceptId);
 }
 

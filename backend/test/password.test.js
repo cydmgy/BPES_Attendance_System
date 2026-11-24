@@ -73,11 +73,11 @@ test('creating a student returns temp_password once, and it logs in with must_ch
   assert.equal(created.status, 201, JSON.stringify(created.json));
   assert.equal(created.json.temp_password, 'delacruz9012');
   assert.doesNotMatch(tables.audit_log.map(a => a.summary).join('|'), /delacruz9012/);
-  const login = await call('POST', '/api/auth/student', null, { full_name: 'Dela Cruz, Juan A.', pin: 'delacruz9012' });
+  const login = await call('POST', '/api/auth/student', null, { student_id: '123456789012', pin: 'delacruz9012' });
   assert.equal(login.status, 200, JSON.stringify(login.json));
   assert.equal(login.json.must_change_password, true);
   assert.equal(require('../src/utils/token').verifyToken(login.json.token).payload.full_name, 'Dela Cruz, Juan A.');
-  const bad = await call('POST', '/api/auth/student', null, { full_name: 'Dela Cruz, Juan A.', pin: 'wrong-pass' });
+  const bad = await call('POST', '/api/auth/student', null, { student_id: '123456789012', pin: 'wrong-pass' });
   assert.equal(bad.json.error, 'Incorrect password.');
 });
 
@@ -95,7 +95,7 @@ test('PUT /:id/password: admin only, min 4, then the student logs in with it', a
   const audit = tables.audit_log.slice(before);
   assert.deepEqual(audit.map(a => [a.entity, a.action]), [['student', 'reset_password']]);
   assert.doesNotMatch(audit[0].summary, /newpass1/);
-  const login = await call('POST', '/api/auth/student', null, { full_name: 'Dela Cruz, Juan A.', pin: 'newpass1' });
+  const login = await call('POST', '/api/auth/student', null, { student_id: tables.students[0].student_id, pin: 'newpass1' });
   assert.equal(login.status, 200);
   assert.equal(login.json.must_change_password, true);
 });

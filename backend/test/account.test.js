@@ -102,7 +102,7 @@ test('change-password: wrong current is 401, short new is 400', async () => {
 test('student changes password, logs in with the new one, flag cleared, audit has no password', async () => {
   const r = await call('POST', '/api/account/change-password', tok.student, { current_password: '1234', new_password: '5678' });
   assert.equal(r.status, 200);
-  const login = await call('POST', '/api/auth/student', null, { full_name: 'Juan Dela Cruz', pin: '5678' });
+  const login = await call('POST', '/api/auth/student', null, { student_id: '123456', pin: '5678' });
   assert.equal(login.status, 200);
   assert.equal((await call('GET', '/api/account/me', tok.student)).json.must_change_password, false);
   const a = tables.audit_log.find(x => x.action === 'change_password' && x.entity === 'student');

@@ -124,7 +124,7 @@ async function studentTap(res, { student, colonUid, room, deviceId, tapAt, now }
   }, { onConflict: 'student_id,attendance_date', ignoreDuplicates: true });
   if (presErr) throw presErr;
 
-  const checkedIn = { success: true, role: 'student', student_name: student.full_name, status: 'present', log_id: null, session_id: null };
+  const checkedIn = { success: true, role: 'student', student_name: student.full_name, status: 'no_session', log_id: null, session_id: null };
 
   // Only this student's own section's period counts; any other tap is just the check-in.
   const slot = await findSlot(room.id, now);
@@ -148,10 +148,11 @@ async function studentTap(res, { student, colonUid, room, deviceId, tapAt, now }
   }).select('id, status').single();
 
   if (logErr?.code === '23505') {
-    // Already in this session (rolled in by the teacher's tap, or an earlier tap): report that row.
+    // First tap wins: already in this session (rolled in by the teacher's tap, or an earlier tap).
+    // 409 with the recorded status so the reader can say "already tapped" / "excused".
     const { data: existing } = await supabase.from('attendance_logs')
       .select('id, status').eq('session_id', session.id).eq('student_id', student.id).maybeSingle();
-    return res.status(200).json({ ...checkedIn, status: existing?.status || status, log_id: existing?.id || null, session_id: session.id });
+    return res.status(409).json({ ...checkedIn, success: false, status: existing?.status || status, log_id: existing?.id || null, session_id: session.id });
   }
   if (logErr) throw logErr;
   return res.status(200).json({ ...checkedIn, status: log.status, log_id: log.id, session_id: session.id });
@@ -208,7 +209,8 @@ router.post('/', iotAuth, async (req, res) => {
 
     if (teacher) return await teacherTap(res, { teacher, room, tapAt, now });
 
-    // ── Duplicate guard (students and unknown cards) ────────
+    // ── Duplicate guard ─────────────────────────────────────
+    // Students are covered by the one-row-per-session rule (first tap wins, see studentTap); the time window is for unknown cards.
     // A second tap of the same card arriving while the first is still being written is a duplicate too.
     lockKey = `${cleanHex}|${room.id}`;
     if (inFlight.has(lockKey)) {
@@ -217,13 +219,15 @@ router.post('/', iotAuth, async (req, res) => {
     }
     inFlight.add(lockKey);
 
-    const guardMinutes = parseInt(process.env.DUPLICATE_GUARD_MINUTES || '5', 10);
-    const guardCutoff = new Date(tapAt.getTime() - guardMinutes * 60 * 1000).toISOString();
-    const { data: recentScan } = await supabase.from('attendance_logs')
-      .select('id, timestamp').or(orFilter).eq('room_id', room.id).gte('timestamp', guardCutoff)
-      .order('timestamp', { ascending: false }).limit(1).maybeSingle();
-    if (recentScan) {
-      return res.status(409).json({ message: 'Duplicate scan — already logged recently', last_scan: recentScan.timestamp });
+    if (!student) {
+      const guardMinutes = parseInt(process.env.DUPLICATE_GUARD_MINUTES || '5', 10);
+      const guardCutoff = new Date(tapAt.getTime() - guardMinutes * 60 * 1000).toISOString();
+      const { data: recentScan } = await supabase.from('attendance_logs')
+        .select('id, timestamp').or(orFilter).eq('room_id', room.id).gte('timestamp', guardCutoff)
+        .order('timestamp', { ascending: false }).limit(1).maybeSingle();
+      if (recentScan) {
+        return res.status(409).json({ message: 'Duplicate scan — already logged recently', last_scan: recentScan.timestamp });
+      }
     }
 
     const tap = { colonUid, room, deviceId: device_id, tapAt, now };

@@ -74,6 +74,8 @@ const ADMIN_TABS = {
               'Create sections and choose the home room where each one has its classes.'],
   subjects:  ['Subjects', 'Add, edit and remove the subjects offered by the school.',
               'Add, edit and remove the subjects offered by the school.'],
+  rooms:     ['Rooms', 'Add, edit and remove rooms and the RFID reader assigned to each.',
+              'Add, edit and remove rooms and the RFID reader assigned to each.'],
   schedules: ['Schedules', 'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.',
               'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.'],
   logs:      ['Attendance Stream', 'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.',
@@ -112,6 +114,7 @@ function showAdminTab(tab) {
   else if (tab === 'teachers') loadAdminTeachers();
   else if (tab === 'sections') loadAdminSections();
   else if (tab === 'subjects') loadAdminSubjects();
+  else if (tab === 'rooms') loadAdminRooms();
   else if (tab === 'schedules') { loadAdminSections().then(refreshScheduleAvailability); loadAdminSchedules(); }
 }
 
@@ -1020,6 +1023,105 @@ async function deleteSubject(id) {
   }
   await loadAdminSubjects();
 }
+
+// ── Rooms ────────────────────────────────────────────────────
+
+// Sections, schedule dropdowns and section labels all read the shared rooms list, so refresh them with it.
+async function refreshRooms() {
+  const res = await axios.get(`${API_BASE}/api/rooms`);
+  rooms = res.data.rooms || [];
+  fillAdminSelects();
+  await loadAdminSections();
+}
+
+function renderRoomsTable() {
+  if (byId('rooms-count-pill')) byId('rooms-count-pill').textContent = `${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
+  const tbody = byId('adm-rooms-tbody');
+  if (!tbody) return;
+  const dash = '<span class="text-muted">—</span>';
+  tbody.innerHTML = rooms.length ? rooms.map(r => `
+    <tr>
+      <td><strong>${escapeHtml(r.name)}</strong></td>
+      <td>${r.location ? escapeHtml(r.location) : dash}</td>
+      <td>${r.device_id ? escapeHtml(r.device_id) : dash}</td>
+      <td>
+        <button class="bpes-btn-outline bpes-btn-sm" onclick="editRoom('${r.id}')"><i class="fas fa-pen me-1"></i> Edit</button>
+        <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="deleteRoom('${r.id}')"><i class="fas fa-trash me-1"></i> Delete</button>
+      </td>
+    </tr>`).join('')
+    : '<tr><td colspan="4" class="text-center py-4 text-muted">No rooms yet. Add one to start building schedules.</td></tr>';
+}
+
+async function loadAdminRooms() {
+  try {
+    const res = await axios.get(`${API_BASE}/api/rooms`);
+    rooms = res.data.rooms || [];
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not load rooms'), 'danger');
+    return;
+  }
+  renderRoomsTable();
+  fillAdminSelects();
+}
+
+function resetRoomForm() {
+  byId('room-form').reset();
+  byId('room-id-input').value = '';
+  byId('room-form-title').textContent = 'Add room';
+  byId('btn-submit-room').querySelector('span').textContent = 'Add room';
+  byId('btn-cancel-room').classList.add('d-none');
+}
+
+function editRoom(id) {
+  const r = rooms.find(x => x.id === id);
+  if (!r) return;
+  byId('room-id-input').value = r.id;
+  byId('room-name-input').value = r.name;
+  byId('room-location-input').value = r.location || '';
+  byId('room-device-input').value = r.device_id || '';
+  byId('room-form-title').textContent = 'Edit room';
+  byId('btn-submit-room').querySelector('span').textContent = 'Save changes';
+  byId('btn-cancel-room').classList.remove('d-none');
+  byId('room-name-input').focus();
+}
+
+async function submitRoomForm(e) {
+  e.preventDefault();
+  const btn = byId('btn-submit-room');
+  const id = byId('room-id-input').value;
+  const body = {
+    name: byId('room-name-input').value.trim(),
+    location: byId('room-location-input').value.trim(),
+    device_id: byId('room-device-input').value.trim(),
+  };
+  if (btn) btn.disabled = true;
+  try {
+    if (id) await axios.put(`${API_BASE}/api/rooms/${id}`, body);
+    else await axios.post(`${API_BASE}/api/rooms`, body);
+    notify('admin', id ? 'Room updated' : 'Room added', 'success');
+    resetRoomForm();
+    await refreshRooms();
+    renderRoomsTable();
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not save room'), 'danger');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function deleteRoom(id) {
+  const r = rooms.find(x => x.id === id);
+  if (!r || !confirm(`Delete room "${r.name}"?`)) return;
+  try {
+    await axios.delete(`${API_BASE}/api/rooms/${id}`);
+    notify('admin', 'Room deleted', 'warning');
+    await refreshRooms();
+    renderRoomsTable();
+  } catch (err) {
+    notify('admin', errMsg(err, 'Could not delete room'), 'danger');
+  }
+}
+
 
 // ── Schedules ────────────────────────────────────────────────
 
