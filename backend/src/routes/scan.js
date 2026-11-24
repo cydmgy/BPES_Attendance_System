@@ -124,7 +124,7 @@ async function studentTap(res, { student, colonUid, room, deviceId, tapAt, now }
   }, { onConflict: 'student_id,attendance_date', ignoreDuplicates: true });
   if (presErr) throw presErr;
 
-  const checkedIn = { success: true, role: 'student', student_name: student.full_name, status: 'present', log_id: null, session_id: null };
+  const checkedIn = { success: true, role: 'student', student_name: student.full_name, status: 'no_session', log_id: null, session_id: null };
 
   // Only this student's own section's period counts; any other tap is just the check-in.
   const slot = await findSlot(room.id, now);
