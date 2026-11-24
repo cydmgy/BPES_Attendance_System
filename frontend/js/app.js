@@ -745,6 +745,10 @@ function openAdminMobileDrawer() {
         <i class="fas fa-book"></i>
         <span>Subjects</span>
       </a>
+      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-rooms" onclick="selectAdminDrawerTab('rooms')">
+        <i class="fas fa-door-open"></i>
+        <span>Rooms</span>
+      </a>
       <a href="#" class="bpes-drawer-item" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules')">
         <i class="fas fa-calendar-days"></i>
         <span>Schedules</span>

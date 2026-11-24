@@ -63,6 +63,10 @@
           <i class="fas fa-book"></i>
           <span>Subjects</span>
         </div>
+        <div class="bpes-sidebar-item" id="sidebar-adm-rooms" onclick="showAdminTab('rooms')">
+          <i class="fas fa-door-open"></i>
+          <span>Rooms</span>
+        </div>
         <div class="bpes-sidebar-item" id="sidebar-adm-schedules" onclick="showAdminTab('schedules')">
           <i class="fas fa-calendar-days"></i>
           <span>Schedules</span>
@@ -593,6 +597,68 @@
       </section>
 
       <!-- ============================================================ -->
+      <!-- TAB: Rooms -->
+      <!-- ============================================================ -->
+      <section id="adm-tab-rooms" class="d-none">
+        <div class="row g-4">
+          <div class="col-12 col-xl-4">
+            <div class="bpes-card mb-4">
+              <div class="mb-3">
+                <h3 class="bpes-card-title" id="room-form-title">Add room</h3>
+                <div class="bpes-card-subtitle">Each RFID reader is tied to one room through its device ID.</div>
+              </div>
+              <form id="room-form" onsubmit="submitRoomForm(event)">
+                <input type="hidden" id="room-id-input">
+                <div class="bpes-form-group">
+                  <label for="room-name-input" class="bpes-label">Room name</label>
+                  <input type="text" id="room-name-input" class="bpes-input" placeholder="Room 1" maxlength="100" required>
+                </div>
+                <div class="bpes-form-group">
+                  <label for="room-location-input" class="bpes-label">Location</label>
+                  <input type="text" id="room-location-input" class="bpes-input" placeholder="Main building, 1st floor" maxlength="100">
+                </div>
+                <div class="bpes-form-group">
+                  <label for="room-device-input" class="bpes-label">Reader ID</label>
+                  <input type="text" id="room-device-input" class="bpes-input" placeholder="ESP32-GATEWAY-01" maxlength="50">
+                  <small class="text-muted">Must match the reader's device ID exactly (case-sensitive). Leave blank if no reader.</small>
+                </div>
+                <button type="submit" id="btn-submit-room" class="bpes-btn-primary w-100 py-3 mt-2">
+                  <span>Add room</span>
+                </button>
+                <button type="button" id="btn-cancel-room" class="bpes-btn-outline w-100 py-2 mt-2 d-none" onclick="resetRoomForm()">Cancel edit</button>
+              </form>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-8">
+            <div class="bpes-card">
+              <div class="bpes-card-header flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <h3 class="bpes-card-title">Rooms</h3>
+                  <span class="badge rounded-pill bg-light text-success border px-2 py-1" id="rooms-count-pill">0 rooms</span>
+                </div>
+              </div>
+              <div class="bpes-table-wrapper table-scroll">
+                <table class="bpes-table bpes-table-actions">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Location</th>
+                      <th>Reader ID</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-rooms-tbody">
+                    <tr><td colspan="4" class="text-center py-4 text-muted">Loading rooms...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
       <!-- TAB: Schedules -->
       <!-- ============================================================ -->
       <section id="adm-tab-schedules" class="d-none">
@@ -875,6 +941,10 @@
       <div class="bpes-mobile-drawer-item" onclick="showAdminTab('subjects'); closeAdminMobileDrawer();">
         <i class="fas fa-book"></i>
         <span>Subjects</span>
+      </div>
+      <div class="bpes-mobile-drawer-item" onclick="showAdminTab('rooms'); closeAdminMobileDrawer();">
+        <i class="fas fa-door-open"></i>
+        <span>Rooms</span>
       </div>
       <div class="bpes-mobile-drawer-item" onclick="showAdminTab('schedules'); closeAdminMobileDrawer();">
         <i class="fas fa-calendar-days"></i>
