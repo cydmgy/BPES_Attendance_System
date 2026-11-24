@@ -1,7 +1,6 @@
 // /api/teachers — Teacher Management
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const adminOnly = require('../middleware/adminOnly');
@@ -10,7 +9,7 @@ const { normalizeUid, uidInUse } = require('../utils/uid');
 const { logAudit } = require('../utils/audit');
 const { defaultTeacherPassword } = require('../utils/password');
 
-const COLS = 'id, full_name, email, role, rfid_uid, created_at';
+const COLS = 'id, employee_id, full_name, email, role, rfid_uid, created_at';
 
 // A teacher's card is required (taps on the shared reader identify them): normalised and checked
 // against students too. Returns { value } or { error } (error is an HTTP-ready { status, error }).
@@ -23,7 +22,7 @@ async function parseRfid(raw, teacherId = null) {
   return { value };
 }
 
-// Default teacher password: surname + last 4 of the teacher's id (same rule as students). Shown to the admin once.
+// Default teacher password: surname + last 4 of the employee ID (same rule as students).
 // Names are entered "Surname, First M.". Throws when the name has no letters.
 const newPassword = (fullName, id) => defaultTeacherPassword(fullName, id);
 
@@ -47,6 +46,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
     const { full_name, email, rfid_uid } = req.body;
+    const employee_id = String(req.body.employee_id ?? '').trim();
 
     if (!full_name || !email) {
       return res.status(400).json({ error: 'Full name and email are required' });
@@ -55,13 +55,11 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const rfid = await parseRfid(rfid_uid);
     if (rfid.error) return res.status(rfid.error.status).json({ error: rfid.error.error });
 
-    // The id is made here so the password can be built from it before the single insert.
-    const id = crypto.randomUUID();
     let password;
-    try { password = newPassword(full_name, id); }
-    catch { return res.status(400).json({ error: 'Full name must contain letters (enter it as "Surname, First M.")' }); }
+    try { password = newPassword(full_name, employee_id); }
+    catch { return res.status(400).json({ error: 'Enter the teacher ID (at least 4 letters or digits) and a name with letters ("Surname, First M.")' }); }
     const newTeacher = {
-      id,
+      employee_id,
       rfid_uid: rfid.value,
       full_name: full_name.trim(),
       email: email.trim().toLowerCase(),
@@ -76,13 +74,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
 
     if (error) {
       if (error.code === '23505') {
-        return res.status(409).json({ error: error.message.includes('rfid_uid') ? 'This RFID card is already assigned' : 'A teacher with this email already exists' });
+        return res.status(409).json({ error: error.message.includes('rfid_uid') ? 'This RFID card is already assigned' : error.message.includes('employee_id') ? 'This teacher ID is already in use' : 'A teacher with this email already exists' });
       }
       throw error;
     }
 
     await logAudit(req, { action: 'create', entity: 'teacher', entityId: data.id, summary: `Created teacher "${data.full_name}"` });
-    return res.status(201).json({ teacher: data, temp_password: password });
+    return res.status(201).json({ teacher: data });
   } catch (err) {
     console.error('[POST /teachers]', err);
     return res.status(500).json({ error: 'Failed to add teacher' });

@@ -616,7 +616,7 @@ function renderTeachersTable(list) {
             </div>
             <div>
               <div class="fw-bold">${escapeHtml(t.full_name)}</div>
-              <div class="bpes-cell-sub">${escapeHtml(t.id ? t.id.slice(0, 8) : 'T-2025')}</div>
+              <div class="bpes-cell-sub">${escapeHtml(t.employee_id || '—')}</div>
             </div>
           </div>
         </td>
@@ -656,6 +656,7 @@ async function submitInlineTeacherForm(e) {
   const btn = document.getElementById('btn-submit-teacher');
   const name = document.getElementById('tch-name-input')?.value.trim();
   const email = document.getElementById('tch-email-input')?.value.trim();
+  const employeeId = document.getElementById('tch-id-input')?.value.trim();
   const rfidUid = document.getElementById('tch-rfid-input')?.value.trim();
 
   if (btn) {
@@ -664,16 +665,16 @@ async function submitInlineTeacherForm(e) {
   }
 
   try {
-    const res = await axios.post(`${API_BASE}/api/teachers`, {
+    await axios.post(`${API_BASE}/api/teachers`, {
       full_name: name,
       email: email,
+      employee_id: employeeId,
       rfid_uid: rfidUid
     });
 
     notify('admin', `Teacher "${escapeHtml(name)}" registered successfully!`, 'success');
     document.getElementById('teacher-registration-form')?.reset();
     await loadAdminTeachers();
-    showTempPassword(name, res.data.temp_password);
   } catch (err) {
     const msg = err.response?.data?.error || err.message || 'Failed to register teacher';
     notify('admin', `Registration error: ${msg}`, 'danger');
@@ -695,11 +696,6 @@ function assignTeacherCard(id) {
     }
     loadAdminTeachers();
   });
-}
-
-// The server-generated one-time password is shown once: the admin copies it and hands it to the teacher.
-function showTempPassword(name, pw) {
-  prompt(`One-time password for ${name} (copy it now, it is not shown again):`, pw);
 }
 
 async function changeTeacherPassword(id) {
