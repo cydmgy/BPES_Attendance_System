@@ -138,32 +138,6 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// POST /api/teachers/:id/reset-password — admin resets to the default password (surname + last 4 of the id)
-router.post('/:id/reset-password', auth, adminOnly, async (req, res) => {
-  try {
-    const { data: found, error: findErr } = await supabase
-      .from('instructors').select('id, full_name').eq('id', req.params.id).maybeSingle();
-    if (findErr) throw findErr;
-    if (!found) return res.status(404).json({ error: 'Teacher not found' });
-    let password;
-    try { password = newPassword(found.full_name, found.id); }
-    catch { return res.status(400).json({ error: 'Cannot build a password: this teacher name has no letters' }); }
-    const { data, error } = await supabase
-      .from('instructors')
-      .update({ password_hash: await hashPassword(password) })
-      .eq('id', found.id)
-      .select('id, full_name')
-      .maybeSingle();
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Teacher not found' });
-    await logAudit(req, { action: 'reset_password', entity: 'teacher', entityId: data.id, summary: `Reset password for teacher "${data.full_name}"` });
-    return res.json({ temp_password: password });
-  } catch (err) {
-    console.error('[POST /teachers/:id/reset-password]', err);
-    return res.status(500).json({ error: 'Failed to reset password' });
-  }
-});
-
 // DELETE /api/teachers/:id — Remove teacher
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {

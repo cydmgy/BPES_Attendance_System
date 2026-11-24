@@ -147,7 +147,7 @@ router.post('/teacher', async (req, res) => {
       });
     }
 
-    // No stored password = no login; an admin issues one (POST /api/teachers/:id/reset-password).
+    // No stored password = no login; an admin sets one (PUT /api/teachers/:id with a password).
     const isValid = !!teacher.password_hash && await verifyPassword(password, teacher.password_hash);
     // If stored as plain text, upgrade to salted hash on successful login
     if (isValid && !teacher.password_hash.includes(':')) {
