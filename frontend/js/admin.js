@@ -1200,7 +1200,6 @@ function renderSchedulesTable() {
         <td>
           <button class="bpes-btn-outline bpes-btn-sm" onclick="openScheduleDetail('${s.id}')" title="Co-teachers and substitutes"><i class="fas fa-user-group me-1"></i> Manage</button>
           <button class="bpes-btn-outline bpes-btn-sm" onclick="setScheduleStatus('${s.id}', '${archived ? 'active' : 'archived'}')">${archived ? 'Restore' : 'Archive'}</button>
-          <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="deleteSchedule('${s.id}')"><i class="fas fa-trash"></i></button>
         </td>
       </tr>`;
   }).join('');
@@ -1277,16 +1276,6 @@ async function setScheduleStatus(id, status) {
     await axios.put(`${API_BASE}/api/schedules/${id}`, { status });
   } catch (err) {
     notify('admin', errMsg(err, 'Could not update class period'), 'danger');
-  }
-  await loadAdminSchedules();
-}
-
-async function deleteSchedule(id) {
-  if (!confirm('Delete this class period?')) return;
-  try {
-    await axios.delete(`${API_BASE}/api/schedules/${id}`);
-  } catch (err) {
-    notify('admin', errMsg(err, 'Could not delete class period'), 'danger');
   }
   await loadAdminSchedules();
 }
