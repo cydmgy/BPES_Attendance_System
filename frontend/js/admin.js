@@ -390,7 +390,7 @@ async function submitInlineEnrollForm(e) {
       guardian: {
         full_name: guardianName,
         phone_number: guardianPhone,
-        relationship: guardianRelation || 'Parent'
+        relationship: guardianRelation || 'Guardian'
       }
     });
 

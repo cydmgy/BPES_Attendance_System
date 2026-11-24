@@ -102,7 +102,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
         student_id: data.id,
         full_name: String(guardian.full_name || '').trim(),
         phone_number: String(guardian.phone_number || '').trim(),
-        relationship: String(guardian.relationship || 'Parent').trim()
+        relationship: String(guardian.relationship || 'Guardian').trim()
       });
       if (gErr) console.warn('[POST /students] Failed to insert guardian record:', gErr.message);
     }
