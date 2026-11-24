@@ -8,6 +8,7 @@ const adminOnly = require('../middleware/adminOnly');
 const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
 const { logAudit } = require('../utils/audit');
+const { defaultTeacherPassword } = require('../utils/password');
 
 const COLS = 'id, full_name, email, role, rfid_uid, created_at';
 
@@ -22,8 +23,9 @@ async function parseRfid(raw, teacherId = null) {
   return { value };
 }
 
-// A random one-time password, shown to the admin once. Never a shared default.
-const newPassword = () => crypto.randomBytes(6).toString('base64url');
+// Default teacher password: surname + last 4 of the teacher's id (same rule as students). Shown to the admin once.
+// Names are entered "Surname, First M.". Throws when the name has no letters.
+const newPassword = (fullName, id) => defaultTeacherPassword(fullName, id);
 
 // GET /api/teachers — List all teachers (admin only: it carries card numbers and emails)
 router.get('/', auth, adminOnly, async (req, res) => {
@@ -53,8 +55,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const rfid = await parseRfid(rfid_uid);
     if (rfid.error) return res.status(rfid.error.status).json({ error: rfid.error.error });
 
-    const password = newPassword();
+    // The id is made here so the password can be built from it before the single insert.
+    const id = crypto.randomUUID();
+    let password;
+    try { password = newPassword(full_name, id); }
+    catch { return res.status(400).json({ error: 'Full name must contain letters (enter it as "Surname, First M.")' }); }
     const newTeacher = {
+      id,
       rfid_uid: rfid.value,
       full_name: full_name.trim(),
       email: email.trim().toLowerCase(),
@@ -131,14 +138,20 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// POST /api/teachers/:id/reset-password — admin issues a new one-time password
+// POST /api/teachers/:id/reset-password — admin resets to the default password (surname + last 4 of the id)
 router.post('/:id/reset-password', auth, adminOnly, async (req, res) => {
   try {
-    const password = newPassword();
+    const { data: found, error: findErr } = await supabase
+      .from('instructors').select('id, full_name').eq('id', req.params.id).maybeSingle();
+    if (findErr) throw findErr;
+    if (!found) return res.status(404).json({ error: 'Teacher not found' });
+    let password;
+    try { password = newPassword(found.full_name, found.id); }
+    catch { return res.status(400).json({ error: 'Cannot build a password: this teacher name has no letters' }); }
     const { data, error } = await supabase
       .from('instructors')
       .update({ password_hash: await hashPassword(password) })
-      .eq('id', req.params.id)
+      .eq('id', found.id)
       .select('id, full_name')
       .maybeSingle();
     if (error) throw error;

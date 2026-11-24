@@ -1,4 +1,4 @@
-// Default student password: surname + last 4 of the LRN, lowercase, accents and non-letters removed.
+// Default student password (teachers use the same rule with the last 4 of their id): surname + last 4 of the LRN, lowercase, accents and non-letters removed.
 // "Surname, First M." takes the text before the comma; without a comma the first word is the surname.
 function defaultStudentPassword(fullName, studentId) {
   const name = String(fullName || '').trim();
@@ -9,4 +9,4 @@ function defaultStudentPassword(fullName, studentId) {
   return surname + id.slice(-4);
 }
 
-module.exports = { defaultStudentPassword };
+module.exports = { defaultStudentPassword, defaultTeacherPassword: defaultStudentPassword };
