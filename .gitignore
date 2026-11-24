@@ -8,3 +8,5 @@ backend/node_modules/
 Thumbs.db
 *.log
 .vscode/settings.json
+# Unit tests stay local (not on main / not deployed)
+backend/test/
