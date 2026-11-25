@@ -22,7 +22,11 @@ const SELECT = `id, subject_id, section_id, room_id, teacher_id, day_of_week, st
   schedule_overrides(id, override_date, sub_teacher_id, instructors(id, full_name))`;
 
 // Unknown ids are left to the foreign key (400 below); this only refuses a teacher who is archived.
-const isArchived = async id => !!(await supabase.from('instructors').select('id').eq('id', id).not('archived_at', 'is', null).maybeSingle()).data;
+const isArchived = async id => {
+  const { data, error } = await supabase.from('instructors').select('id').eq('id', id).not('archived_at', 'is', null).maybeSingle();
+  if (error) throw error;
+  return !!data;
+};
 const ARCHIVED = 'That teacher is archived';
 
 const dayOrder = (a, b) => DAYS.indexOf(a.day_of_week) - DAYS.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time);
@@ -191,6 +195,10 @@ router.put('/:id', async (req, res) => {
       u.status = b.status;
     }
     if (!Object.keys(u).length) return fail(res, 400, 'No update fields provided');
+    if (u.status === 'active' && b.teacher_id === undefined) { // restoring: the owner must not be archived
+      const { data: cur } = await supabase.from('schedules').select('teacher_id').eq('id', req.params.id).maybeSingle();
+      if (cur?.teacher_id && await isArchived(cur.teacher_id)) return fail(res, 400, ARCHIVED);
+    }
 
     const { error } = await supabase.from('schedules').update(u).eq('id', req.params.id);
     if (error) {

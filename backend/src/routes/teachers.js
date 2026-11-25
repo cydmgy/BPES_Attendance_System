@@ -156,6 +156,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       supabase.from('schedules').select('status').eq('teacher_id', id), // all rows: any status is history, active blocks archiving
       one('class_sessions', 'actual_teacher_id'), one('leave_requests', 'reviewed_by'),
       one('schedule_overrides', 'sub_teacher_id'), one('schedule_co_teachers', 'teacher_id'),
+      one('attendance_overrides', 'changed_by'),
     ]);
     const failed = results.find(r => r.error);
     if (failed) throw failed.error;
