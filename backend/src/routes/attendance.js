@@ -10,9 +10,10 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
 const auth = require('../middleware/auth');
+const { teachesSection } = require('../utils/access');
 
 const { localDateStr, localIso } = require('../utils/time');
-const { dayNameOf } = require('../utils/schedule');
+const { dayNameOf, isUuid } = require('../utils/schedule');
 const { withSectionName } = require('../utils/section');
 const { countStatuses, attendancePercent, aggregateByStudent, addDays, monthRange, buildTrend, withoutCancelled } = require('../utils/report');
 
@@ -29,16 +30,18 @@ const SESSION_CONTEXT = `session_id,
 router.get('/', auth, async (req, res) => {
   try {
     const { room_id, limit = 100, section, student_id } = req.query;
+    if ((student_id && !isUuid(student_id)) || (room_id && !isUuid(room_id))) return res.status(400).json({ error: 'Invalid filter' });
+    const rfid = req.user?.role === 'admin' ? 'rfid_uid, ' : ''; // card numbers are admin-only
 
     const selectClause = section
       ? `
-        id, rfid_uid, timestamp, status, device_id,
+        id, ${rfid}timestamp, status, device_id,
         students!inner(id, full_name, student_id, course, year_level, sections!inner(section_name)),
         rooms(id, name, location),
         ${SESSION_CONTEXT}
       `
       : `
-        id, rfid_uid, timestamp, status, device_id,
+        id, ${rfid}timestamp, status, device_id,
         students(id, full_name, student_id, course, year_level, sections(section_name)),
         rooms(id, name, location),
         ${SESSION_CONTEXT}
@@ -135,7 +138,8 @@ async function sessionLogs({ from, to, sectionId, subjectId, roomId, studentId, 
       .neq('class_sessions.status', 'cancelled') // a cancelled period is never counted
       .order('id')
       .range(offset, offset + PAGE - 1);
-    if (heldOnly) q = q.eq('class_sessions.status', 'closed').not('class_sessions.teacher_time_in', 'is', null);
+    q = q.not('class_sessions.teacher_time_in', 'is', null); // never opened by a teacher: not a held period, even while ongoing
+    if (heldOnly) q = q.eq('class_sessions.status', 'closed');
     if (sectionId) q = q.eq('class_sessions.schedules.section_id', sectionId);
     if (subjectId) q = q.eq('class_sessions.schedules.subject_id', subjectId);
     if (roomId)    q = q.eq('class_sessions.schedules.room_id', roomId);
@@ -153,12 +157,20 @@ const ownStudentId = req => (req.user?.role === 'student' ? (req.user.id || req.
 
 const badDate = d => !dayNameOf(d);
 
+// Report filters go into queries as ids: a malformed one is the caller's mistake (400), not a 500.
+const badFilter = q => ['section_id', 'subject_id', 'room_id', 'student_id'].some(k => q[k] && !isUuid(q[k]));
+
+// Teachers read reports only for a section they teach (admins see all; students are pinned to themselves).
+const teacherDenied = async req =>
+  req.user?.role === 'instructor' && !(isUuid(req.query.section_id) && await teachesSection(req.user.instructor_id, req.query.section_id));
+
 // ── GET /api/attendance/daily?date=YYYY-MM-DD&section_id=&room_id= ──
 // All of the day's opened sessions (including ones still running), with per-session counts.
 router.get('/daily', auth, async (req, res) => {
   try {
     const date = req.query.date || localDateStr();
     if (badDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+    if (badFilter(req.query)) return res.status(400).json({ error: 'Invalid filter' });
     const rows = await sessionLogs({
       from: date, to: date, heldOnly: false,
       sectionId: req.query.section_id, roomId: req.query.room_id, studentId: ownStudentId(req),
@@ -193,6 +205,7 @@ router.get('/daily', auth, async (req, res) => {
 // charts: held, closed sessions only. Students get their own days; staff get the whole school.
 router.get('/trend', auth, async (req, res) => {
   try {
+    if (badFilter(req.query)) return res.status(400).json({ error: 'Invalid filter' });
     const days = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 1), MAX_REPORT_DAYS);
     const to = localDateStr();
     const from = addDays(to, -(days - 1));
@@ -215,6 +228,8 @@ router.get('/weekly', auth, async (req, res) => {
     if (addDays(from, MAX_REPORT_DAYS - 1) < to) {
       return res.status(400).json({ error: `The date range can be at most ${MAX_REPORT_DAYS} days` });
     }
+    if (badFilter(req.query)) return res.status(400).json({ error: 'Invalid filter' });
+    if (await teacherDenied(req)) return res.status(403).json({ error: 'Permission denied' });
     const rows = await sessionLogs({
       from, to,
       sectionId: req.query.section_id, subjectId: req.query.subject_id, roomId: req.query.room_id,
@@ -241,6 +256,8 @@ router.get('/monthly', auth, async (req, res) => {
     if (!(year >= 2000 && year <= 2100 && month >= 1 && month <= 12)) {
       return res.status(400).json({ error: 'year and month are invalid' });
     }
+    if (badFilter(req.query)) return res.status(400).json({ error: 'Invalid filter' });
+    if (await teacherDenied(req)) return res.status(403).json({ error: 'Permission denied' });
     const { from, to } = monthRange(year, month);
     const rows = await sessionLogs({
       from, to,
@@ -272,14 +289,16 @@ router.get('/absentees', auth, async (req, res) => {
   try {
     if (req.user?.role === 'student') return res.status(403).json({ error: 'Permission denied' });
     const days = Math.min(Math.max(parseInt(req.query.days || '30', 10) || 30, 1), MAX_REPORT_DAYS);
+    if (badFilter(req.query)) return res.status(400).json({ error: 'Invalid filter' });
+    if (await teacherDenied(req)) return res.status(403).json({ error: 'Permission denied' });
     let threshold = parseInt(req.query.threshold, 10);
-    if (!Number.isFinite(threshold)) threshold = 75;
+    threshold = Number.isFinite(threshold) ? Math.min(Math.max(threshold, 0), 100) : 75;
 
     const to = localDateStr();
     const from = addDays(to, -(days - 1));
     const rows = await sessionLogs({ from, to, subjectId: req.query.subject_id, sectionId: req.query.section_id });
     const absentees = aggregateByStudent(rows)
-      .filter(s => s.attendance_percent !== null && s.attendance_percent < threshold)
+      .filter(s => s.sessions && (s.present + s.late + s.excused) * 100 < s.sessions * threshold) // raw ratio, not the rounded percent
       .sort((a, b) => a.attendance_percent - b.attendance_percent);
     return res.json({ from, to, threshold, absentees });
   } catch (err) {
