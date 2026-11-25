@@ -136,14 +136,18 @@ router.get('/', auth, async (req, res) => {
       if (!canOpen.has(key)) canOpen.set(key, canReviewLeave(supabase, req.user, r));
       return canOpen.get(key);
     };
-    const leave_requests = await Promise.all((data || []).map(async (r) => {
+    // A teacher lists only the requests they may review (leave reasons are private); admins see all.
+    const visible = isStudent || req.user?.role === 'admin'
+      ? (data || [])
+      : (await Promise.all((data || []).map(async (r) => ((await mayOpen(r)) ? r : null)))).filter(Boolean);
+    const leave_requests = visible.map((r) => {
       const files = r.leave_attachments || [];
       return {
         ...r,
         students: r.students && withSectionName(r.students),
-        leave_attachments: (files.length && await mayOpen(r)) ? files.sort((a, b) => a.slot - b.slot) : [],
+        leave_attachments: files.sort((a, b) => a.slot - b.slot),
       };
-    }));
+    });
     return res.json({ leave_requests, count: leave_requests.length });
   } catch (err) {
     console.error('[GET /leave]', err);
