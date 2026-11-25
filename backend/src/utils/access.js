@@ -26,6 +26,19 @@ async function canReviewLeave(supabase, user, leave) {
   return canManageAny(supabase, user, (data || []).map(s => s.id), leave.leave_date);
 }
 
+// Sections a teacher owns, co-teaches or substitutes in (any date). A cheap superset check before canReviewLeave.
+async function teacherSectionIds(supabase, teacherId) {
+  if (!teacherId) return new Set();
+  const [own, co, sub] = await Promise.all([
+    supabase.from('schedules').select('section_id').eq('teacher_id', teacherId),
+    supabase.from('schedule_co_teachers').select('schedule_id').eq('teacher_id', teacherId),
+    supabase.from('schedule_overrides').select('schedule_id').eq('sub_teacher_id', teacherId),
+  ]);
+  const ids = [...new Set([...(co.data || []), ...(sub.data || [])].map(r => r.schedule_id))];
+  const viaIds = ids.length ? (await supabase.from('schedules').select('section_id').in('id', ids)).data || [] : [];
+  return new Set([...(own.data || []), ...viaIds].map(r => r.section_id));
+}
+
 // An attendance log: the reviewer must run the session it belongs to. Logs without a session are admin-only.
 async function canOverrideLog(supabase, user, log) {
   if (user?.role === 'admin') return true;
@@ -49,4 +62,4 @@ async function teachesSection(teacherId, sectionId) {
   return [co, sub].some(r => r.data?.length > 0);
 }
 
-module.exports = { canManageAny, canReviewLeave, canOverrideLog, teachesSection };
+module.exports = { canManageAny, canReviewLeave, teacherSectionIds, canOverrideLog, teachesSection };

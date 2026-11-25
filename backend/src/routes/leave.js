@@ -11,7 +11,7 @@ const router = express.Router();
 const supabase = require('../supabase');
 const auth = require('../middleware/auth');
 const { withSectionName } = require('../utils/section');
-const { canReviewLeave } = require('../utils/access');
+const { canReviewLeave, teacherSectionIds } = require('../utils/access');
 const { logAudit } = require('../utils/audit');
 const { localDateStr } = require('../utils/time');
 const { isUuid, dayNameOf } = require('../utils/schedule');
@@ -118,7 +118,7 @@ router.get('/', auth, async (req, res) => {
         .from('leave_requests')
         .select(`
           id, student_id, subject_id, leave_date, leave_type, reason, status, created_at, reviewed_at,
-          students(id, full_name, student_id, sections(section_name)),
+          students(id, full_name, student_id, section_id, sections(section_name)),
           subjects(id, name, code),
           reviewed_by:instructors(id, full_name, email)${withAttachments ? ', ' + ATTACHMENT_COLUMNS : ''}
         `)
@@ -144,9 +144,12 @@ router.get('/', auth, async (req, res) => {
       return canOpen.get(key);
     };
     // A teacher lists only the requests they may review (leave reasons are private); admins see all.
-    const visible = isStudent || req.user?.role === 'admin'
-      ? (data || [])
-      : (await Promise.all((data || []).map(async (r) => ((await mayOpen(r)) ? r : null)))).filter(Boolean);
+    let visible = data || [];
+    if (!isStudent && req.user?.role !== 'admin') {
+      const mine = await teacherSectionIds(supabase, req.user?.instructor_id);
+      visible = visible.filter((r) => mine.has(r.students?.section_id));
+      visible = (await Promise.all(visible.map(async (r) => ((await mayOpen(r)) ? r : null)))).filter(Boolean);
+    }
     const leave_requests = visible.map((r) => {
       const files = r.leave_attachments || [];
       return {
