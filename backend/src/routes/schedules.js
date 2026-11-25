@@ -192,6 +192,11 @@ router.put('/:id', async (req, res) => {
       if (mapped) return res.status(mapped.status).json(mapped.body);
       throw error;
     }
+    if (u.status === 'archived') { // an archived schedule must not leave today's or later pending sessions running
+      const { error: cErr } = await supabase.from('class_sessions').update({ status: 'cancelled' })
+        .eq('schedule_id', req.params.id).eq('status', 'pending').gte('session_date', localDateStr());
+      if (cErr) throw cErr;
+    }
     await logAudit(req, { action: 'update', entity: 'schedule', entityId: req.params.id, summary: `Changed schedule ${Object.keys(u).join(", ")}` });
     return res.json({ schedule: await fetchOne(req.params.id) });
   } catch (err) {

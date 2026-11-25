@@ -79,8 +79,13 @@ async function periodsFor(req, res, date) {
       }
     }
 
+    const now = localNow();
     const out = periods.map(p => {
-      const s = sessionBy.get(p.id) || (closedDay ? { status: 'cancelled' } : null); // synthetic: no id, no logs
+      const found = sessionBy.get(p.id) || (closedDay ? { status: 'cancelled' } : null); // synthetic: no id, no logs
+      const [h, m] = p.end_time.split(':');
+      const over = date < now.date || (date === now.date && Number(h) * 60 + Number(m) <= now.minutes);
+      // a period that ended without a teacher opening it was never held, so it is not "upcoming"
+      const s = over && (!found || found.status === 'pending') ? { ...found, status: 'no_teacher' } : found;
       const base = {
         schedule_id: p.id,
         session_id: s?.id || null,

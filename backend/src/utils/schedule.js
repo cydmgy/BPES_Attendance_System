@@ -31,7 +31,7 @@ const CONFLICT_BY_CONSTRAINT = {
 
 // Translate a Postgres/PostgREST error from a schedules write into { status, body }, or null if unknown.
 function scheduleDbError(err) {
-  const name = /"([^"]+)"/.exec(err?.message || '')?.[1];
+  const name = /constraint "([^"]+)"/.exec(err?.message || '')?.[1];
   if (err?.code === '23P01') {
     const conflict = CONFLICT_BY_CONSTRAINT[name];
     if (!conflict) return null;

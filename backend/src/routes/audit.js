@@ -9,6 +9,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     let q = supabase.from('audit_log').select('*').order('created_at', { ascending: false });
+    if (req.query.before && Number.isNaN(Date.parse(req.query.before))) return res.status(400).json({ error: 'before must be a timestamp' });
     if (req.query.before) q = q.lt('created_at', String(req.query.before));
     if (req.query.entity) q = q.eq('entity', String(req.query.entity));
     if (req.query.actor_role) q = q.eq('actor_role', String(req.query.actor_role));
