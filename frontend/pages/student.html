@@ -20,7 +20,7 @@
 
   <!-- Mobile Top Header (72px) -->
   <div class="bpes-mobile-header">
-    <button class="bpes-hamburger-btn" onclick="openStudentMobileDrawer()" aria-label="Open student menu">
+    <button class="bpes-hamburger-btn" onclick="openStudentMobileDrawer()" aria-label="Open menu">
       <i class="fas fa-bars"></i>
     </button>
     <div class="bpes-mobile-brand">
@@ -323,14 +323,14 @@
               </div>
 
               <div style="min-width: 180px;">
-                <label class="bpes-label mb-1">Subject</label>
+                <label class="bpes-label mb-1" for="std-filter-subject">Subject</label>
                 <select id="std-filter-subject" class="bpes-select" style="height: 44px;" onchange="renderStudentHistory()">
                   <option value="">All subjects</option>
                 </select>
               </div>
 
               <div style="min-width: 150px;">
-                <label class="bpes-label mb-1">Status</label>
+                <label class="bpes-label mb-1" for="std-filter-status">Status</label>
                 <select id="std-filter-status" class="bpes-select" style="height: 44px;" onchange="renderStudentHistory()">
                   <option value="">All statuses</option>
                   <option value="present">Present</option>
@@ -403,13 +403,13 @@
                 <div class="row g-2">
                   <div class="col-12 col-sm-6">
                     <div class="bpes-form-group">
-                      <label class="bpes-label">LRN</label>
+                      <label class="bpes-label" for="leave-form-lrn">LRN</label>
                       <input type="text" id="leave-form-lrn" class="bpes-input" placeholder="LRN" readonly>
                     </div>
                   </div>
                   <div class="col-12 col-sm-6">
                     <div class="bpes-form-group">
-                      <label class="bpes-label">Full name</label>
+                      <label class="bpes-label" for="leave-form-name">Full name</label>
                       <input type="text" id="leave-form-name" class="bpes-input" placeholder="Full name" readonly>
                     </div>
                   </div>
@@ -437,7 +437,8 @@
 
                 <div class="bpes-form-group">
                   <label for="std-leave-date" class="bpes-label">When / Absence date(s)</label>
-                  <input type="date" id="std-leave-date" class="bpes-input" required>
+                  <input type="date" id="std-leave-date" class="bpes-input" required aria-describedby="std-leave-date-help">
+                  <div id="std-leave-date-help" class="form-text" style="font-size:13px">Today or a later date. Once a request is approved or declined, the decision is final.</div>
                 </div>
 
                 <div class="bpes-form-group">
@@ -521,47 +522,6 @@
       <section id="std-tab-settings" class="d-none"></section>
     </main>
   </div>
-
-  <!-- Mobile Drawer Menu -->
-  <div class="bpes-mobile-drawer" id="studentMobileDrawer">
-    <div class="bpes-mobile-drawer-header">
-      <div class="d-flex align-items-center gap-2">
-        <i class="fas fa-graduation-cap text-success fs-5"></i>
-        <span class="fw-bold text-dark">Student Menu</span>
-      </div>
-      <button class="btn btn-sm btn-light border-0" onclick="closeStudentMobileDrawer()">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <div class="bpes-mobile-drawer-body">
-      <div class="bpes-mobile-drawer-item active" onclick="showStudentTab('overview'); closeStudentMobileDrawer();">
-        <i class="fas fa-house-user"></i>
-        <span>Dashboard</span>
-      </div>
-      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('schedule'); closeStudentMobileDrawer();">
-        <i class="fas fa-calendar-week"></i>
-        <span>Schedule</span>
-      </div>
-      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('logs'); closeStudentMobileDrawer();">
-        <i class="fas fa-clock"></i>
-        <span>Attendance History</span>
-      </div>
-      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('leave'); closeStudentMobileDrawer();">
-        <i class="fas fa-envelope-open-text"></i>
-        <span>File Excuse/Leave</span>
-      </div>
-      <div class="bpes-mobile-drawer-item" onclick="showStudentTab('settings'); closeStudentMobileDrawer();">
-        <i class="fas fa-gear"></i>
-        <span>Settings</span>
-      </div>
-      <hr>
-      <div class="bpes-mobile-drawer-item text-danger" onclick="logout()">
-        <i class="fas fa-arrow-right-from-bracket"></i>
-        <span>Logout</span>
-      </div>
-    </div>
-  </div>
-  <div class="bpes-mobile-backdrop" id="studentMobileBackdrop" onclick="closeStudentMobileDrawer()"></div>
 
 </div>
 

@@ -233,48 +233,6 @@ a:hover {
   margin-bottom: 24px;
 }
 
-/* ============================================================
-   MOBILE AUTH & WELCOME (Figma Mobile 390-395px)
-   ============================================================ */
-.figma-mobile-auth-screen {
-  min-height: 100vh;
-  width: 100%;
-  position: relative;
-  background-color: var(--color-forest-green);
-  background-image: linear-gradient(rgba(20, 83, 45, 0.8), rgba(14, 74, 41, 0.9)), url('../assets/images/campus-mobile.png');
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  flex-direction: column;
-}
-
-.figma-mobile-topbar {
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  color: #FFFFFF;
-}
-
-.figma-mobile-card-container {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.figma-mobile-card {
-  width: 100%;
-  max-width: 360px;
-  background: #FFFFFF;
-  border: 1px solid var(--color-border);
-  border-radius: 20px;
-  box-shadow: var(--shadow-card);
-  padding: 24px 20px;
-}
-
 /* Scrolling table wrapper: header stays visible */
 .table-scroll { max-height: 60vh; overflow: auto; }
 .table-scroll thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
@@ -327,73 +285,6 @@ a:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
-}
-
-.bpes-nav-pills {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 4px;
-  border-radius: var(--radius-pill);
-}
-
-.bpes-nav-pill {
-  padding: 8px 18px;
-  border-radius: var(--radius-pill);
-  font-size: 14px;
-  font-weight: 500;
-  color: #FFFFFF;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  transition: var(--transition-smooth);
-  white-space: nowrap;
-}
-
-.bpes-nav-pill.active {
-  background-color: #FFFFFF;
-  color: var(--color-primary);
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.bpes-nav-pill:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.bpes-nav-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.bpes-role-badge {
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-size: 13px;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
-}
-
-.bpes-btn-logout {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #FFFFFF;
-  padding: 6px 16px;
-  border-radius: var(--radius-pill);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.bpes-btn-logout:hover {
-  background: rgba(255, 255, 255, 0.18);
 }
 
 .bpes-avatar {
@@ -512,23 +403,6 @@ a:hover {
   color: var(--color-primary);
 }
 
-.bpes-example-note {
-  margin-top: auto;
-  background: var(--color-primary-soft);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-size: 12px;
-  color: var(--color-subtle-green);
-}
-
-.bpes-example-note strong {
-  color: var(--color-primary);
-  display: block;
-  margin-bottom: 2px;
-  font-size: 12px;
-}
-
 .bpes-main-content {
   flex: 1;
   padding: 28px 36px;
@@ -537,55 +411,16 @@ a:hover {
 }
 
 /* ============================================================
-   WELCOME BANNER (Header bar in Main Content)
-   ============================================================ */
-.bpes-main-welcome {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.bpes-main-heading {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-primary);
-  line-height: 1.2;
-}
-
-.bpes-main-subtext {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin-top: 4px;
-}
-
-.bpes-date-pill {
-  background: #FFFFFF;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: var(--shadow-sm);
-}
-
-/* ============================================================
    SUMMARIES ROW / STAT GRID (3-4 KPI Cards)
    ============================================================ */
-.bpes-stat-grid,
-.bpes-summaries-row {
+.bpes-stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
 
-.bpes-stat-card,
-.bpes-summary-card {
+.bpes-stat-card {
   background: #FFFFFF;
   border: 1px solid var(--color-border);
   border-radius: 16px;
@@ -597,8 +432,7 @@ a:hover {
   transition: var(--transition-smooth);
 }
 
-.bpes-stat-card > div:not(.bpes-stat-icon),
-.bpes-summary-card > div:not(.bpes-summary-icon) {
+.bpes-stat-card > div:not(.bpes-stat-icon) {
   min-width: 0;
 }
 
@@ -610,14 +444,12 @@ a:hover {
   .bpes-stat-grid--even { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-.bpes-stat-card:hover,
-.bpes-summary-card:hover {
+.bpes-stat-card:hover {
   box-shadow: var(--shadow-card);
   border-color: var(--color-border-hover);
 }
 
-.bpes-stat-icon,
-.bpes-summary-icon {
+.bpes-stat-icon {
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -630,20 +462,17 @@ a:hover {
   flex-shrink: 0;
 }
 
-.bpes-stat-icon.warning,
-.bpes-summary-icon.warning {
+.bpes-stat-icon.warning {
   background: var(--color-amber-bg);
   color: var(--color-amber);
 }
 
-.bpes-stat-icon.danger,
-.bpes-summary-icon.danger {
+.bpes-stat-icon.danger {
   background: var(--color-absent-bg);
   color: var(--color-absent);
 }
 
-.bpes-stat-label,
-.bpes-summary-label {
+.bpes-stat-label {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.3;
@@ -651,8 +480,7 @@ a:hover {
   margin-bottom: 2px;
 }
 
-.bpes-stat-value,
-.bpes-summary-value {
+.bpes-stat-value {
   font-size: 26px;
   font-weight: 700;
   color: var(--color-primary);
@@ -671,8 +499,7 @@ a:hover {
   color: var(--color-primary) !important;
 }
 
-.bpes-stat-sub,
-.bpes-summary-sub {
+.bpes-stat-sub {
   font-size: 12px;
   color: var(--color-text-secondary);
 }
@@ -706,18 +533,6 @@ a:hover {
   font-size: 13px;
   color: var(--color-text-secondary);
   margin-top: 2px;
-}
-
-.bpes-card-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--color-primary-light);
-  color: var(--color-primary);
 }
 
 /* Buttons */
@@ -981,7 +796,8 @@ a:hover {
   white-space: nowrap;
 }
 
-.bpes-badge-present, .bpes-badge-enrolled, .bpes-badge-registered, .bpes-badge-approved {
+.bpes-badge-present,
+.bpes-badge-approved {
   background-color: #E8F5EC;
   color: #14532D;
 }
@@ -1036,10 +852,6 @@ a:hover {
   font-size: 22px;
   cursor: pointer;
   padding: 6px;
-}
-
-.bpes-mobile-header-center {
-  text-align: center;
 }
 
 .bpes-mobile-context {
@@ -1238,35 +1050,29 @@ a:hover {
 }
 
 @media (max-width: 768px) {
-  .bpes-stat-grid,
-  .bpes-summaries-row {
+  .bpes-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
   }
-  .bpes-stat-card,
-  .bpes-summary-card {
+  .bpes-stat-card {
     flex-direction: column !important;
     align-items: flex-start !important;
     padding: 12px !important;
     gap: 8px !important;
     min-width: 0 !important;
   }
-  .bpes-stat-icon,
-  .bpes-summary-icon {
+  .bpes-stat-icon {
     width: 38px !important;
     height: 38px !important;
     font-size: 16px !important;
   }
-  .bpes-stat-value,
-  .bpes-summary-value {
+  .bpes-stat-value {
     font-size: 20px !important;
   }
-  .bpes-stat-label,
-  .bpes-summary-label {
+  .bpes-stat-label {
     font-size: 12px !important;
   }
-  .bpes-stat-sub,
-  .bpes-summary-sub {
+  .bpes-stat-sub {
     font-size: 11px !important;
     line-height: 1.35;
   }
@@ -1349,84 +1155,10 @@ a:hover {
   .bpes-mobile-header {
     display: none;
   }
-  .bpes-drawer, .bpes-drawer-backdrop, .bpes-mobile-drawer, .bpes-mobile-backdrop {
+  .bpes-drawer,
+  .bpes-drawer-backdrop {
     display: none !important;
   }
-}
-
-/* Mobile Drawer specific aliases & styles */
-.bpes-mobile-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 280px;
-  background: #FFFFFF;
-  z-index: 1060;
-  transform: translateX(-100%);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-  box-shadow: none;
-  visibility: hidden;
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.3s, box-shadow 0.3s;
-}
-
-.bpes-mobile-drawer.open {
-  transform: translateX(0);
-  visibility: visible;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s, box-shadow 0.3s;
-}
-
-.bpes-mobile-drawer-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.bpes-mobile-drawer-body {
-  padding: 16px 12px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.bpes-mobile-drawer-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-dark-green);
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.bpes-mobile-drawer-item:hover, .bpes-mobile-drawer-item.active {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
-}
-
-.bpes-mobile-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 1050;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-
-.bpes-mobile-backdrop.show {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 /* Status Button Active styles */
@@ -1742,13 +1474,10 @@ a:hover {
   margin: 0 auto 24px;
 }
 
-
-
 /* ============================================================
    KEYBOARD FOCUS
    ============================================================ */
 .bpes-sidebar-item:focus-visible,
-.bpes-mobile-drawer-item:focus-visible,
 .bpes-btn-primary:focus-visible,
 .bpes-btn-outline:focus-visible,
 .bpes-btn-danger-outline:focus-visible {

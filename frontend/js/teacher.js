@@ -509,7 +509,7 @@ async function generateTeacherExportPreview() {
   try {
     const { date, rows } = await loadExportRows();
     if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No attendance records found for ${escapeHtml(date)}.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No attendance records found for ${escapeHtml(date)}.</td></tr>`;
       return;
     }
     tbody.innerHTML = rows.map((r, index) => `
@@ -518,13 +518,14 @@ async function generateTeacherExportPreview() {
         <td><code>${escapeHtml(r.student.student_id)}</code></td>
         <td class="fw-bold">${escapeHtml(r.student.full_name)}</td>
         <td><span class="badge bg-light text-dark border">${escapeHtml(r.period.section || '—')}</span></td>
+        <td>${escapeHtml(periodLabel(r.period))}</td>
         <td>${escapeHtml(r.period.room || '—')}</td>
         <td>${statusBadge(r.badge)}</td>
         <td>${timeOf(r.time)}</td>
       </tr>`).join('');
   } catch (err) {
     console.error('Export preview error', err);
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-warning">Could not load attendance records.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-warning">Could not load attendance records.</td></tr>';
   }
 }
 

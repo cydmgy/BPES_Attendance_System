@@ -103,7 +103,6 @@ window.BpesSettings = (() => {
         </section>
       </div>`;
     el.dataset.mounted = '1';
-    if (me.must_change_password) notify(role, 'Please change your password.', 'warning');
 
     const fileIn = el.querySelector('#settings-avatar-file'), rmBtn = el.querySelector('#settings-avatar-remove');
     const pickLbl = el.querySelector('#settings-avatar-pick'), status = el.querySelector('#settings-avatar-status');

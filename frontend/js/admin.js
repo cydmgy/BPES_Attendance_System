@@ -14,17 +14,10 @@ let schedules = [];
 function initAdminPortal() {
   startLiveClock(() => {
     setText('admin-date-pill', manilaTodayLabel());
-    const dateFormatted = new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Manila', day: '2-digit', month: 'short', year: 'numeric' });
-    setText('adm-stream-date-display', `Today, ${dateFormatted}`);
+    setText('adm-stream-date-display', 'Most recent taps');
     refreshGreeting('admin-greeting');
   });
   BpesProfile.load();
-
-  // Set default enrollment date to today
-  const enrollDateInput = document.getElementById('enroll-date-input');
-  if (enrollDateInput) {
-    enrollDateInput.value = manilaDate();
-  }
 
   populateAdminSectionFilter();
 
@@ -147,6 +140,8 @@ async function loadAdminDashboard() {
 
   const summary = today.status === 'fulfilled' ? today.value.data.summary : null;
   set('dash-rate', summary?.attendance_rate == null ? '—' : `${summary.attendance_rate}%`);
+  const rateSub = byId('dash-rate')?.nextElementSibling;
+  if (rateSub) rateSub.textContent = 'So far today';
   BpesCharts.statusDonut('dash-today-chart', summary || {}, 'dash-today-legend', 'No attendance records yet today.');
 
   BpesCharts.trendBars('dash-trend-chart', trend.status === 'fulfilled' ? trend.value.data.days : []);
@@ -351,7 +346,7 @@ async function startTapToEnrollInline(targetInputId = 'enroll-rfid-input', onCap
     } catch (err) {
       console.error('Tap poll error', err);
     }
-  }, 800);
+  }, 2000);
 }
 
 function stopTapPolling() {
@@ -385,7 +380,6 @@ async function submitInlineEnrollForm(e) {
       full_name: fullName,
       rfid_uid: rfidUid,
       course: 'Elementary',
-      year_level: 1,
       section_id: sectionId,
       guardian: {
         full_name: guardianName,
@@ -400,10 +394,6 @@ async function submitInlineEnrollForm(e) {
     pwModalEl.addEventListener('hidden.bs.modal', () => { document.getElementById('enroll-pw-value').textContent = ''; }, { once: true });
     bootstrap.Modal.getOrCreateInstance(pwModalEl).show();
     document.getElementById('enrollment-form')?.reset();
-    
-    // Reset date input
-    const enrollDateInput = document.getElementById('enroll-date-input');
-    if (enrollDateInput) enrollDateInput.value = manilaDate();
 
     const statusText = document.getElementById('rfid-scan-status-text');
     if (statusText) statusText.textContent = 'Ready to enroll';
@@ -452,6 +442,11 @@ async function loadAdminStudents() {
   }
 }
 
+function studentGradeSection(s) {
+  const grade = sections.find(sec => sec.id === s.section_id)?.grade_level;
+  return [grade ? `Grade ${grade}` : null, s.section || '—'].filter(Boolean).join(' • ');
+}
+
 function renderStudentsTable(list) {
   const tbody = document.getElementById('adm-students-tbody');
   const paginationLabel = document.getElementById('adm-students-pagination-label');
@@ -486,7 +481,7 @@ function renderStudentsTable(list) {
             </div>
           </div>
         </td>
-        <td><span class="badge bg-light text-dark border">Grade ${s.year_level || 1} &bull; ${escapeHtml(s.section || 'Diamond')}</span></td>
+        <td><span class="badge bg-light text-dark border">${escapeHtml(studentGradeSection(s))}</span></td>
         <td>${rfidTag}</td>
         <td>${escapeHtml(sections.find(sec => sec.id === s.section_id)?.rooms?.name || '—')}</td>
         <td><span class="badge rounded-pill bg-light text-success border px-2 py-1">Enrolled</span></td>
@@ -742,14 +737,14 @@ async function loadAdminLogs(isSilent = false) {
     }
 
     if (countBadge) {
-      countBadge.textContent = `${logs.length} taps`;
+      countBadge.textContent = `Latest ${logs.length} tap${logs.length === 1 ? '' : 's'}`;
     }
     if (countLabel) {
-      countLabel.textContent = `Live Stream: ${logs.length} logged tap${logs.length === 1 ? '' : 's'}`;
+      countLabel.textContent = `Live Stream: latest ${logs.length} logged tap${logs.length === 1 ? '' : 's'} (newest first, any date)`;
     }
 
     if (logs.length === 0) {
-      if (!isSilent) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No live attendance taps recorded yet today.</td></tr>`;
+      if (!isSilent) tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">No attendance taps recorded yet.</td></tr>`;
       return;
     }
 

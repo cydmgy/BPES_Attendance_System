@@ -56,7 +56,7 @@ function startLiveClock(update) {
 
 // Sidebar and drawer entries are <div onclick>: make them reachable and usable from the keyboard.
 function enhanceNavAccessibility() {
-  document.querySelectorAll('.bpes-sidebar-item, .bpes-mobile-drawer-item').forEach(el => {
+  document.querySelectorAll('.bpes-sidebar-item').forEach(el => {
     if (el.dataset.kb) return;
     el.dataset.kb = '1';
     el.setAttribute('role', 'button');
@@ -141,8 +141,6 @@ async function openLeaveAttachment(leaveId, attId) {
 
 let students = [];
 let teachers = [];
-let allLogs = [];
-let overrideModal = null;
 
 let studentUser = {
   id: '',
@@ -256,7 +254,6 @@ async function loadSystemData() {
 
     if (!isBackendOnline) {
       console.warn(`[BPES Portal] Backend offline at ${API_BASE}. Run 'node server.js' to connect.`);
-      updateBackendStatusUI(false);
       return;
     }
 
@@ -282,48 +279,10 @@ async function loadSystemData() {
     systemDataToken = listFailed ? null : getAuthToken();
     if (listFailed) notify(getAuthRole(), 'Could not load rooms and subjects. Refresh the page to try again.', 'danger');
 
-    updateBackendStatusUI(true);
-
   } catch (err) {
     console.error('Data initialization error:', err);
     isBackendOnline = false;
-    updateBackendStatusUI(false);
   }
-}
-
-function updateBackendStatusUI(online) {
-  const badge = document.getElementById('backend-status-badge');
-  if (!badge) return;
-
-  if (online) {
-    badge.className = 'alert alert-success py-2 small d-flex align-items-center justify-content-center gap-2 mb-4';
-    badge.style.borderRadius = 'var(--radius-input)';
-    badge.style.background = 'var(--color-primary-light)';
-    badge.style.color = 'var(--color-primary)';
-    badge.style.border = '1px solid var(--color-primary-border)';
-    badge.innerHTML = `<i class="fas fa-check-circle"></i> Database &amp; Attendance Node Connected`;
-  } else {
-    badge.className = 'alert alert-warning py-2 small d-flex flex-column align-items-center justify-content-center gap-1 mb-4 text-center';
-    badge.style.borderRadius = 'var(--radius-input)';
-    badge.style.background = 'var(--color-amber-bg)';
-    badge.style.color = 'var(--color-amber)';
-    badge.style.border = '1px solid var(--color-amber-border)';
-    badge.innerHTML = `
-      <div class="fw-bold"><i class="fas fa-triangle-exclamation me-1"></i> Backend Server Disconnected</div>
-      <div class="small" style="color: #666;">Start <code>node server.js</code> to enable live sync and IoT card reads.</div>
-      <button class="btn btn-sm btn-dark mt-1 py-1 px-3 fw-bold" style="font-size: 0.75rem" onclick="retryBackendConnection()">
-        <i class="fas fa-rotate me-1"></i> Retry Connection
-      </button>
-    `;
-  }
-}
-
-async function retryBackendConnection() {
-  const badge = document.getElementById('backend-status-badge');
-  if (badge) {
-    badge.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Checking ${escapeHtml(API_BASE)}...`;
-  }
-  await loadSystemData();
 }
 
 function togglePasswordVisibility(inputId, btn) {
@@ -369,7 +328,7 @@ function showAuthErrorPopup({ title, message, type = 'error', isNotFound = false
     if (isNotFound) {
       actionsEl.innerHTML = `
         <button type="button" class="bpes-btn-primary w-100 py-3" style="border-radius: var(--radius-input);" onclick="closeAuthErrorPopup()">
-          Check Name &amp; Try Again
+          Check LRN &amp; Try Again
         </button>
       `;
     } else {
@@ -405,8 +364,8 @@ function closeAuthErrorPopup(focusPassword = false) {
 
 async function handleUnifiedLogin(e) {
   e.preventDefault();
-  const alertEl = document.getElementById('login-alert-box') || document.getElementById('login-alert');
-  const btn = document.getElementById('unified-login-btn') || document.getElementById('btn-submit-login');
+  const alertEl = document.getElementById('login-alert-box');
+  const btn = document.getElementById('unified-login-btn');
   const userInput = document.getElementById('login-username');
   const passInput = document.getElementById('login-password');
 
@@ -505,13 +464,13 @@ async function handleUnifiedLogin(e) {
     if (studentErrData && studentErrData.code === 'INCORRECT_PASSWORD') {
       showAuthErrorPopup({
         title: 'Incorrect Password',
-        message: 'The password you entered is incorrect. Please check your password and try again.',
+        message: 'The LRN or password you entered is incorrect. Please check both and try again.',
         isNotFound: false
       });
       return;
     }
 
-    // Same name and PIN as another student, or a server problem: show the server's message
+    // A server problem: show the server's message
     if (studentErrData && studentErrData.code !== 'ACCOUNT_NOT_FOUND') {
       showAuthErrorPopup({
         title: 'Login Problem',
@@ -521,10 +480,10 @@ async function handleUnifiedLogin(e) {
       return;
     }
 
-    // 4. No student under that name (teachers sign in with their email above)
+    // 4. No student with that LRN (teachers sign in with their email above)
     showAuthErrorPopup({
       title: 'Account Does Not Exist',
-      message: `We could not find a student under the name "${escapeHtml(username)}". Please check the spelling (teachers sign in with their email address), or ask the school administrator to enroll your RFID card.`,
+      message: `We could not find a student with the LRN "${escapeHtml(username)}". Please check the number (teachers sign in with their email address), or ask the school administrator to enroll you.`,
       isNotFound: true
     });
 
@@ -539,128 +498,6 @@ async function handleUnifiedLogin(e) {
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<span>Log In</span>';
-    }
-  }
-}
-
-// ── Mobile Drawer Open / Close Helpers ─────────────────────────
-
-function openAdminMobileDrawer() {
-  document.getElementById('adminMobileDrawer')?.classList.add('open');
-  document.getElementById('adminMobileBackdrop')?.classList.add('show');
-}
-function closeAdminMobileDrawer() {
-  document.getElementById('adminMobileDrawer')?.classList.remove('open');
-  document.getElementById('adminMobileBackdrop')?.classList.remove('show');
-}
-
-function openTeacherMobileDrawer() {
-  document.getElementById('teacherMobileDrawer')?.classList.add('open');
-  document.getElementById('teacherMobileBackdrop')?.classList.add('show');
-}
-function closeTeacherMobileDrawer() {
-  document.getElementById('teacherMobileDrawer')?.classList.remove('open');
-  document.getElementById('teacherMobileBackdrop')?.classList.remove('show');
-}
-
-function openStudentMobileDrawer() {
-  document.getElementById('studentMobileDrawer')?.classList.add('open');
-  document.getElementById('studentMobileBackdrop')?.classList.add('show');
-}
-function closeStudentMobileDrawer() {
-  document.getElementById('studentMobileDrawer')?.classList.remove('open');
-  document.getElementById('studentMobileBackdrop')?.classList.remove('show');
-}
-
-async function handleTeacherLogin(e) {
-  e.preventDefault();
-  const alertEl = document.getElementById('teacher-login-alert');
-  const btn = document.getElementById('teacher-login-btn');
-  const emailInput = document.getElementById('teacher-login-email');
-  const passInput = document.getElementById('teacher-login-password');
-
-  const email = (emailInput?.value || '').trim();
-  const password = (passInput?.value || '').trim();
-
-  if (alertEl) alertEl.innerHTML = '';
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authenticating...';
-  }
-
-  try {
-    const res = await axios.post(`${API_BASE}/api/auth/teacher`, { email, password });
-    if (res.data.success) {
-      sessionStorage.setItem('auth_role', 'teacher');
-      sessionStorage.setItem('auth_token', res.data.token);
-      sessionStorage.setItem('auth_user', JSON.stringify(res.data.user));
-
-      currentTeacherUser = { ...currentTeacherUser, ...res.data.user };
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-
-      await loadPage('teacher');
-    } else {
-      throw new Error(res.data.error || 'Authentication failed');
-    }
-  } catch (err) {
-    const msg = err.response?.data?.error || err.message || 'Login error occurred';
-    if (alertEl) {
-      alertEl.innerHTML = `
-        <div class="alert alert-danger py-2 small shadow-sm mb-3" style="border-radius: var(--radius-input);">
-          <i class="fas fa-circle-exclamation me-1"></i> ${escapeHtml(msg)}
-        </div>
-      `;
-    }
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<span>Sign In as Teacher</span> <i class="fas fa-arrow-right ms-2"></i>';
-    }
-  }
-}
-
-async function handleAdminLogin(e) {
-  e.preventDefault();
-  const alertEl = document.getElementById('admin-login-alert');
-  const btn = document.getElementById('admin-login-btn');
-  const userInput = document.getElementById('admin-login-username');
-  const passInput = document.getElementById('admin-login-password');
-
-  const username = (userInput?.value || '').trim();
-  const password = (passInput?.value || '').trim();
-
-  if (alertEl) alertEl.innerHTML = '';
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Authenticating...';
-  }
-
-  try {
-    const res = await axios.post(`${API_BASE}/api/auth/admin`, { username, password });
-    if (res.data.success) {
-      sessionStorage.setItem('auth_role', 'admin');
-      sessionStorage.setItem('auth_token', res.data.token);
-      sessionStorage.setItem('auth_user', JSON.stringify(res.data.user));
-
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-
-      await loadPage('admin');
-    } else {
-      throw new Error(res.data.error || 'Authentication failed');
-    }
-  } catch (err) {
-    const msg = err.response?.data?.error || err.message || 'Login error occurred';
-    if (alertEl) {
-      alertEl.innerHTML = `
-        <div class="alert alert-danger py-2 small shadow-sm mb-3" style="border-radius: var(--radius-input);">
-          <i class="fas fa-circle-exclamation me-1"></i> ${escapeHtml(msg)}
-        </div>
-      `;
-    }
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<span>Sign In as Administrator</span> <i class="fas fa-arrow-right ms-2"></i>';
     }
   }
 }
@@ -686,6 +523,11 @@ function toggleMobileDrawer(open) {
   }
 }
 
+// Highlights the drawer item for the tab that is open now (the sidebar item carries the active class).
+function drawerActive(prefix, tab) {
+  return document.getElementById(`sidebar-${prefix}-${tab}`)?.classList.contains('active') ? ' active' : '';
+}
+
 function openAdminMobileDrawer() {
   const contextLabel = document.getElementById('drawer-context-label');
   const titleLabel = document.getElementById('drawer-title-label');
@@ -695,47 +537,47 @@ function openAdminMobileDrawer() {
   if (titleLabel) titleLabel.textContent = 'Navigation';
   if (navContainer) {
     navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item active" id="drawer-item-adm-dashboard" onclick="selectAdminDrawerTab('dashboard')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'dashboard')}" id="drawer-item-adm-dashboard" onclick="selectAdminDrawerTab('dashboard'); return false">
         <i class="fas fa-gauge"></i>
         <span>Dashboard</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'students')}" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students'); return false">
         <i class="fas fa-users"></i>
         <span>Student Enrollment</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-teachers" onclick="selectAdminDrawerTab('teachers')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'teachers')}" id="drawer-item-adm-teachers" onclick="selectAdminDrawerTab('teachers'); return false">
         <i class="fas fa-chalkboard-user"></i>
         <span>Teachers Directory</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-sections" onclick="selectAdminDrawerTab('sections')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'sections')}" id="drawer-item-adm-sections" onclick="selectAdminDrawerTab('sections'); return false">
         <i class="fas fa-layer-group"></i>
         <span>Sections</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-subjects" onclick="selectAdminDrawerTab('subjects')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'subjects')}" id="drawer-item-adm-subjects" onclick="selectAdminDrawerTab('subjects'); return false">
         <i class="fas fa-book"></i>
         <span>Subjects</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-rooms" onclick="selectAdminDrawerTab('rooms')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'rooms')}" id="drawer-item-adm-rooms" onclick="selectAdminDrawerTab('rooms'); return false">
         <i class="fas fa-door-open"></i>
         <span>Rooms</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'schedules')}" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules'); return false">
         <i class="fas fa-calendar-days"></i>
         <span>Schedules</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-noclass" onclick="selectAdminDrawerTab('noclass')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'noclass')}" id="drawer-item-adm-noclass" onclick="selectAdminDrawerTab('noclass'); return false">
         <i class="fas fa-calendar-xmark"></i>
         <span>No class days</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-logs" onclick="selectAdminDrawerTab('logs')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'logs')}" id="drawer-item-adm-logs" onclick="selectAdminDrawerTab('logs'); return false">
         <i class="fas fa-clock-rotate-left"></i>
         <span>Attendance Stream</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-adm-audit" onclick="selectAdminDrawerTab('audit')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'audit')}" id="drawer-item-adm-audit" onclick="selectAdminDrawerTab('audit'); return false">
         <i class="fas fa-clipboard-list"></i>
         <span>Audit log</span>
       </a>
-      <a href="#" class="bpes-drawer-item" onclick="selectAdminDrawerTab('settings')">
+      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'settings')}" onclick="selectAdminDrawerTab('settings'); return false">
         <i class="fas fa-gear"></i>
         <span>Settings</span>
       </a>
@@ -760,31 +602,31 @@ function openTeacherMobileDrawer() {
   if (titleLabel) titleLabel.textContent = 'Navigation';
   if (navContainer) {
     navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item active" id="drawer-item-tch-dashboard" onclick="selectTeacherDrawerTab('dashboard')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'dashboard')}" id="drawer-item-tch-dashboard" onclick="selectTeacherDrawerTab('dashboard'); return false">
         <i class="fas fa-home"></i>
         <span>Dashboard</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-schedule" onclick="selectTeacherDrawerTab('schedule')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'schedule')}" id="drawer-item-tch-schedule" onclick="selectTeacherDrawerTab('schedule'); return false">
         <i class="fas fa-calendar-week"></i>
         <span>Schedule</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-classes" onclick="selectTeacherDrawerTab('classes')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'classes')}" id="drawer-item-tch-classes" onclick="selectTeacherDrawerTab('classes'); return false">
         <i class="fas fa-chalkboard-user"></i>
         <span>Classes</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-attendance" onclick="selectTeacherDrawerTab('attendance')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'attendance')}" id="drawer-item-tch-attendance" onclick="selectTeacherDrawerTab('attendance'); return false">
         <i class="fas fa-check-square"></i>
         <span>Attendance</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-export" onclick="selectTeacherDrawerTab('export')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'export')}" id="drawer-item-tch-export" onclick="selectTeacherDrawerTab('export'); return false">
         <i class="fas fa-download"></i>
         <span>Export Attendance</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-tch-leave" onclick="selectTeacherDrawerTab('leave')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'leave')}" id="drawer-item-tch-leave" onclick="selectTeacherDrawerTab('leave'); return false">
         <i class="fas fa-file-text"></i>
         <span>Student Leave Requests</span>
       </a>
-      <a href="#" class="bpes-drawer-item" onclick="selectTeacherDrawerTab('settings')">
+      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'settings')}" onclick="selectTeacherDrawerTab('settings'); return false">
         <i class="fas fa-gear"></i>
         <span>Settings</span>
       </a>
@@ -809,23 +651,23 @@ function openStudentMobileDrawer() {
   if (titleLabel) titleLabel.textContent = 'Navigation';
   if (navContainer) {
     navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item active" id="drawer-item-std-overview" onclick="selectStudentDrawerTab('overview')">
+      <a href="#" class="bpes-drawer-item${drawerActive('std', 'overview')}" id="drawer-item-std-overview" onclick="selectStudentDrawerTab('overview'); return false">
         <i class="fas fa-home"></i>
         <span>Dashboard</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-std-schedule" onclick="selectStudentDrawerTab('schedule')">
+      <a href="#" class="bpes-drawer-item${drawerActive('std', 'schedule')}" id="drawer-item-std-schedule" onclick="selectStudentDrawerTab('schedule'); return false">
         <i class="fas fa-calendar-week"></i>
         <span>Schedule</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-std-logs" onclick="selectStudentDrawerTab('logs')">
+      <a href="#" class="bpes-drawer-item${drawerActive('std', 'logs')}" id="drawer-item-std-logs" onclick="selectStudentDrawerTab('logs'); return false">
         <i class="fas fa-clock"></i>
         <span>Attendance History</span>
       </a>
-      <a href="#" class="bpes-drawer-item" id="drawer-item-std-leave" onclick="selectStudentDrawerTab('leave')">
+      <a href="#" class="bpes-drawer-item${drawerActive('std', 'leave')}" id="drawer-item-std-leave" onclick="selectStudentDrawerTab('leave'); return false">
         <i class="fas fa-file-text"></i>
         <span>File Excuse / Leave</span>
       </a>
-      <a href="#" class="bpes-drawer-item" onclick="selectStudentDrawerTab('settings')">
+      <a href="#" class="bpes-drawer-item${drawerActive('std', 'settings')}" onclick="selectStudentDrawerTab('settings'); return false">
         <i class="fas fa-gear"></i>
         <span>Settings</span>
       </a>
@@ -892,9 +734,7 @@ async function loadPage(page) {
     enhanceNavAccessibility();
 
     // Initialize specific page controllers
-    if (targetPage === 'login') {
-      updateBackendStatusUI(isBackendOnline);
-    } else if (targetPage === 'student' && typeof initStudentPortal === 'function') {
+    if (targetPage === 'student' && typeof initStudentPortal === 'function') {
       initStudentPortal();
     } else if (targetPage === 'teacher' && typeof initTeacherPortal === 'function') {
       initTeacherPortal();
