@@ -11,6 +11,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = rateLimit;
 
 // ── Route imports ──────────────────────────────────────────────
 const authRoutes       = require('./src/routes/auth');
@@ -43,8 +44,23 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 // ── Security & Static Assets ────────────────────────────────────
-// Disable restrictive CSP in local dev so CDNs (icons, fonts, charts) load smoothly
-app.use(helmet({ contentSecurityPolicy: false }));
+// CSP is report-only in production until the browser console shows no violations, then drop reportOnly.
+// The pages use inline onclick= and style=, hence the 'unsafe-inline' entries. Off in dev so CDNs load smoothly.
+const cdn = ['https://cdn.jsdelivr.net', 'https://cdnjs.cloudflare.com'];
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+    reportOnly: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", ...cdn],
+      scriptSrcAttr: ["'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", ...cdn, 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'data:', 'https://cdnjs.cloudflare.com', 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'], // avatars are signed Supabase storage links
+      connectSrc: ["'self'"],
+    },
+  } : false,
+}));
 
 // In production: restrict CORS to the deployed origin via ALLOWED_ORIGIN env var.
 // Falls back to '*' if ALLOWED_ORIGIN is not yet set (monolith same-origin is safe).
@@ -62,23 +78,41 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // ── Rate limiter for the IoT scan endpoint ────────────────────
+// Tap-to-Enroll polls latest-tap every ~0.8 s from the same IP, so it gets its own bucket.
+const isLatestTap = req => req.method === 'GET' && req.path === '/latest-tap';
 const scanLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute window
   max: 300,                 // per IP, and every reader shares the school's IP: ~10 rooms tapping at once is 60+/min
+  skip: isLatestTap,
+  message: { error: 'Too many requests — slow down' },
+});
+const latestTapLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 300,
+  skip: req => !isLatestTap(req),
   message: { error: 'Too many requests — slow down' },
 });
 
-// ── Rate limiter for logins: failed attempts only, so a busy class logging in is not blocked ──
+// ── Rate limiters for logins: failed attempts only, so a busy class logging in is not blocked ──
+// Per IP + account stops guessing one account; the per-IP ceiling is higher because a class shares the school's IP.
+const loginMessage = { success: false, error: 'Too many login attempts — try again in a few minutes' };
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   skipSuccessfulRequests: true,
-  message: { success: false, error: 'Too many login attempts — try again in a few minutes' },
+  keyGenerator: req => `${ipKeyGenerator(req.ip)}|${String(req.body?.student_id || req.body?.lrn || req.body?.email || req.body?.username || '').trim().toLowerCase()}`,
+  message: loginMessage,
+});
+const authIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  skipSuccessfulRequests: true,
+  message: loginMessage,
 });
 
 // ── Routes ─────────────────────────────────────────────────────
-app.use('/api/auth',       authLimiter, authRoutes);
-app.use('/api/scan',       scanLimiter, scanRoutes);
+app.use('/api/auth',       authLimiter, authIpLimiter, authRoutes);
+app.use('/api/scan',       scanLimiter, latestTapLimiter, scanRoutes);
 app.use('/api/students',   studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/override',   overrideRoutes);

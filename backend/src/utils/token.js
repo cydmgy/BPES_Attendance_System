@@ -78,7 +78,7 @@ function verifyToken(token) {
 
     // Expiration check
     const now = Math.floor(Date.now() / 1000);
-    if (payload.exp && payload.exp < now) {
+    if (!(payload.exp >= now)) { // a token with no exp is rejected, not immortal
       return { valid: false, error: 'Token has expired' };
     }
 

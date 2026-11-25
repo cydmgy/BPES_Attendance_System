@@ -42,6 +42,9 @@ async function verifyPassword(password, stored) {
   return safeCompare(hash, originalHash);
 }
 
+// Unknown accounts verify against this so a miss costs as much as a wrong password (no timing tell).
+const DUMMY_HASH = `${ITERATIONS}:${'0'.repeat(32)}:${'0'.repeat(128)}`;
+
 // '*' so a database without must_change_password (migration 011) still logs students in; the response lists its fields one by one.
 const STUDENT_COLUMNS = '*, sections(section_name)';
 
@@ -67,19 +70,12 @@ router.post('/student', async (req, res) => {
       .maybeSingle();
     if (errId) throw errId;
 
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        code: 'ACCOUNT_NOT_FOUND',
-        error: `Account does not exist. No student record found for LRN "${identifier}".`
-      });
-    }
-
-    if (!student.pin || !(await verifyPassword(pin, student.pin))) {
+    // One answer for an unknown LRN and a wrong PIN, so the form cannot be used to list accounts.
+    if (!(await verifyPassword(pin, student?.pin || DUMMY_HASH)) || !student?.pin) {
       return res.status(401).json({
         success: false,
         code: 'INCORRECT_PASSWORD',
-        error: 'Incorrect password.'
+        error: 'Incorrect LRN or password.'
       });
     }
 
@@ -139,16 +135,9 @@ router.post('/teacher', async (req, res) => {
       .maybeSingle();
     if (error) throw error;
 
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        code: 'ACCOUNT_NOT_FOUND',
-        error: `Account does not exist. No teacher record found for "${email}".`
-      });
-    }
-
     // No stored password = no login; an admin sets one (PUT /api/teachers/:id with a password).
-    const isValid = !!teacher.password_hash && await verifyPassword(password, teacher.password_hash);
+    // An unknown email gets the same 401 as a wrong password, after the same hashing work.
+    const isValid = (await verifyPassword(password, teacher?.password_hash || DUMMY_HASH)) && !!teacher?.password_hash;
     // If stored as plain text, upgrade to salted hash on successful login
     if (isValid && !teacher.password_hash.includes(':')) {
       await supabase.from('instructors').update({ password_hash: await hashPassword(password) }).eq('id', teacher.id);
@@ -158,7 +147,7 @@ router.post('/teacher', async (req, res) => {
       return res.status(401).json({
         success: false,
         code: 'INCORRECT_PASSWORD',
-        error: 'Incorrect password for teacher account.'
+        error: 'Incorrect email or password.'
       });
     }
 
@@ -214,19 +203,11 @@ router.post('/admin', async (req, res) => {
     const isUsernameMatch = safeCompare(username, expectedUsername);
     const isPasswordMatch = await checkAdminPassword(password);
 
-    if (!isUsernameMatch) {
-      return res.status(404).json({
-        success: false,
-        code: 'ACCOUNT_NOT_FOUND',
-        error: 'Invalid administrator username.'
-      });
-    }
-
-    if (!isPasswordMatch) {
+    if (!isUsernameMatch || !isPasswordMatch) {
       return res.status(401).json({
         success: false,
         code: 'INCORRECT_PASSWORD',
-        error: 'Incorrect administrator password.'
+        error: 'Incorrect username or password.'
       });
     }
 
