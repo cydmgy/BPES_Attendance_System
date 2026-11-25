@@ -8,8 +8,11 @@ const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
 const { logAudit } = require('../utils/audit');
 const { defaultTeacherPassword } = require('../utils/password');
+const { BUCKET } = require('../utils/avatar');
 
 const COLS = 'id, employee_id, full_name, email, role, rfid_uid, created_at';
+
+const dupMessage = e => e.message.includes('rfid_uid') ? 'This RFID card is already assigned' : e.message.includes('employee_id') ? 'This teacher ID is already in use' : 'A teacher with this email already exists';
 
 // A teacher's card is required (taps on the shared reader identify them): normalised and checked
 // against students too. Returns { value } or { error } (error is an HTTP-ready { status, error }).
@@ -74,7 +77,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
 
     if (error) {
       if (error.code === '23505') {
-        return res.status(409).json({ error: error.message.includes('rfid_uid') ? 'This RFID card is already assigned' : error.message.includes('employee_id') ? 'This teacher ID is already in use' : 'A teacher with this email already exists' });
+        return res.status(409).json({ error: dupMessage(error) });
       }
       throw error;
     }
@@ -99,8 +102,13 @@ router.put('/:id', auth, async (req, res) => {
 
     const { full_name, email, password, rfid_uid } = req.body;
     const updates = {};
-    if (full_name !== undefined) updates.full_name = full_name.trim();
-    if (email !== undefined)     updates.email = email.trim().toLowerCase();
+    // A teacher's own name goes through /api/account/profile and their email (the login) stays with the admin.
+    const isAdmin = req.user?.role === 'admin';
+    if (full_name !== undefined && isAdmin) updates.full_name = full_name.trim();
+    if (email !== undefined && isAdmin) {
+      updates.email = email.trim().toLowerCase();
+      if (!/^\S+@\S+\.\S+$/.test(updates.email)) return res.status(400).json({ error: 'Enter a valid email address' });
+    }
     if (password !== undefined) {
       // A teacher changes their own password in Settings (it checks the current one); here only an admin resets it.
       if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Change your password in Settings' });
@@ -123,9 +131,12 @@ router.put('/:id', auth, async (req, res) => {
       .update(updates)
       .eq('id', targetId)
       .select(COLS)
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') return res.status(409).json({ error: dupMessage(error) });
+      throw error;
+    }
     if (!data) return res.status(404).json({ error: 'Teacher not found' });
 
     await logAudit(req, { action: 'update', entity: 'teacher', entityId: data.id, summary: `Updated teacher "${data.full_name}"` });
@@ -139,14 +150,31 @@ router.put('/:id', auth, async (req, res) => {
 // DELETE /api/teachers/:id — Remove teacher
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
+    // Deleting would null the teacher on their schedules and sessions and lose who taught what
+    const [{ data: owned, error: e1 }, { data: taught, error: e2 }] = await Promise.all([
+      supabase.from('schedules').select('id').eq('teacher_id', req.params.id).eq('status', 'active').limit(1),
+      supabase.from('class_sessions').select('id').eq('actual_teacher_id', req.params.id).limit(1),
+    ]);
+    if (e1 || e2) throw e1 || e2;
+    if (owned?.length || taught?.length) {
+      return res.status(409).json({ error: 'This teacher has active schedules or class history and cannot be deleted. Archive their schedules or change their card instead.' });
+    }
+
+    // select('*') so this still works before migration 012 adds avatar_path
     const { data: gone, error } = await supabase
       .from('instructors')
       .delete()
       .eq('id', req.params.id)
-      .select('full_name');
+      .select('*');
 
     if (error) throw error;
-    await logAudit(req, { action: 'delete', entity: 'teacher', entityId: req.params.id, summary: `Deleted teacher "${gone?.[0]?.full_name ?? req.params.id}"` });
+    if (!gone?.length) return res.status(404).json({ error: 'Teacher not found' });
+
+    if (gone[0].avatar_path) {
+      try { await supabase.storage.from(BUCKET).remove([gone[0].avatar_path]); }
+      catch (e) { console.error('[DELETE /teachers] avatar cleanup', e); }
+    }
+    await logAudit(req, { action: 'delete', entity: 'teacher', entityId: req.params.id, summary: `Deleted teacher "${gone[0].full_name}"` });
     return res.json({ success: true, message: 'Teacher deleted successfully' });
   } catch (err) {
     console.error('[DELETE /teachers]', err);
