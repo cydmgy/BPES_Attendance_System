@@ -40,11 +40,13 @@ router.post('/clear-tap', auth, adminOnly, (req, res) => {
 async function resolveRoom(roomId, deviceId) {
   if (roomId) {
     if (!isUuid(roomId)) return null;
-    const { data } = await supabase.from('rooms').select('id, name').eq('id', roomId).maybeSingle();
+    const { data, error } = await supabase.from('rooms').select('id, name').eq('id', roomId).maybeSingle();
+    if (error) throw error;
     return data;
   }
   if (!deviceId) return null;
-  const { data } = await supabase.from('rooms').select('id, name').eq('device_id', deviceId).maybeSingle();
+  const { data, error } = await supabase.from('rooms').select('id, name').eq('device_id', deviceId).maybeSingle();
+  if (error) throw error;
   return data;
 }
 
@@ -168,6 +170,9 @@ router.post('/', iotAuth, async (req, res) => {
   if (!cleanHex) {
     return res.status(400).json({ error: 'RFID UID contains no valid alphanumeric characters' });
   }
+  if (colonUid.length > 50 || (device_id != null && (typeof device_id !== 'string' || device_id.length > 50))) {
+    return res.status(400).json({ error: 'uid or device_id is too long' });
+  }
 
   const tapAt = new Date();
   const now = localNow(tapAt);
@@ -175,10 +180,12 @@ router.post('/', iotAuth, async (req, res) => {
 
   try {
     // Teachers are looked up first; both tables share the reader (card uniqueness is enforced on write).
-    const [{ data: teacher }, { data: student }] = await Promise.all([
+    const [{ data: teacher, error: teacherErr }, { data: student, error: studentErr }] = await Promise.all([
       supabase.from('instructors').select('id, full_name').or(orFilter).maybeSingle(),
       supabase.from('students').select('id, full_name, student_id, section_id').or(orFilter).maybeSingle(),
     ]);
+    // A failed lookup must not look like an unknown card (it would be logged and the student never checked in).
+    if (teacherErr || studentErr) throw teacherErr || studentErr;
 
     // Tap-to-Enroll buffer is filled before anything can reject the tap.
     latestScan = {
@@ -220,11 +227,13 @@ router.post('/', iotAuth, async (req, res) => {
     inFlight.add(lockKey);
 
     if (!student) {
-      const guardMinutes = parseInt(process.env.DUPLICATE_GUARD_MINUTES || '5', 10);
+      const parsedGuard = parseInt(process.env.DUPLICATE_GUARD_MINUTES || '5', 10);
+      const guardMinutes = Number.isNaN(parsedGuard) ? 5 : parsedGuard;
       const guardCutoff = new Date(tapAt.getTime() - guardMinutes * 60 * 1000).toISOString();
-      const { data: recentScan } = await supabase.from('attendance_logs')
+      const { data: recentScan, error: guardErr } = await supabase.from('attendance_logs')
         .select('id, timestamp').or(orFilter).eq('room_id', room.id).gte('timestamp', guardCutoff)
         .order('timestamp', { ascending: false }).limit(1).maybeSingle();
+      if (guardErr) throw guardErr;
       if (recentScan) {
         return res.status(409).json({ message: 'Duplicate scan — already logged recently', last_scan: recentScan.timestamp });
       }
