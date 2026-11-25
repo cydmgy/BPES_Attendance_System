@@ -15,9 +15,11 @@ const { hashPassword } = require('./auth');
 const { normalizeUid, uidInUse } = require('../utils/uid');
 const { sectionFields, withSectionName } = require('../utils/section');
 const { BUCKET, isTableMissing } = require('../utils/attachment');
+const { BUCKET: AVATAR_BUCKET } = require('../utils/avatar');
 const { logAudit } = require('../utils/audit');
 const { defaultStudentPassword } = require('../utils/password');
 
+const RELATIONSHIPS = ['Mother', 'Father', 'Guardian', 'Sibling']; // the enrollment form's list
 const SAFE_STUDENT_COLUMNS = 'id, rfid_uid, student_id, full_name, course, year_level, section_id, created_at, sections(section_name)';
 
 // GET /api/students — list all students (with optional search). Admin only: it carries card numbers and guardian phones.
@@ -50,7 +52,7 @@ router.get('/', auth, adminOnly, async (req, res) => {
 // POST /api/students — register a new student (link RFID UID to student profile + optional guardian)
 router.post('/', auth, adminOnly, async (req, res) => {
   try {
-    const { rfid_uid, student_id, full_name, course, year_level, section, section_id, guardian } = req.body;
+    const { rfid_uid, student_id, full_name, course, year_level, section, section_id, guardian } = req.body || {};
 
     if (!student_id || !full_name) {
       return res.status(400).json({ error: 'student_id and full_name are required' });
@@ -66,6 +68,8 @@ router.post('/', auth, adminOnly, async (req, res) => {
     }
     const sec = await sectionFields(supabase, { section_id, section });
     if (!sec?.section_id) return res.status(400).json({ error: 'A valid section is required' });
+    const relationship = String(guardian?.relationship || 'Guardian').trim();
+    if (!RELATIONSHIPS.includes(relationship)) return res.status(400).json({ error: `Guardian relationship must be one of: ${RELATIONSHIPS.join(', ')}` });
     let tempPassword;
     try { tempPassword = defaultStudentPassword(full_name, student_id); }
     catch (e) { return res.status(400).json({ error: 'Student ID (at least 4 characters) and a surname are needed to build the default password' }); }
@@ -95,6 +99,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       throw error;
     }
 
+    let guardianSaved = true;
     // If guardian info was submitted, insert record into guardians table
     if (guardian && (guardian.full_name || guardian.phone_number)) {
       // supabase-js resolves with { error } (a query builder has no .catch), so check it
@@ -102,13 +107,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
         student_id: data.id,
         full_name: String(guardian.full_name || '').trim(),
         phone_number: String(guardian.phone_number || '').trim(),
-        relationship: String(guardian.relationship || 'Guardian').trim()
+        relationship
       });
-      if (gErr) console.warn('[POST /students] Failed to insert guardian record:', gErr.message);
+      if (gErr) { console.warn('[POST /students] Failed to insert guardian record:', gErr.message); guardianSaved = false; }
     }
 
     await logAudit(req, { action: 'create', entity: 'student', entityId: data.id, summary: `Created student "${data.full_name}"` });
-    return res.status(201).json({ student: withSectionName(data), temp_password: tempPassword });
+    return res.status(201).json({ student: withSectionName(data), temp_password: tempPassword, ...(guardianSaved ? {} : { guardian_saved: false }) });
   } catch (err) {
     console.error('[POST /students]', err);
     return res.status(500).json({ error: 'Failed to register student' });
@@ -146,7 +151,7 @@ router.get('/:id', auth, async (req, res) => {
 // PUT /api/students/:id — update student info (partial safe update)
 router.put('/:id', auth, adminOnly, async (req, res) => {
   try {
-    const { rfid_uid, student_id, full_name, course, year_level, section, section_id } = req.body;
+    const { rfid_uid, student_id, full_name, course, year_level, section, section_id } = req.body || {};
 
     const updates = {};
     if (rfid_uid !== undefined) {
@@ -175,7 +180,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
       .update(updates)
       .eq('id', req.params.id)
       .select(SAFE_STUDENT_COLUMNS)
-      .single();
+      .maybeSingle();
 
     if (error) {
       if (error.code === '23505') {
@@ -197,7 +202,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 // PUT /api/students/:id/password — admin sets a new password; the student must change it at next login
 router.put('/:id/password', auth, adminOnly, async (req, res) => {
   try {
-    const pw = String(req.body.new_password ?? '').trim();
+    const pw = String((req.body || {}).new_password ?? '').trim();
     if (pw.length < 4) return res.status(400).json({ error: 'The new password must be at least 4 characters' });
 
     const { data, error } = await supabase
@@ -205,7 +210,7 @@ router.put('/:id/password', auth, adminOnly, async (req, res) => {
       .update({ pin: await hashPassword(pw), must_change_password: true })
       .eq('id', req.params.id)
       .select('id, full_name')
-      .single();
+      .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Student not found' });
 
@@ -241,11 +246,15 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       .from('students')
       .delete()
       .eq('id', req.params.id)
-      .select('full_name');
+      .select('full_name, avatar_path');
 
     if (error) throw error;
+    if (!gone?.length) return res.status(404).json({ error: 'Student not found' });
 
-    await logAudit(req, { action: 'delete', entity: 'student', entityId: req.params.id, summary: `Deleted student "${gone?.[0]?.full_name ?? req.params.id}"` });
+    // Orphan cleanup only: the row is already gone, so a storage failure must not fail the request
+    if (gone[0].avatar_path) await supabase.storage.from(AVATAR_BUCKET).remove([gone[0].avatar_path]).catch(() => {});
+
+    await logAudit(req, { action: 'delete', entity: 'student', entityId: req.params.id, summary: `Deleted student "${gone[0].full_name}"` });
     return res.json({ success: true, message: 'Student deleted' });
   } catch (err) {
     console.error('[DELETE /students/:id]', err);

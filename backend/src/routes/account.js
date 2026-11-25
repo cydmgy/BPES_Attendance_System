@@ -32,7 +32,7 @@ const readAvatarPath = async (req, o) => {
 };
 const saveAvatarPath = (req, o, path) => o.role === 'admin'
   ? supabase.from('admin_settings').upsert({ ...ADMIN_ROW, avatar_path: path, updated_at: new Date().toISOString() })
-  : supabase.from(o.table).update({ avatar_path: path }).eq('id', req.user.id);
+  : supabase.from(o.table).update({ avatar_path: path }).eq('id', req.user.id).select('id'); // select: a deleted user matches no row
 
 // GET /api/account/me. select('*') on purpose: before migration 012 there is no avatar_path column, and that must not break /me.
 router.get('/me', async (req, res) => {
@@ -62,8 +62,9 @@ router.get('/me', async (req, res) => {
 router.post('/change-password', async (req, res) => {
   try {
     const { role, id } = req.user;
-    const current = String(req.body.current_password || '').trim();
-    const next = String(req.body.new_password || '').trim();
+    const body = req.body || {};
+    const current = String(body.current_password || '').trim();
+    const next = String(body.new_password || '').trim();
     const min = role === 'student' ? 4 : 6;
     if (!current || !next) return res.status(400).json({ error: 'current_password and new_password are required' });
     if (next.length < min) return res.status(400).json({ error: `New password must be at least ${min} characters` });
@@ -97,13 +98,14 @@ router.put('/profile', async (req, res) => {
   try {
     const { role, id } = req.user;
     if (role === 'student') return res.status(403).json({ error: 'Students cannot edit their profile' });
-    const name = String(req.body.full_name || '').trim();
+    const name = String((req.body || {}).full_name || '').trim();
     if (!name) return res.status(400).json({ error: 'full_name is required' });
 
-    const { error } = isAdmin(req)
+    const { data, error } = isAdmin(req)
       ? await supabase.from('admin_settings').upsert({ ...ADMIN_ROW, display_name: name, updated_at: new Date().toISOString() })
-      : await supabase.from('instructors').update({ full_name: name }).eq('id', id);
+      : await supabase.from('instructors').update({ full_name: name }).eq('id', id).select('id');
     if (error) throw error;
+    if (!isAdmin(req) && !data?.length) return res.status(404).json({ error: 'Account not found' });
     await logAudit(req, { action: 'update', entity: entityOf(req), entityId: id, summary: `Updated own profile name to "${name}"` });
     return res.json({ success: true, full_name: name });
   } catch (err) {
@@ -126,10 +128,12 @@ router.post('/avatar', express.raw({ type: AVATAR_TYPES, limit: MAX_AVATAR_BYTES
     const old = await readAvatarPath(req, o);
     const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, body, { contentType, upsert: true });
     if (upErr) throw upErr;
-    const { error } = await saveAvatarPath(req, o, path);
-    if (error) {
+    const { data: saved, error } = await saveAvatarPath(req, o, path);
+    const gone = !error && o.role !== 'admin' && !saved?.length;
+    if (error || gone) {
       if (path !== old) await supabase.storage.from(BUCKET).remove([path]); // no orphan; same path was overwritten in place and the row still points at it
-      throw error;
+      if (error) throw error;
+      return res.status(404).json({ error: 'Account not found' });
     }
     if (old && old !== path) await supabase.storage.from(BUCKET).remove([old]).catch(() => {}); // same user, other extension
     await logAudit(req, { action: 'update', entity: o.role, entityId: req.user.id, summary: 'Changed profile picture' });
