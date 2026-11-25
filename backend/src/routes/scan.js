@@ -181,7 +181,7 @@ router.post('/', iotAuth, async (req, res) => {
   try {
     // Teachers are looked up first; both tables share the reader (card uniqueness is enforced on write).
     const [{ data: teacher, error: teacherErr }, { data: student, error: studentErr }] = await Promise.all([
-      supabase.from('instructors').select('id, full_name').or(orFilter).maybeSingle(),
+      supabase.from('instructors').select('id, full_name, archived_at').or(orFilter).maybeSingle(),
       supabase.from('students').select('id, full_name, student_id, section_id').or(orFilter).maybeSingle(),
     ]);
     // A failed lookup must not look like an unknown card (it would be logged and the student never checked in).
@@ -197,6 +197,9 @@ router.post('/', iotAuth, async (req, res) => {
       studentName: (teacher || student)?.full_name || null,
       timestamp: tapAt.getTime(),
     };
+
+    // The card stays reserved, so an archived teacher is not an unknown card: refuse without opening a class.
+    if (teacher?.archived_at) return res.status(403).json({ success: false, role: 'teacher', error: 'Teacher account archived' });
 
     const room = await resolveRoom(room_id, device_id);
     if (!room) {

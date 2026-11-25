@@ -21,6 +21,10 @@ const SELECT = `id, subject_id, section_id, room_id, teacher_id, day_of_week, st
   schedule_co_teachers(teacher_id, instructors(id, full_name)),
   schedule_overrides(id, override_date, sub_teacher_id, instructors(id, full_name))`;
 
+// Unknown ids are left to the foreign key (400 below); this only refuses a teacher who is archived.
+const isArchived = async id => !!(await supabase.from('instructors').select('id').eq('id', id).not('archived_at', 'is', null).maybeSingle()).data;
+const ARCHIVED = 'That teacher is archived';
+
 const dayOrder = (a, b) => DAYS.indexOf(a.day_of_week) - DAYS.indexOf(b.day_of_week) || a.start_time.localeCompare(b.start_time);
 
 // GET /api/schedules/my-week — the caller's own active timetable. Registered before the admin-only gate.
@@ -130,6 +134,7 @@ router.post('/', async (req, res) => {
     const end = normTime(req.body.end_time);
     if (!isUuid(section_id) || !isUuid(subject_id)) return fail(res, 400, 'section_id and subject_id are required');
     if (teacher_id && !isUuid(teacher_id)) return fail(res, 400, 'Invalid teacher');
+    if (teacher_id && await isArchived(teacher_id)) return fail(res, 400, ARCHIVED);
     if (!DAYS.includes(day_of_week)) return fail(res, 400, `day_of_week must be one of ${DAYS.join(', ')}`);
     if (!start || !end) return fail(res, 400, 'start_time and end_time must be HH:MM');
     if (end <= start) return fail(res, 400, 'End time must be after start time');
@@ -168,6 +173,7 @@ router.put('/:id', async (req, res) => {
     }
     if (b.teacher_id !== undefined) {
       if (b.teacher_id && !isUuid(b.teacher_id)) return fail(res, 400, 'Invalid teacher');
+      if (b.teacher_id && await isArchived(b.teacher_id)) return fail(res, 400, ARCHIVED);
       u.teacher_id = b.teacher_id || null;
     }
     if (b.day_of_week !== undefined) {
@@ -213,6 +219,7 @@ router.post('/:id/co-teachers', async (req, res) => {
     const { teacher_id } = req.body;
     if (!isUuid(teacher_id)) return fail(res, 400, 'teacher_id is required');
     if (teacher_id === sched.teacher_id) return fail(res, 400, 'That teacher is already the main teacher');
+    if (await isArchived(teacher_id)) return fail(res, 400, ARCHIVED);
 
     const { error } = await supabase.from('schedule_co_teachers').insert({ schedule_id: sched.id, teacher_id });
     if (error?.code === '23505') return fail(res, 409, 'Already a co-teacher on this schedule');
@@ -250,6 +257,7 @@ router.post('/:id/overrides', async (req, res) => {
     if (!sched) return fail(res, 404, 'Schedule not found');
     const { override_date, sub_teacher_id } = req.body;
     if (!isUuid(sub_teacher_id)) return fail(res, 400, 'sub_teacher_id is required');
+    if (await isArchived(sub_teacher_id)) return fail(res, 400, ARCHIVED);
     const dayName = dayNameOf(override_date);
     if (!dayName) return fail(res, 400, 'override_date must be YYYY-MM-DD');
     if (override_date < localDateStr()) return fail(res, 400, 'override_date cannot be in the past');

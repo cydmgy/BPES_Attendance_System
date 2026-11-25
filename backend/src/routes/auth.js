@@ -130,14 +130,14 @@ router.post('/teacher', async (req, res) => {
 
     const { data: teacher, error } = await supabase
       .from('instructors')
-      .select('id, full_name, email, role, password_hash')
+      .select('id, full_name, email, role, password_hash, archived_at')
       .ilike('email', likeEscape(email))
       .maybeSingle();
     if (error) throw error;
 
     // No stored password = no login; an admin sets one (PUT /api/teachers/:id with a password).
     // An unknown email gets the same 401 as a wrong password, after the same hashing work.
-    const isValid = (await verifyPassword(password, teacher?.password_hash || DUMMY_HASH)) && !!teacher?.password_hash;
+    const isValid = (await verifyPassword(password, teacher?.password_hash || DUMMY_HASH)) && !!teacher?.password_hash && !teacher.archived_at; // archived looks like a wrong password
     // If stored as plain text, upgrade to salted hash on successful login
     if (isValid && !teacher.password_hash.includes(':')) {
       await supabase.from('instructors').update({ password_hash: await hashPassword(password) }).eq('id', teacher.id);

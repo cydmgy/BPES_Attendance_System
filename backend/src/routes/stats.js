@@ -18,7 +18,7 @@ router.get('/overview', auth, adminOnly, async (req, res) => {
   try {
     const results = await Promise.all([
       count('students'),
-      count('instructors'),
+      count('instructors', q => q.is('archived_at', null)),
       count('sections'),
       count('subjects'),
       count('rooms'),

@@ -10,7 +10,7 @@ const { logAudit } = require('../utils/audit');
 const { defaultTeacherPassword } = require('../utils/password');
 const { BUCKET } = require('../utils/avatar');
 
-const COLS = 'id, employee_id, full_name, email, role, rfid_uid, created_at';
+const COLS = 'id, employee_id, full_name, email, role, rfid_uid, created_at, archived_at';
 
 const dupMessage = e => e.message.includes('rfid_uid') ? 'This RFID card is already assigned' : e.message.includes('employee_id') ? 'This teacher ID is already in use' : 'A teacher with this email already exists';
 
@@ -32,10 +32,9 @@ const newPassword = (fullName, id) => defaultTeacherPassword(fullName, id);
 // GET /api/teachers — List all teachers (admin only: it carries card numbers and emails)
 router.get('/', auth, adminOnly, async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('instructors')
-      .select(COLS)
-      .order('full_name', { ascending: true });
+    let q = supabase.from('instructors').select(COLS).order('full_name', { ascending: true });
+    if (req.query.include_archived !== '1') q = q.is('archived_at', null);
+    const { data, error } = await q;
 
     if (error) throw error;
     return res.json({ teachers: data || [] });
@@ -147,17 +146,30 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/teachers/:id — Remove teacher
+// DELETE /api/teachers/:id — Remove a teacher with no history; archive one who has any (card and email stay reserved)
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
-    // Deleting would null the teacher on their schedules and sessions and lose who taught what
-    const [{ data: owned, error: e1 }, { data: taught, error: e2 }] = await Promise.all([
-      supabase.from('schedules').select('id').eq('teacher_id', req.params.id).eq('status', 'active').limit(1),
-      supabase.from('class_sessions').select('id').eq('actual_teacher_id', req.params.id).limit(1),
+    // Deleting would null or cascade the teacher on their schedules, sessions, leave reviews, substitutions and co-teaching.
+    const id = req.params.id;
+    const one = (table, col) => supabase.from(table).select('id').eq(col, id).limit(1);
+    const results = await Promise.all([
+      supabase.from('schedules').select('status').eq('teacher_id', id), // all rows: any status is history, active blocks archiving
+      one('class_sessions', 'actual_teacher_id'), one('leave_requests', 'reviewed_by'),
+      one('schedule_overrides', 'sub_teacher_id'), one('schedule_co_teachers', 'teacher_id'),
     ]);
-    if (e1 || e2) throw e1 || e2;
-    if (owned?.length || taught?.length) {
-      return res.status(409).json({ error: 'This teacher has active schedules or class history and cannot be deleted. Archive their schedules or change their card instead.' });
+    const failed = results.find(r => r.error);
+    if (failed) throw failed.error;
+    const [schedules, ...others] = results.map(r => r.data || []);
+    if (schedules.some(s => s.status === 'active')) {
+      return res.status(409).json({ error: 'This teacher owns an active schedule: reassign or archive their schedules first.' });
+    }
+    if (schedules.length || others.some(r => r.length)) {
+      const { data: done, error: archErr } = await supabase.from('instructors')
+        .update({ archived_at: new Date().toISOString() }).eq('id', id).select('full_name');
+      if (archErr) throw archErr;
+      if (!done?.length) return res.status(404).json({ error: 'Teacher not found' });
+      await logAudit(req, { action: 'archive', entity: 'teacher', entityId: id, summary: `Archived teacher "${done[0].full_name}"` });
+      return res.json({ success: true, archived: true, message: 'Teacher archived (they have class history)' });
     }
 
     // select('*') so this still works before migration 012 adds avatar_path
@@ -175,10 +187,25 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       catch (e) { console.error('[DELETE /teachers] avatar cleanup', e); }
     }
     await logAudit(req, { action: 'delete', entity: 'teacher', entityId: req.params.id, summary: `Deleted teacher "${gone[0].full_name}"` });
-    return res.json({ success: true, message: 'Teacher deleted successfully' });
+    return res.json({ success: true, archived: false, message: 'Teacher deleted successfully' });
   } catch (err) {
     console.error('[DELETE /teachers]', err);
     return res.status(500).json({ error: 'Failed to delete teacher' });
+  }
+});
+
+// POST /api/teachers/:id/restore — Bring an archived teacher back (fine on one who is not archived)
+router.post('/:id/restore', auth, adminOnly, async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('instructors')
+      .update({ archived_at: null }).eq('id', req.params.id).select('full_name');
+    if (error) throw error;
+    if (!data?.length) return res.status(404).json({ error: 'Teacher not found' });
+    await logAudit(req, { action: 'restore', entity: 'teacher', entityId: req.params.id, summary: `Restored teacher "${data[0].full_name}"` });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[POST /teachers/:id/restore]', err);
+    return res.status(500).json({ error: 'Failed to restore teacher' });
   }
 });
 

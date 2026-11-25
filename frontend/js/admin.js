@@ -568,18 +568,22 @@ async function handleAdminDeleteStudent(id) {
 
 // ── Teachers Management & Table Rendering ────
 
+let teacherRows = []; // table rows, may include archived; `teachers` (pickers) stays active-only
+
 async function loadAdminTeachers() {
   const tbody = document.getElementById('adm-teachers-tbody');
   if (!tbody) return;
 
   try {
-    const res = await axios.get(`${API_BASE}/api/teachers`);
-    teachers = res.data.teachers || [];
+    const withArchived = document.getElementById('adm-teacher-archived')?.checked;
+    const res = await axios.get(`${API_BASE}/api/teachers${withArchived ? '?include_archived=1' : ''}`);
+    teacherRows = res.data.teachers || [];
+    teachers = teacherRows.filter(t => !t.archived_at);
 
     const countPill = document.getElementById('teachers-count-pill');
     if (countPill) countPill.textContent = `${teachers.length} teachers`;
 
-    renderTeachersTable(teachers);
+    filterAdminTeachers();
   } catch (err) {
     console.error('Error loading teachers', err);
     tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-danger">Failed to load teachers</td></tr>`;
@@ -603,30 +607,33 @@ function renderTeachersTable(list) {
   tbody.innerHTML = list.map(t => {
     const initials = t.full_name ? t.full_name.charAt(0).toUpperCase() : 'T';
     return `
-      <tr>
+      <tr${t.archived_at ? ' class="text-muted" style="opacity:.65"' : ''}>
         <td>
           <div class="d-flex align-items-center gap-2">
             <div class="d-flex align-items-center justify-content-center fw-bold text-white small" style="width: 32px; height: 32px; border-radius: 50%; background: #14532D; flex-shrink: 0;">
               ${initials}
             </div>
             <div>
-              <div class="fw-bold">${escapeHtml(t.full_name)}</div>
+              <div class="fw-bold">${escapeHtml(t.full_name)}${t.archived_at ? ' <span class="badge bg-secondary ms-1">Archived</span>' : ''}</div>
               <div class="bpes-cell-sub">${escapeHtml(t.employee_id || '—')}</div>
             </div>
           </div>
         </td>
         <td>${escapeHtml(t.email)}</td>
-        <td>${t.rfid_uid
+        <td>${t.archived_at ? escapeHtml(t.rfid_uid || '—') : t.rfid_uid
           ? `<span>${escapeHtml(t.rfid_uid)}</span>
              <button class="btn btn-link btn-sm p-0 ms-1 text-muted" title="Replace card" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-rotate"></i></button>`
           : `<button class="bpes-btn-outline bpes-btn-sm" onclick="assignTeacherCard('${t.id}')"><i class="fas fa-id-card me-1"></i> Assign card</button>`}</td>
-        <td>
+        <td>${t.archived_at ? `
+          <button class="bpes-btn-outline bpes-btn-sm" onclick="restoreAdminTeacher('${t.id}')">
+            <i class="fas fa-rotate-left me-1"></i> Restore
+          </button>` : `
           <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="changeTeacherPassword('${t.id}')">
             <i class="fas fa-key me-1"></i> Change password
           </button>
           <button class="bpes-btn-danger-outline bpes-btn-sm" onclick="handleAdminDeleteTeacher('${t.id}')">
             <i class="fas fa-trash me-1"></i> Delete
-          </button>
+          </button>`}
         </td>
       </tr>
     `;
@@ -636,10 +643,10 @@ function renderTeachersTable(list) {
 function filterAdminTeachers() {
   const query = (document.getElementById('adm-teacher-search')?.value || '').toLowerCase();
   if (!query) {
-    renderTeachersTable(teachers);
+    renderTeachersTable(teacherRows);
     return;
   }
-  const filtered = teachers.filter(t =>
+  const filtered = teacherRows.filter(t =>
     (t.full_name && t.full_name.toLowerCase().includes(query)) ||
     (t.email && t.email.toLowerCase().includes(query))
   );
@@ -709,13 +716,24 @@ async function changeTeacherPassword(id) {
 
 async function handleAdminDeleteTeacher(id) {
   const name = teachers.find(t => t.id === id)?.full_name || 'this teacher';
-  if (!confirm(`Are you sure you want to remove teacher "${name}"?`)) return;
+  if (!confirm(`Remove teacher "${name}"? A teacher with attendance history is archived (history kept, can be restored); one without is deleted for good.`)) return;
   try {
-    await axios.delete(`${API_BASE}/api/teachers/${id}`);
-    notify('admin', `Removed teacher "${escapeHtml(name)}"`, 'warning');
+    const res = await axios.delete(`${API_BASE}/api/teachers/${id}`);
+    notify('admin', res.data?.archived ? `Teacher archived: history kept ("${escapeHtml(name)}")` : `Removed teacher "${escapeHtml(name)}"`, 'warning');
     await loadAdminTeachers();
   } catch (err) {
-    notify('admin', `Delete failed: ${err.message}`, 'danger');
+    notify('admin', `Delete failed: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
+  }
+}
+
+async function restoreAdminTeacher(id) {
+  const name = teacherRows.find(t => t.id === id)?.full_name || 'teacher';
+  try {
+    await axios.post(`${API_BASE}/api/teachers/${id}/restore`);
+    notify('admin', `Teacher "${escapeHtml(name)}" restored`, 'success');
+    await loadAdminTeachers();
+  } catch (err) {
+    notify('admin', `Restore failed: ${escapeHtml(err.response?.data?.error || err.message)}`, 'danger');
   }
 }
 
