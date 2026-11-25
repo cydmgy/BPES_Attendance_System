@@ -13,6 +13,7 @@ const auth = require('../middleware/auth');
 const { withSectionName } = require('../utils/section');
 const { canReviewLeave } = require('../utils/access');
 const { logAudit } = require('../utils/audit');
+const { localDateStr } = require('../utils/time');
 const { isUuid, dayNameOf } = require('../utils/schedule');
 const { LEAVE_TYPES, leaveCoversPeriod, leaveTypesConflict } = require('../utils/leave');
 const { MAX_BYTES, ALLOWED_TYPES, BUCKET, attachmentError, nextSlot, extFor, sniffType, cleanFileName, isSetupMissing } = require('../utils/attachment');
@@ -30,18 +31,23 @@ async function resolveStudentId(id) {
 // POST /api/leave — file a leave request
 router.post('/', auth, async (req, res) => {
   try {
-    let { student_id, leave_type, leave_date, reason } = req.body;
+    // Only students and admins file leave; a teacher token must not file for any student id
+    if (req.user?.role !== 'student' && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Only students or administrators can file leave requests' });
+    }
+    let { student_id, leave_type, leave_date, reason } = req.body || {};
 
     // If logged in as student, bind student_id to authenticated student
     if (req.user?.role === 'student') {
       student_id = req.user.id || req.user.student_id;
     }
 
-    if (!student_id || !leave_date || !reason || !String(reason).trim()) {
+    if (!student_id || !leave_date || typeof reason !== 'string' || !reason.trim()) {
       return res.status(400).json({
         error: 'student_id, leave_date, and reason are required'
       });
     }
+    if (reason.trim().length > 500) return res.status(400).json({ error: 'reason must be 500 characters or fewer' });
 
     if (!LEAVE_TYPES.includes(leave_type)) {
       return res.status(400).json({ error: `leave_type must be one of: ${LEAVE_TYPES.join(', ')}` });
@@ -51,6 +57,7 @@ router.post('/', auth, async (req, res) => {
     if (!dayNameOf(leave_date)) {
       return res.status(400).json({ error: 'leave_date must be a real date in YYYY-MM-DD format' });
     }
+    if (leave_date < localDateStr()) return res.status(400).json({ error: 'leave_date cannot be in the past' });
 
     // student_id may be an LRN: resolve it to the database id
     student_id = await resolveStudentId(student_id);
