@@ -79,8 +79,30 @@ const fail = (res, status, error, extra) => res.status(status).json({ error, ...
 async function loadSchedule(id) {
   if (!isUuid(id)) return null;
   const { data } = await supabase.from('schedules')
-    .select('id, teacher_id, day_of_week, start_time, end_time').eq('id', id).maybeSingle();
+    .select('id, teacher_id, section_id, subject_id, day_of_week, start_time, end_time').eq('id', id).maybeSingle();
   return data;
+}
+
+// A schedule that moved or was archived must not leave today's or later pending sessions running.
+async function cancelPending(id) {
+  const { error } = await supabase.from('class_sessions').update({ status: 'cancelled' })
+    .eq('schedule_id', id).eq('status', 'pending').gte('session_date', localDateStr());
+  if (error) throw error;
+}
+
+// Restoring undoes that cancel, except on no-class days and dates that are not on the schedule's day.
+async function revivePending(id, day) {
+  const today = localDateStr();
+  const { data: cs, error } = await supabase.from('class_sessions').select('id, session_date')
+    .eq('schedule_id', id).eq('status', 'cancelled').gte('session_date', today);
+  if (error) throw error;
+  const { data: off, error: oErr } = await supabase.from('no_class_days').select('day').gte('day', today);
+  if (oErr) throw oErr;
+  const skip = new Set((off || []).map(d => d.day));
+  const ids = (cs || []).filter(s => !skip.has(s.session_date) && dayNameOf(s.session_date) === day).map(s => s.id);
+  if (!ids.length) return;
+  const { error: uErr } = await supabase.from('class_sessions').update({ status: 'pending' }).in('id', ids);
+  if (uErr) throw uErr;
 }
 
 async function fetchOne(id) {
@@ -168,7 +190,8 @@ router.post('/', async (req, res) => {
 // PUT /api/schedules/:id
 router.put('/:id', async (req, res) => {
   try {
-    if (!(await loadSchedule(req.params.id))) return fail(res, 404, 'Schedule not found');
+    const cur = await loadSchedule(req.params.id);
+    if (!cur) return fail(res, 404, 'Schedule not found');
     const b = req.body;
     const u = {};
     if (b.subject_id !== undefined) {
@@ -196,8 +219,19 @@ router.put('/:id', async (req, res) => {
     }
     if (!Object.keys(u).length) return fail(res, 400, 'No update fields provided');
     if (u.status === 'active' && b.teacher_id === undefined) { // restoring: the owner must not be archived
-      const { data: cur } = await supabase.from('schedules').select('teacher_id').eq('id', req.params.id).maybeSingle();
-      if (cur?.teacher_id && await isArchived(cur.teacher_id)) return fail(res, 400, ARCHIVED);
+      if (cur.teacher_id && await isArchived(cur.teacher_id)) return fail(res, 400, ARCHIVED);
+    }
+    const changed = k => u[k] !== undefined && u[k] !== cur[k];
+    const moved = ['day_of_week', 'start_time', 'end_time'].some(changed);
+    if (moved || changed('subject_id')) { // reports read subject/day/time from this row, so held history would be rewritten
+      const { data: held, error: hErr } = await supabase.from('class_sessions').select('id')
+        .eq('schedule_id', req.params.id).not('status', 'in', '(pending,cancelled)').limit(1);
+      if (hErr) throw hErr;
+      if (held?.length) return fail(res, 409, 'This schedule has class history: archive it and create a new one');
+    }
+    if (u.status === 'active' && cur.section_id) { // a restored schedule runs in the section's current home room
+      const { data: sec } = await supabase.from('sections').select('home_room_id').eq('id', cur.section_id).maybeSingle();
+      if (sec?.home_room_id) u.room_id = sec.home_room_id;
     }
 
     const { error } = await supabase.from('schedules').update(u).eq('id', req.params.id);
@@ -206,11 +240,8 @@ router.put('/:id', async (req, res) => {
       if (mapped) return res.status(mapped.status).json(mapped.body);
       throw error;
     }
-    if (u.status === 'archived') { // an archived schedule must not leave today's or later pending sessions running
-      const { error: cErr } = await supabase.from('class_sessions').update({ status: 'cancelled' })
-        .eq('schedule_id', req.params.id).eq('status', 'pending').gte('session_date', localDateStr());
-      if (cErr) throw cErr;
-    }
+    if (u.status === 'archived' || moved) await cancelPending(req.params.id);
+    if (u.status === 'active') await revivePending(req.params.id, u.day_of_week || cur.day_of_week);
     await logAudit(req, { action: 'update', entity: 'schedule', entityId: req.params.id, summary: `Changed schedule ${Object.keys(u).join(", ")}` });
     return res.json({ schedule: await fetchOne(req.params.id) });
   } catch (err) {
