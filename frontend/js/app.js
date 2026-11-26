@@ -167,6 +167,10 @@ function getAuthToken() {
   return sessionStorage.getItem('auth_token') || null;
 }
 
+function getAuthUser() {
+  return sessionStorage.getItem('auth_user') || null;
+}
+
 function restoreAuthSession() {
   const token = getAuthToken();
   const role = getAuthRole();
@@ -381,7 +385,7 @@ async function handleUnifiedLogin(e) {
   if (alertEl) alertEl.innerHTML = '';
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Logging In...';
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Signing in...';
   }
 
   try {
@@ -493,7 +497,7 @@ async function handleUnifiedLogin(e) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<span>Log In</span>';
+      btn.innerHTML = '<span>Sign in</span>';
     }
   }
 }
@@ -515,6 +519,39 @@ axios.interceptors.response.use(r => r, error => {
   }
   return Promise.reject(error);
 });
+
+// ── Idle sign-out and sliding refresh ─────────────────────────
+// Only real input counts as activity: polling timers never call onActivity, so they cannot keep a session alive.
+const IDLE_MS = 30 * 60 * 1000;
+const REFRESH_AFTER_SECONDS = 10 * 60;
+const REFRESH_RETRY_MS = 60 * 1000; // also keeps a refresh failing past the 12 h cap from firing on every keystroke
+let idleTimer = null;
+let nextRefreshAt = 0;
+
+function restartIdleTimer() {
+  clearTimeout(idleTimer);
+  idleTimer = getAuthToken() ? setTimeout(() => {
+    logout('login').then(() => notify('login', 'Signed out after 30 minutes of inactivity', 'warning'));
+  }, IDLE_MS) : null;
+}
+
+function tokenAgeSeconds(token) {
+  try { return Date.now() / 1000 - JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).iat; } catch (e) { return 0; }
+}
+
+function onActivity() {
+  const token = getAuthToken();
+  if (!token) return; // login and welcome pages have no session to keep
+  restartIdleTimer();
+  if (Date.now() < nextRefreshAt || tokenAgeSeconds(token) < REFRESH_AFTER_SECONDS) return;
+  nextRefreshAt = Date.now() + REFRESH_RETRY_MS;
+  axios.post(`${API_BASE}/api/auth/refresh`).then(res => {
+    if (getAuthToken() !== token || !res.data.token) return; // signed out or in as someone else meanwhile
+    sessionStorage.setItem('auth_token', res.data.token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+  }).catch(() => { /* the 401 interceptor signs out on the next real call */ });
+}
+['pointerdown', 'keydown', 'wheel', 'scroll', 'touchstart'].forEach(ev => document.addEventListener(ev, onActivity, { passive: true, capture: true })); // capture: scroll does not bubble
 
 // ── Mobile Drawer Global Controls ─────────────────────────────
 
@@ -616,6 +653,7 @@ async function loadPage(page) {
     doc.querySelectorAll('script').forEach(s => s.remove());
     appContainer.innerHTML = doc.body ? doc.body.innerHTML : html;
     activePortal = targetPage;
+    restartIdleTimer(); // starts on login and reload, stops once logout() has cleared the token
 
     // Reference lists load once per login: at page boot the visitor has no token yet, so they came back empty.
     // Loaded here, after the page is in the DOM, so a failure toast has somewhere to show.

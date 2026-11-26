@@ -102,6 +102,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   skipSuccessfulRequests: true,
+  skip: req => /^\/refresh\/*$/i.test(req.path), // refresh needs a valid token, and a school behind one IP must not share a 20-failure budget
   keyGenerator: req => {
     const b = req.body || {};
     const p = req.path.toLowerCase().replace(/\/+$/, ''); // routing ignores case and a trailing slash, so the key must too

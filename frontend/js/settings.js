@@ -121,13 +121,13 @@ window.BpesSettings = (() => {
       if (!TYPES.includes(file.type)) { fileIn.value = ''; return say(BAD_TYPE, true); }
       if (file.size > MAX_PICK) { fileIn.value = ''; return say(TOO_BIG, true); }
       busy(true); status.textContent = 'Uploading…';
-      const token = getAuthToken();
+      const who = getAuthUser();
       try {
         let blob;
         try { blob = await prepPicture(file); } catch (e) { return say('That file could not be read as a picture.', true); }
         if (blob.size > MAX_UPLOAD) return say(TOO_BIG, true);
         const { data } = await axios.post(`${API_BASE}/api/account/avatar`, blob, { headers: { 'Content-Type': 'image/jpeg' } });
-        if (getAuthToken() !== token) return; // a different user signed in meanwhile
+        if (getAuthUser() !== who) return; // a different user signed in meanwhile (the token itself changes on refresh)
         applyAvatar(data.avatar_url);
         say('Picture updated.');
       } catch (err) { say(failText(err), true); }
@@ -137,10 +137,10 @@ window.BpesSettings = (() => {
     rmBtn.addEventListener('click', async () => {
       if (!confirm('Remove your profile picture?')) return;
       busy(true); status.textContent = 'Removing…';
-      const token = getAuthToken();
+      const who = getAuthUser();
       try {
         await axios.delete(`${API_BASE}/api/account/avatar`);
-        if (getAuthToken() !== token) return;
+        if (getAuthUser() !== who) return;
         applyAvatar(null);
         say('Picture removed.');
       } catch (err) { say('Could not remove your picture. Try again later.', true); }
@@ -213,13 +213,13 @@ window.BpesProfile = (() => {
 
   // Paint at once from the login response, then refine from /api/account/me; a failed call keeps the first paint.
   async function load() {
-    const role = getAuthRole(), token = getAuthToken();
+    const role = getAuthRole(), who = getAuthUser();
     let u = {};
     try { u = JSON.parse(sessionStorage.getItem('auth_user')) || {}; } catch (e) { /* use defaults */ }
     set(role, u.full_name || u.name, u.student_id);
     try {
       const me = (await axios.get(`${API_BASE}/api/account/me`)).data;
-      if (getAuthToken() === token) { set(role, me.full_name, me.student_id); info.avatar_url = me.avatar_url || null; paint(); }
+      if (getAuthUser() === who) { set(role, me.full_name, me.student_id); info.avatar_url = me.avatar_url || null; paint(); }
     } catch (e) { /* keep the fallback */ }
   }
 
