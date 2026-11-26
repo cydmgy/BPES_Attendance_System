@@ -124,15 +124,18 @@ const PAGE = 1000; // PostgREST returns at most 1000 rows per request
 // shortcut: reports still sum in Node; the proper fix is one SQL GROUP BY function, when a month gets slow.
 const MAX_REPORT_DAYS = 93;
 
-async function sessionLogs({ from, to, sectionId, subjectId, roomId, studentId, heldOnly = true }) {
-  const rows = [];
-  for (let offset = 0; ; offset += PAGE) {
-    let q = supabase.from('attendance_logs')
-      .select(`id, student_id, status,
+const FULL_SELECT = `id, student_id, status,
         students(id, full_name, student_id, sections(section_name)),
         class_sessions!inner(id, session_date, status, teacher_time_in,
           schedules!inner(id, subject_id, section_id, room_id, start_time, end_time,
-            subjects(name, code), sections(section_name)))`)
+            subjects(name, code), sections(section_name)))`;
+
+// `select` lets a caller fetch fewer columns; it must keep class_sessions!inner(...) for the filters below.
+async function sessionLogs({ from, to, sectionId, subjectId, roomId, studentId, heldOnly = true, select = FULL_SELECT }) {
+  const rows = [];
+  for (let offset = 0; ; offset += PAGE) {
+    let q = supabase.from('attendance_logs')
+      .select(select)
       .gte('class_sessions.session_date', from)
       .lte('class_sessions.session_date', to)
       .neq('class_sessions.status', 'cancelled') // a cancelled period is never counted
@@ -151,6 +154,8 @@ async function sessionLogs({ from, to, sectionId, subjectId, roomId, studentId, 
   }
   return rows.map(r => ({ student_id: r.student_id, status: r.status, student: r.students && withSectionName(r.students), session: r.class_sessions }));
 }
+
+const TREND_SELECT = 'id, status, class_sessions!inner(session_date, status, teacher_time_in)';
 
 // Students only ever see their own numbers.
 const ownStudentId = req => (req.user?.role === 'student' ? (req.user.id || req.user.student_id) : req.query.student_id);
@@ -193,7 +198,9 @@ router.get('/daily', auth, async (req, res) => {
         counts: countStatuses(own),
       }));
     const summary = countStatuses(rows);
-    return res.json({ date, summary: { ...summary, attendance_rate: attendancePercent(summary) }, sessions });
+    // Absent rows exist only once a period closes, so the rate counts closed periods only (open ones would read too high).
+    const closed = countStatuses(rows.filter(r => r.session.status === 'closed'));
+    return res.json({ date, summary: { ...summary, closed, attendance_rate: attendancePercent(closed) }, sessions });
   } catch (err) {
     console.error('[GET /attendance/daily]', err);
     return res.status(500).json({ error: 'Failed to fetch daily report' });
@@ -209,7 +216,7 @@ router.get('/trend', auth, async (req, res) => {
     const days = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 1), MAX_REPORT_DAYS);
     const to = localDateStr();
     const from = addDays(to, -(days - 1));
-    const rows = await sessionLogs({ from, to, studentId: ownStudentId(req) });
+    const rows = await sessionLogs({ from, to, studentId: ownStudentId(req), select: TREND_SELECT }); // buildTrend reads only status + session_date
     return res.json({ from, to, days: buildTrend(rows) });
   } catch (err) {
     console.error('[GET /attendance/trend]', err);

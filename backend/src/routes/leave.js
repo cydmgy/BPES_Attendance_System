@@ -120,7 +120,7 @@ router.get('/', auth, async (req, res) => {
           id, student_id, subject_id, leave_date, leave_type, reason, status, created_at, reviewed_at,
           students(id, full_name, student_id, section_id, sections(section_name)),
           subjects(id, name, code),
-          reviewed_by:instructors(id, full_name, email)${withAttachments ? ', ' + ATTACHMENT_COLUMNS : ''}
+          reviewed_by:instructors(id, full_name)${withAttachments ? ', ' + ATTACHMENT_COLUMNS : ''}
         `)
         .order('created_at', { ascending: false });
       if (onlyStudent !== undefined) query = query.eq('student_id', onlyStudent);
