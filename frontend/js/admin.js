@@ -27,13 +27,6 @@ function initAdminPortal() {
   loadAdminSections();
   loadAdminStudents();
   loadAdminTeachers();
-
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('triggerScan') === '1') {
-    setTimeout(() => {
-      startTapToEnrollInline();
-    }, 400);
-  }
 }
 
 function populateAdminSectionFilter() {
@@ -82,12 +75,10 @@ const ADMIN_TABS = {
 function showAdminTab(tab) {
   Object.keys(ADMIN_TABS).forEach(t => {
     document.getElementById(`adm-tab-${t}`)?.classList.toggle('d-none', t !== tab);
-    document.getElementById(`tablink-adm-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`sidebar-adm-${t}`)?.classList.toggle('active', t === tab);
   });
 
   const [title, sideDesc, welcomeDesc] = ADMIN_TABS[tab];
-  const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
   setText('admin-sidebar-title', title);
   setText('admin-sidebar-desc', sideDesc);
   setText('admin-mobile-header-title', title);
@@ -141,16 +132,19 @@ async function loadAdminDashboard() {
   const summary = today.status === 'fulfilled' ? today.value.data.summary : null;
   set('dash-rate', summary?.attendance_rate == null ? '—' : `${summary.attendance_rate}%`);
   const rateSub = byId('dash-rate')?.nextElementSibling;
-  if (rateSub) rateSub.textContent = 'So far today';
-  BpesCharts.statusDonut('dash-today-chart', summary || {}, 'dash-today-legend', 'No attendance records yet today.');
+  if (rateSub) rateSub.textContent = 'Closed periods today';
+  BpesCharts.statusDonut('dash-today-chart', summary?.closed || {}, 'dash-today-legend', 'No period has closed yet today.'); // open periods have no absents yet
 
   BpesCharts.trendBars('dash-trend-chart', trend.status === 'fulfilled' ? trend.value.data.days : []);
 }
 
 function startAutoRefreshLogs() {
   stopAutoRefreshLogs();
-  logsAutoRefreshInterval = setInterval(() => {
-    loadAdminLogs(true);
+  let busy = false; // skip a tick while the tab is hidden or the last request is still running
+  logsAutoRefreshInterval = setInterval(async () => {
+    if (document.hidden || busy) return;
+    busy = true;
+    try { await loadAdminLogs(true); } finally { busy = false; }
   }, 3000);
 }
 
@@ -388,6 +382,7 @@ async function submitInlineEnrollForm(e) {
       }
     });
 
+    if (res.data.guardian_saved === false) notify('admin', 'Student saved, but the guardian details were not saved', 'warning');
     document.getElementById('enroll-pw-name').textContent = `${fullName} is now enrolled.`;
     document.getElementById('enroll-pw-value').textContent = res.data.temp_password || '(not returned)';
     const pwModalEl = document.getElementById('enroll-pw-modal');
@@ -1381,6 +1376,7 @@ async function removeSubstitute(date) {
 const AUDIT_ACTIONS = {
   create: 'Create', update: 'Update', delete: 'Delete', reset_password: 'Reset password',
   change_password: 'Change password', approve: 'Approve', decline: 'Decline', override: 'Override',
+  archive: 'Archive', restore: 'Restore',
 };
 const AUDIT_ENTITIES = {
   student: 'Student', teacher: 'Teacher', section: 'Section', subject: 'Subject', room: 'Room',

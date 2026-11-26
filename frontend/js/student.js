@@ -4,6 +4,7 @@
 // ============================================================
 
 function initStudentPortal() {
+  leaveFiles = []; // logout does not reload the page: drop the previous student's chosen files
   const today = manilaDate();
   const stdLeaveDateEl = document.getElementById('std-leave-date');
   if (stdLeaveDateEl) {
@@ -20,7 +21,6 @@ function initStudentPortal() {
   populateStudentSubjectDropdowns();
   checkDefaultPassword();
   showStudentTab('overview');
-  loadStudentPortalData();
 }
 
 // Persistent banner on every tab while the account still has the default PIN; /api/account/me is the source of truth.
@@ -51,7 +51,6 @@ function showStudentTab(tab) {
   const tabs = ['overview', 'schedule', 'logs', 'leave', 'settings'];
   tabs.forEach(t => {
     document.getElementById(`std-tab-${t}`)?.classList.toggle('d-none', t !== tab);
-    document.getElementById(`tablink-std-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`sidebar-std-${t}`)?.classList.toggle('active', t === tab);
   });
 

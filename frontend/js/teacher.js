@@ -8,7 +8,6 @@
 // ============================================================
 
 let teacherAutoRefreshInterval = null;
-let currentTeacherPeriods = [];      // periods (with rosters) shown on the Attendance tab
 let teacherOverrideRows = new Map(); // log id -> row, so inline buttons only carry the id
 let teacherWeekData = { schedules: [], substitutions: [] }; // GET /api/schedules/my-week, kept for the Schedule grid
 
@@ -73,7 +72,6 @@ function showTeacherTab(tab) {
   const tabs = ['dashboard', 'schedule', 'classes', 'attendance', 'export', 'leave', 'settings'];
   tabs.forEach(t => {
     document.getElementById(`tch-tab-${t}`)?.classList.toggle('d-none', t !== tab);
-    document.getElementById(`tablink-tch-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`sidebar-tch-${t}`)?.classList.toggle('active', t === tab);
   });
 
@@ -126,8 +124,11 @@ function showTeacherTab(tab) {
 
 function startTeacherAutoRefresh() {
   stopTeacherAutoRefresh();
-  teacherAutoRefreshInterval = setInterval(() => {
-    loadTeacherAttendance(true);
+  let busy = false; // skip a tick while the tab is hidden or the last request is still running
+  teacherAutoRefreshInterval = setInterval(async () => {
+    if (document.hidden || busy) return;
+    busy = true;
+    try { await loadTeacherAttendance(true); } finally { busy = false; }
   }, 5000);
 }
 
@@ -368,7 +369,6 @@ async function loadTeacherAttendance(isSilent = false) {
     fillTeacherSectionFilter(all);
     const sectionFilter = document.getElementById('teacher-section-filter')?.value;
     const periods = all.filter(p => !sectionFilter || p.section === sectionFilter);
-    currentTeacherPeriods = periods;
 
     const rows = rosterRows(periods);
     setText('attendance-count-pill', `${rows.length} students`);

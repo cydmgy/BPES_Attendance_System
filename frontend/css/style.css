@@ -3,8 +3,6 @@
    Batasan Paaralang Elementarya ng San
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Italiana&display=swap');
-
 :root {
   /* Figma Exact Color Tokens */
   --color-primary: #14532D;
@@ -1012,7 +1010,7 @@ a:hover {
     width: 100%;
     min-height: 100vh;
     background-color: var(--color-bg-page);
-    background-image: linear-gradient(rgba(244, 250, 246, 0.94), rgba(244, 250, 246, 0.96)), url('../assets/images/campus.png');
+    background-image: linear-gradient(rgba(244, 250, 246, 0.94), rgba(244, 250, 246, 0.96));
     background-size: cover;
     background-position: center;
     display: flex;

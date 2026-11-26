@@ -97,7 +97,6 @@ function labelTableCells() {
 })();
 
 let activePortal = 'welcome';
-let isBackendOnline = false;
 
 let rooms = [];
 let subjects = [];
@@ -250,9 +249,7 @@ function resolveAuthorizedPage(requestedPage) {
 async function loadSystemData() {
   try {
     const pingRes = await axios.get(`${API_BASE}/api/ping`, { timeout: 3000 }).catch(() => null);
-    isBackendOnline = !!(pingRes && pingRes.data && pingRes.data.status === 'online');
-
-    if (!isBackendOnline) {
+    if (!(pingRes && pingRes.data && pingRes.data.status === 'online')) {
       console.warn(`[BPES Portal] Backend offline at ${API_BASE}. Run 'node server.js' to connect.`);
       return;
     }
@@ -281,7 +278,6 @@ async function loadSystemData() {
 
   } catch (err) {
     console.error('Data initialization error:', err);
-    isBackendOnline = false;
   }
 }
 
@@ -474,7 +470,7 @@ async function handleUnifiedLogin(e) {
     if (studentErrData && studentErrData.code !== 'ACCOUNT_NOT_FOUND') {
       showAuthErrorPopup({
         title: 'Login Problem',
-        message: escapeHtml(studentErrData.error || 'Unable to sign in right now.'),
+        message: studentErrData.error || 'Unable to sign in right now.',
         isNotFound: false
       });
       return;
@@ -483,7 +479,7 @@ async function handleUnifiedLogin(e) {
     // 4. No student with that LRN (teachers sign in with their email above)
     showAuthErrorPopup({
       title: 'Account Does Not Exist',
-      message: `We could not find a student with the LRN "${escapeHtml(username)}". Please check the number (teachers sign in with their email address), or ask the school administrator to enroll you.`,
+      message: `We could not find a student with the LRN "${username}". Please check the number (teachers sign in with their email address), or ask the school administrator to enroll you.`,
       isNotFound: true
     });
 
@@ -502,15 +498,23 @@ async function handleUnifiedLogin(e) {
   }
 }
 
-function logout() {
+function logout(next = 'welcome') {
   sessionStorage.removeItem('auth_role');
   sessionStorage.removeItem('auth_token');
   sessionStorage.removeItem('auth_user');
   delete axios.defaults.headers.common['Authorization'];
   BpesProfile.clear();
   toggleMobileDrawer(false);
-  loadPage('welcome');
+  return loadPage(next);
 }
+
+// An expired token answers 401 on any call. logout() clears the token, so only the first failing request gets here.
+axios.interceptors.response.use(r => r, error => {
+  if (error.response?.status === 401 && getAuthToken() && !String(error.config?.url || '').includes('/api/auth/')) {
+    logout('login').then(() => notify('login', 'Your session expired, please sign in again', 'warning'));
+  }
+  return Promise.reject(error);
+});
 
 // ── Mobile Drawer Global Controls ─────────────────────────────
 
@@ -528,160 +532,53 @@ function drawerActive(prefix, tab) {
   return document.getElementById(`sidebar-${prefix}-${tab}`)?.classList.contains('active') ? ' active' : '';
 }
 
-function openAdminMobileDrawer() {
+// Per role: header label, drawer-id prefix (matches the sidebar ids), tab function and [tab, icon, label] items.
+const DRAWERS = {
+  admin: { label: 'ADMIN / BPES PORTAL', prefix: 'adm', show: 'showAdminTab', items: [
+    ['dashboard', 'fa-gauge', 'Dashboard'], ['students', 'fa-users', 'Student Enrollment'],
+    ['teachers', 'fa-chalkboard-user', 'Teachers Directory'], ['sections', 'fa-layer-group', 'Sections'],
+    ['subjects', 'fa-book', 'Subjects'], ['rooms', 'fa-door-open', 'Rooms'],
+    ['schedules', 'fa-calendar-days', 'Schedules'], ['noclass', 'fa-calendar-xmark', 'No class days'],
+    ['logs', 'fa-clock-rotate-left', 'Attendance Stream'], ['audit', 'fa-clipboard-list', 'Audit log'],
+    ['settings', 'fa-gear', 'Settings']] },
+  teacher: { label: 'TEACHER / BPES PORTAL', prefix: 'tch', show: 'showTeacherTab', items: [
+    ['dashboard', 'fa-home', 'Dashboard'], ['schedule', 'fa-calendar-week', 'Schedule'],
+    ['classes', 'fa-chalkboard-user', 'Classes'], ['attendance', 'fa-check-square', 'Attendance'],
+    ['export', 'fa-download', 'Export Attendance'], ['leave', 'fa-file-text', 'Student Leave Requests'],
+    ['settings', 'fa-gear', 'Settings']] },
+  student: { label: 'STUDENT / BPES PORTAL', prefix: 'std', show: 'showStudentTab', items: [
+    ['overview', 'fa-home', 'Dashboard'], ['schedule', 'fa-calendar-week', 'Schedule'],
+    ['logs', 'fa-clock', 'Attendance History'], ['leave', 'fa-file-text', 'File Excuse / Leave'],
+    ['settings', 'fa-gear', 'Settings']] },
+};
+
+function openMobileDrawer(role) {
+  const d = DRAWERS[role];
   const contextLabel = document.getElementById('drawer-context-label');
   const titleLabel = document.getElementById('drawer-title-label');
   const navContainer = document.getElementById('drawer-nav-items');
 
-  if (contextLabel) contextLabel.textContent = 'ADMIN / BPES PORTAL';
+  if (contextLabel) contextLabel.textContent = d.label;
   if (titleLabel) titleLabel.textContent = 'Navigation';
   if (navContainer) {
-    navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'dashboard')}" id="drawer-item-adm-dashboard" onclick="selectAdminDrawerTab('dashboard'); return false">
-        <i class="fas fa-gauge"></i>
-        <span>Dashboard</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'students')}" id="drawer-item-adm-students" onclick="selectAdminDrawerTab('students'); return false">
-        <i class="fas fa-users"></i>
-        <span>Student Enrollment</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'teachers')}" id="drawer-item-adm-teachers" onclick="selectAdminDrawerTab('teachers'); return false">
-        <i class="fas fa-chalkboard-user"></i>
-        <span>Teachers Directory</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'sections')}" id="drawer-item-adm-sections" onclick="selectAdminDrawerTab('sections'); return false">
-        <i class="fas fa-layer-group"></i>
-        <span>Sections</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'subjects')}" id="drawer-item-adm-subjects" onclick="selectAdminDrawerTab('subjects'); return false">
-        <i class="fas fa-book"></i>
-        <span>Subjects</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'rooms')}" id="drawer-item-adm-rooms" onclick="selectAdminDrawerTab('rooms'); return false">
-        <i class="fas fa-door-open"></i>
-        <span>Rooms</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'schedules')}" id="drawer-item-adm-schedules" onclick="selectAdminDrawerTab('schedules'); return false">
-        <i class="fas fa-calendar-days"></i>
-        <span>Schedules</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'noclass')}" id="drawer-item-adm-noclass" onclick="selectAdminDrawerTab('noclass'); return false">
-        <i class="fas fa-calendar-xmark"></i>
-        <span>No class days</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'logs')}" id="drawer-item-adm-logs" onclick="selectAdminDrawerTab('logs'); return false">
-        <i class="fas fa-clock-rotate-left"></i>
-        <span>Attendance Stream</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'audit')}" id="drawer-item-adm-audit" onclick="selectAdminDrawerTab('audit'); return false">
-        <i class="fas fa-clipboard-list"></i>
-        <span>Audit log</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('adm', 'settings')}" onclick="selectAdminDrawerTab('settings'); return false">
-        <i class="fas fa-gear"></i>
-        <span>Settings</span>
-      </a>
-    `;
+    navContainer.innerHTML = d.items.map(([tab, icon, label]) => `
+      <a href="#" class="bpes-drawer-item${drawerActive(d.prefix, tab)}"${tab === 'settings' ? '' : ` id="drawer-item-${d.prefix}-${tab}"`} onclick="selectDrawerTab('${role}', '${tab}'); return false">
+        <i class="fas ${icon}"></i>
+        <span>${label}</span>
+      </a>`).join('');
   }
   toggleMobileDrawer(true);
 }
 
-function selectAdminDrawerTab(tab) {
+function selectDrawerTab(role, tab) {
   toggleMobileDrawer(false);
-  if (typeof showAdminTab === 'function') {
-    showAdminTab(tab);
-  }
+  const show = window[DRAWERS[role].show];
+  if (typeof show === 'function') show(tab);
 }
 
-function openTeacherMobileDrawer() {
-  const contextLabel = document.getElementById('drawer-context-label');
-  const titleLabel = document.getElementById('drawer-title-label');
-  const navContainer = document.getElementById('drawer-nav-items');
-
-  if (contextLabel) contextLabel.textContent = 'TEACHER / BPES PORTAL';
-  if (titleLabel) titleLabel.textContent = 'Navigation';
-  if (navContainer) {
-    navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'dashboard')}" id="drawer-item-tch-dashboard" onclick="selectTeacherDrawerTab('dashboard'); return false">
-        <i class="fas fa-home"></i>
-        <span>Dashboard</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'schedule')}" id="drawer-item-tch-schedule" onclick="selectTeacherDrawerTab('schedule'); return false">
-        <i class="fas fa-calendar-week"></i>
-        <span>Schedule</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'classes')}" id="drawer-item-tch-classes" onclick="selectTeacherDrawerTab('classes'); return false">
-        <i class="fas fa-chalkboard-user"></i>
-        <span>Classes</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'attendance')}" id="drawer-item-tch-attendance" onclick="selectTeacherDrawerTab('attendance'); return false">
-        <i class="fas fa-check-square"></i>
-        <span>Attendance</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'export')}" id="drawer-item-tch-export" onclick="selectTeacherDrawerTab('export'); return false">
-        <i class="fas fa-download"></i>
-        <span>Export Attendance</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'leave')}" id="drawer-item-tch-leave" onclick="selectTeacherDrawerTab('leave'); return false">
-        <i class="fas fa-file-text"></i>
-        <span>Student Leave Requests</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('tch', 'settings')}" onclick="selectTeacherDrawerTab('settings'); return false">
-        <i class="fas fa-gear"></i>
-        <span>Settings</span>
-      </a>
-    `;
-  }
-  toggleMobileDrawer(true);
-}
-
-function selectTeacherDrawerTab(tab) {
-  toggleMobileDrawer(false);
-  if (typeof showTeacherTab === 'function') {
-    showTeacherTab(tab);
-  }
-}
-
-function openStudentMobileDrawer() {
-  const contextLabel = document.getElementById('drawer-context-label');
-  const titleLabel = document.getElementById('drawer-title-label');
-  const navContainer = document.getElementById('drawer-nav-items');
-
-  if (contextLabel) contextLabel.textContent = 'STUDENT / BPES PORTAL';
-  if (titleLabel) titleLabel.textContent = 'Navigation';
-  if (navContainer) {
-    navContainer.innerHTML = `
-      <a href="#" class="bpes-drawer-item${drawerActive('std', 'overview')}" id="drawer-item-std-overview" onclick="selectStudentDrawerTab('overview'); return false">
-        <i class="fas fa-home"></i>
-        <span>Dashboard</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('std', 'schedule')}" id="drawer-item-std-schedule" onclick="selectStudentDrawerTab('schedule'); return false">
-        <i class="fas fa-calendar-week"></i>
-        <span>Schedule</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('std', 'logs')}" id="drawer-item-std-logs" onclick="selectStudentDrawerTab('logs'); return false">
-        <i class="fas fa-clock"></i>
-        <span>Attendance History</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('std', 'leave')}" id="drawer-item-std-leave" onclick="selectStudentDrawerTab('leave'); return false">
-        <i class="fas fa-file-text"></i>
-        <span>File Excuse / Leave</span>
-      </a>
-      <a href="#" class="bpes-drawer-item${drawerActive('std', 'settings')}" onclick="selectStudentDrawerTab('settings'); return false">
-        <i class="fas fa-gear"></i>
-        <span>Settings</span>
-      </a>
-    `;
-  }
-  toggleMobileDrawer(true);
-}
-
-function selectStudentDrawerTab(tab) {
-  toggleMobileDrawer(false);
-  if (typeof showStudentTab === 'function') {
-    showStudentTab(tab);
-  }
-}
+function openAdminMobileDrawer() { openMobileDrawer('admin'); }
+function openTeacherMobileDrawer() { openMobileDrawer('teacher'); }
+function openStudentMobileDrawer() { openMobileDrawer('student'); }
 
 // ── Modular Page Router ───────────────────────────────────────
 
@@ -692,11 +589,11 @@ async function loadPage(page) {
   // Cleanup active intervals when changing pages
   if (typeof stopAutoRefreshLogs === 'function') stopAutoRefreshLogs();
   if (typeof stopTeacherAutoRefresh === 'function') stopTeacherAutoRefresh();
+  if (typeof stopTapPolling === 'function') { stopTapPolling(); rfidCaptureHandler = null; isScanningRfid = false; } // a card tapped later must not reach a stale form
   stopLiveClock();
   toggleMobileDrawer(false);
 
   let targetPage = (page === 'instructor') ? 'teacher' : (page || 'welcome');
-  const urlParams = new URLSearchParams(window.location.search);
   const currentRole = getAuthRole();
 
   // Route protection
@@ -740,13 +637,6 @@ async function loadPage(page) {
       initTeacherPortal();
     } else if (targetPage === 'admin' && typeof initAdminPortal === 'function') {
       initAdminPortal();
-    }
-
-    const targetTab = urlParams.get('tab');
-    if (targetTab) {
-      if (targetPage === 'admin' && typeof showAdminTab === 'function') showAdminTab(targetTab);
-      if (targetPage === 'teacher' && typeof showTeacherTab === 'function') showTeacherTab(targetTab);
-      if (targetPage === 'student' && typeof showStudentTab === 'function') showStudentTab(targetTab);
     }
   } catch (err) {
     console.error(`Page routing error for '${targetPage}':`, err);
