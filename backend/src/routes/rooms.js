@@ -39,11 +39,13 @@ function cleanFields({ name, location, device_id } = {}, creating) {
   const f = {};
   if (creating || name !== undefined) {
     if (typeof name !== 'string' || !name.trim()) throw bad('Room name is required');
+    if (name.trim().length > 100) throw bad('Room name must be 100 characters or fewer');
     f.name = name.trim();
   }
   if (location !== undefined) {
     if (location !== null && typeof location !== 'string') throw bad('Location must be text');
     f.location = location?.trim() || null;
+    if (f.location?.length > 200) throw bad('Location must be 200 characters or fewer');
   }
   const dev = cleanDeviceId(device_id);
   if (dev !== undefined) f.device_id = dev;
@@ -67,6 +69,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       .single();
 
     if (error?.code === '23505') return await readerTaken(res, f.device_id);
+    if (error?.code === '22001') return res.status(400).json({ error: 'A value is too long' });
     if (error) throw error;
     await logAudit(req, { action: 'create', entity: 'room', entityId: data.id, summary: `Created room "${data.name}"${data.device_id ? ` (reader ${data.device_id})` : ''}` });
     return res.status(201).json({ message: 'Room created', room: data });
@@ -94,6 +97,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 
     if (error?.code === '23505') return await readerTaken(res, updates.device_id);
     if (error?.code === 'PGRST116') return res.status(404).json({ error: 'Room not found' });
+    if (error?.code === '22001') return res.status(400).json({ error: 'A value is too long' });
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Room not found' });
 

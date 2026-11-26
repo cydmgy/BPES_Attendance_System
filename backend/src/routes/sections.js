@@ -112,6 +112,11 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
 router.delete('/:id', auth, adminOnly, async (req, res) => {
   try {
     if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Section not found' });
+    // students.section_id is ON DELETE SET NULL: deleting would silently un-section them all
+    const { count, error: cErr } = await supabase.from('students')
+      .select('id', { count: 'exact', head: true }).eq('section_id', req.params.id);
+    if (cErr) throw cErr;
+    if (count > 0) return res.status(409).json({ error: 'Section has enrolled students: move them first' });
     const { data: gone, error } = await supabase.from('sections').delete().eq('id', req.params.id).select('section_name');
     if (error?.code === '23503') return res.status(409).json({ error: 'Section has class session history and cannot be deleted' });
     if (error) throw error;

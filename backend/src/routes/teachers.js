@@ -9,7 +9,10 @@ const { normalizeUid, uidInUse } = require('../utils/uid');
 const { logAudit } = require('../utils/audit');
 const { defaultTeacherPassword } = require('../utils/password');
 const { BUCKET } = require('../utils/avatar');
+const { localDateStr } = require('../utils/time');
 
+const EMAIL_RE = /^\S+@\S+\.\S+$/;
+const TOO_LONG = { error: 'A value is too long' }; // Postgres 22001 safety net
 const COLS = 'id, employee_id, full_name, email, role, rfid_uid, created_at, archived_at';
 
 const dupMessage = e => e.message.includes('rfid_uid') ? 'This RFID card is already assigned' : e.message.includes('employee_id') ? 'This teacher ID is already in use' : 'A teacher with this email already exists';
@@ -50,9 +53,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
     const { full_name, email, rfid_uid } = req.body;
     const employee_id = String(req.body.employee_id ?? '').trim();
 
-    if (!full_name || !email) {
+    if (typeof full_name !== 'string' || !full_name.trim() || typeof email !== 'string' || !email.trim()) {
       return res.status(400).json({ error: 'Full name and email are required' });
     }
+    if (full_name.trim().length > 100 || email.trim().length > 100) {
+      return res.status(400).json({ error: 'Full name and email must be 100 characters or fewer' });
+    }
+    if (!EMAIL_RE.test(email.trim())) return res.status(400).json({ error: 'Enter a valid email address' });
 
     const rfid = await parseRfid(rfid_uid);
     if (rfid.error) return res.status(rfid.error.status).json({ error: rfid.error.error });
@@ -78,6 +85,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
       if (error.code === '23505') {
         return res.status(409).json({ error: dupMessage(error) });
       }
+      if (error.code === '22001') return res.status(400).json(TOO_LONG);
       throw error;
     }
 
@@ -103,10 +111,13 @@ router.put('/:id', auth, async (req, res) => {
     const updates = {};
     // A teacher's own name goes through /api/account/profile and their email (the login) stays with the admin.
     const isAdmin = req.user?.role === 'admin';
-    if (full_name !== undefined && isAdmin) updates.full_name = full_name.trim();
+    if (full_name !== undefined && isAdmin) {
+      updates.full_name = String(full_name).trim();
+      if (!updates.full_name || updates.full_name.length > 100) return res.status(400).json({ error: 'Full name is required (max 100 characters)' });
+    }
     if (email !== undefined && isAdmin) {
-      updates.email = email.trim().toLowerCase();
-      if (!/^\S+@\S+\.\S+$/.test(updates.email)) return res.status(400).json({ error: 'Enter a valid email address' });
+      updates.email = String(email).trim().toLowerCase();
+      if (!EMAIL_RE.test(updates.email) || updates.email.length > 100) return res.status(400).json({ error: 'Enter a valid email address (max 100 characters)' });
     }
     if (password !== undefined) {
       // A teacher changes their own password in Settings (it checks the current one); here only an admin resets it.
@@ -134,6 +145,7 @@ router.put('/:id', auth, async (req, res) => {
 
     if (error) {
       if (error.code === '23505') return res.status(409).json({ error: dupMessage(error) });
+      if (error.code === '22001') return res.status(400).json(TOO_LONG);
       throw error;
     }
     if (!data) return res.status(404).json({ error: 'Teacher not found' });
@@ -169,6 +181,10 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
         .update({ archived_at: new Date().toISOString() }).eq('id', id).select('full_name');
       if (archErr) throw archErr;
       if (!done?.length) return res.status(404).json({ error: 'Teacher not found' });
+      // An archived teacher must not stay named as a future substitute; past rows remain as history.
+      const { error: subErr } = await supabase.from('schedule_overrides')
+        .delete().eq('sub_teacher_id', id).gte('override_date', localDateStr());
+      if (subErr) throw subErr;
       await logAudit(req, { action: 'archive', entity: 'teacher', entityId: id, summary: `Archived teacher "${done[0].full_name}"` });
       return res.json({ success: true, archived: true, message: 'Teacher archived (they have class history)' });
     }

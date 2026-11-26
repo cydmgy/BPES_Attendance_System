@@ -57,6 +57,13 @@ router.post('/', auth, adminOnly, async (req, res) => {
     if (!student_id || !full_name) {
       return res.status(400).json({ error: 'student_id and full_name are required' });
     }
+    // Column sizes: student_id 20, full_name 100, guardian name 100, guardian phone 20 (checked before anything is written)
+    if (String(student_id).trim().length > 20 || String(full_name).trim().length > 100) {
+      return res.status(400).json({ error: 'Student ID must be 20 characters or fewer and the name 100 or fewer' });
+    }
+    if (String(guardian?.full_name ?? '').trim().length > 100 || String(guardian?.phone_number ?? '').trim().length > 20) {
+      return res.status(400).json({ error: 'Guardian name must be 100 characters or fewer and the phone number 20 or fewer' });
+    }
 
     // Accounts only come from card enrollment: no card, no account.
     const formattedRfid = normalizeUid(rfid_uid ?? '').colon;
@@ -96,6 +103,7 @@ router.post('/', auth, adminOnly, async (req, res) => {
         const field = error.message.includes('rfid_uid') ? 'RFID UID' : 'Student ID';
         return res.status(409).json({ error: `${field} already exists` });
       }
+      if (error.code === '22001') return res.status(400).json({ error: 'A value is too long' });
       throw error;
     }
 
@@ -165,6 +173,8 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
     if (full_name !== undefined)  updates.full_name = String(full_name).trim();
     if (course !== undefined)     updates.course = String(course).trim();
     if (year_level !== undefined) updates.year_level = parseInt(year_level, 10);
+    if (updates.student_id !== undefined && (!updates.student_id || updates.student_id.length > 20)) return res.status(400).json({ error: 'Student ID is required (max 20 characters)' });
+    if (updates.full_name !== undefined && (!updates.full_name || updates.full_name.length > 100)) return res.status(400).json({ error: 'Name is required (max 100 characters)' });
     if (section !== undefined || section_id !== undefined) {
       const sec = await sectionFields(supabase, { section_id, section });
       if (!sec?.section_id) return res.status(400).json({ error: 'A valid section is required' });
@@ -187,6 +197,7 @@ router.put('/:id', auth, adminOnly, async (req, res) => {
         const field = error.message.includes('rfid_uid') ? 'RFID UID' : 'Student ID';
         return res.status(409).json({ error: `${field} already exists` });
       }
+      if (error.code === '22001') return res.status(400).json({ error: 'A value is too long' });
       throw error;
     }
     if (!data) return res.status(404).json({ error: 'Student not found' });
