@@ -55,36 +55,26 @@ function showStudentTab(tab) {
   });
 
   const sidebarTitle = document.getElementById('student-sidebar-title');
-  const sidebarDesc = document.getElementById('student-sidebar-desc');
   const mobileTitle = document.getElementById('student-mobile-header-title');
-  const welcomeDesc = document.getElementById('student-welcome-desc');
 
   if (tab === 'overview') {
     if (sidebarTitle) sidebarTitle.textContent = 'Overview';
-    if (sidebarDesc) sidebarDesc.textContent = 'Track attendance, review history, and submit leave requests.';
     if (mobileTitle) mobileTitle.textContent = 'Dashboard';
-    if (welcomeDesc) welcomeDesc.textContent = 'Track your attendance, upcoming classes, and leave status.';
     loadStudentPortalData();
   } else if (tab === 'schedule') {
     if (sidebarTitle) sidebarTitle.textContent = 'Schedule';
-    if (sidebarDesc) sidebarDesc.textContent = "Your section's weekly timetable.";
     if (mobileTitle) mobileTitle.textContent = 'Schedule';
-    if (welcomeDesc) welcomeDesc.textContent = 'See your classes for the week.';
     loadStudentSchedule();
   } else if (tab === 'logs') {
     if (sidebarTitle) sidebarTitle.textContent = 'Attendance History';
-    if (sidebarDesc) sidebarDesc.textContent = 'Review all personal attendance records with date, time, room, status, and teacher.';
     if (mobileTitle) mobileTitle.textContent = 'Attendance History';
-    if (welcomeDesc) welcomeDesc.textContent = 'Review all personal attendance records with date, time, room, status, and teacher.';
     loadStudentPortalData();
   } else if (tab === 'leave') {
     if (sidebarTitle) sidebarTitle.textContent = 'File Excuse / Leave';
-    if (sidebarDesc) sidebarDesc.textContent = 'Submit leave requests, attach proof, and review past request status.';
     if (mobileTitle) mobileTitle.textContent = 'File Excuse / Leave';
-    if (welcomeDesc) welcomeDesc.textContent = 'Submit an absence request and track its review status.';
     loadStudentLeaveHistory();
   } else if (tab === 'settings') {
-    openSettingsTab('student', 'std', [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]);
+    openSettingsTab('student', 'std', [sidebarTitle, mobileTitle]);
   }
 }
 

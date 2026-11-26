@@ -50,26 +50,17 @@ function populateAdminSectionFilter() {
 // ── Admin Tabs ────────────────────────────────────────────────
 
 const ADMIN_TABS = {
-  dashboard: ['Dashboard', 'School-wide numbers and today\'s attendance at a glance.',
-              'School-wide numbers and today\'s attendance at a glance.'],
-  students:  ['Student Enrollment', 'Tap-to-enroll workflow, enrolled students, and system summaries.',
-              'Manage student enrollment, review enrolled students, and monitor system health.'],
-  teachers:  ['Teachers', 'Manage teacher registration, review registered teachers, and monitor system health.',
-              'Manage teacher registration, review registered teachers, and monitor system health.'],
-  sections:  ['Sections', 'Create sections and choose the home room where each one has its classes.',
-              'Create sections and choose the home room where each one has its classes.'],
-  subjects:  ['Subjects', 'Add, edit and remove the subjects offered by the school.',
-              'Add, edit and remove the subjects offered by the school.'],
-  rooms:     ['Rooms', 'Add, edit and remove rooms and the RFID reader assigned to each.',
-              'Add, edit and remove rooms and the RFID reader assigned to each.'],
-  schedules: ['Schedules', 'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.',
-              'Build the weekly timetable. Rooms, teachers and sections can never be double-booked.'],
-  logs:      ['Attendance Stream', 'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.',
-              'Monitor live RFID taps, review attendance by section, and keep room coverage up to date.'],
-  noclass:   ['No class days', 'Holidays and suspensions. Adding a day cancels that day\'s unfinished class periods.',
-              'Add holidays and suspensions, or lift a no-class day.'],
-  audit:     ['Audit log', 'Who changed what, and when.', 'See who changed something, for transparency.'],
-  settings:  ['Settings', 'Your account name and password.', 'Manage your account name and password.'],
+  dashboard: 'Dashboard',
+  students: 'Student Enrollment',
+  teachers: 'Teachers',
+  sections: 'Sections',
+  subjects: 'Subjects',
+  rooms: 'Rooms',
+  schedules: 'Schedules',
+  logs: 'Attendance Stream',
+  noclass: 'No class days',
+  audit: 'Audit log',
+  settings: 'Settings',
 };
 
 function showAdminTab(tab) {
@@ -78,11 +69,9 @@ function showAdminTab(tab) {
     document.getElementById(`sidebar-adm-${t}`)?.classList.toggle('active', t === tab);
   });
 
-  const [title, sideDesc, welcomeDesc] = ADMIN_TABS[tab];
+  const title = ADMIN_TABS[tab];
   setText('admin-sidebar-title', title);
-  setText('admin-sidebar-desc', sideDesc);
   setText('admin-mobile-header-title', title);
-  setText('admin-welcome-desc', welcomeDesc);
 
   if (tab === 'logs') {
     loadAdminLogs();

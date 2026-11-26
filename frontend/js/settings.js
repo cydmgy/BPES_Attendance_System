@@ -242,10 +242,8 @@ function openProfileSettings() {
 }
 
 // Shared tab opener for the student and teacher portals (admin uses ADMIN_TABS).
-function openSettingsTab(role, pre, [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]) {
+function openSettingsTab(role, pre, [sidebarTitle, mobileTitle]) {
   if (sidebarTitle) sidebarTitle.textContent = 'Settings';
-  if (sidebarDesc) sidebarDesc.textContent = 'Your account details and password.';
   if (mobileTitle) mobileTitle.textContent = 'Settings';
-  if (welcomeDesc) welcomeDesc.textContent = 'Manage your account.';
   BpesSettings.mount(document.getElementById(`${pre}-tab-settings`), role);
 }

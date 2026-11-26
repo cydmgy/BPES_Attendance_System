@@ -37,9 +37,6 @@
       <div class="bpes-sidebar-header">
         <div class="bpes-sidebar-subtitle">Admin portal</div>
         <h2 class="bpes-sidebar-title" id="admin-sidebar-title">Student Enrollment</h2>
-        <p class="bpes-sidebar-desc" id="admin-sidebar-desc">
-          Tap-to-enroll workflow, enrolled students, and system summaries.
-        </p>
       </div>
 
       <nav class="bpes-sidebar-nav">
@@ -104,9 +101,6 @@
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
         <div>
           <h1 class="fs-3 fw-bold text-dark mb-1" id="admin-greeting">Good morning, Admin!</h1>
-          <p class="text-muted small mb-0" id="admin-welcome-desc">
-            Manage student enrollment, review enrolled students, and monitor system health.
-          </p>
         </div>
         <div class="px-3 py-2 rounded-pill bg-white border d-flex align-items-center gap-2 shadow-sm text-muted small fw-medium">
           <i class="fas fa-calendar text-success"></i>
@@ -191,7 +185,6 @@
               <div class="bpes-card-header">
                 <div>
                   <h3 class="bpes-card-title">Attendance, last 14 days</h3>
-                  <div class="bpes-card-subtitle">Held classes only, counted per student per class period.</div>
                 </div>
               </div>
               <div class="bpes-chart bpes-chart-lg">
@@ -205,7 +198,6 @@
               <div class="bpes-card-header">
                 <div>
                   <h3 class="bpes-card-title">Today</h3>
-                  <div class="bpes-card-subtitle">Absent fills in as each period closes.</div>
                 </div>
               </div>
               <div class="bpes-chart bpes-chart-sm">
@@ -221,7 +213,6 @@
           <div class="bpes-card-header">
             <div>
               <h3 class="bpes-card-title">Students per section</h3>
-              <div class="bpes-card-subtitle">Enrolled students in each section.</div>
             </div>
           </div>
           <div class="bpes-chart">
@@ -364,7 +355,6 @@
             <div class="bpes-card mb-4" id="teacher-registration-card">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Register teacher</h3>
-                <div class="bpes-card-subtitle">Add a new teacher to the directory.</div>
               </div>
 
               <form id="teacher-registration-form" onsubmit="submitInlineTeacherForm(event)">
@@ -456,7 +446,6 @@
             <div class="bpes-card mb-4">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Add section</h3>
-                <div class="bpes-card-subtitle">All of a section's classes are held in its home room.</div>
               </div>
               <form id="section-form" onsubmit="submitSectionForm(event)">
                 <div class="bpes-form-group">
@@ -516,7 +505,6 @@
             <div class="bpes-card mb-4">
               <div class="mb-3">
                 <h3 class="bpes-card-title" id="subject-form-title">Add subject</h3>
-                <div class="bpes-card-subtitle">Subjects are shared by schedules, attendance and leave requests.</div>
               </div>
               <form id="subject-form" onsubmit="submitSubjectForm(event)">
                 <input type="hidden" id="sub-id-input">
@@ -572,7 +560,6 @@
             <div class="bpes-card mb-4">
               <div class="mb-3">
                 <h3 class="bpes-card-title" id="room-form-title">Add room</h3>
-                <div class="bpes-card-subtitle">Each RFID reader is tied to one room through its device ID.</div>
               </div>
               <form id="room-form" onsubmit="submitRoomForm(event)">
                 <input type="hidden" id="room-id-input">
@@ -634,7 +621,6 @@
             <div class="bpes-card mb-4 mb-xl-0">
               <div class="mb-3">
                 <h3 class="bpes-card-title">Add class period</h3>
-                <div class="bpes-card-subtitle">Pick a section; its home room is used automatically.</div>
               </div>
               <form id="schedule-form" onsubmit="submitScheduleForm(event)">
                 <div class="bpes-form-group">
@@ -808,7 +794,6 @@
           <div class="bpes-card-header">
             <div>
               <h3 class="bpes-card-title">No-class days</h3>
-              <div class="bpes-card-subtitle">Holidays and suspensions. Adding a day cancels that day's unfinished class periods.</div>
             </div>
             <button type="button" class="bpes-btn-danger-outline bpes-btn-sm" id="ncd-suspend-btn" onclick="openSuspendModal()">
               <i class="fas fa-ban me-1" aria-hidden="true"></i> Suspend classes today
@@ -836,7 +821,6 @@
           <div class="bpes-card-header">
             <div>
               <h3 class="bpes-card-title">Audit log</h3>
-              <div class="bpes-card-subtitle">Who changed what, and when. Newest first.</div>
             </div>
           </div>
           <div class="d-flex flex-wrap gap-2 mb-3">

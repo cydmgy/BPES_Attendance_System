@@ -76,48 +76,36 @@ function showTeacherTab(tab) {
   });
 
   const sidebarTitle = document.getElementById('teacher-sidebar-title');
-  const sidebarDesc = document.getElementById('teacher-sidebar-desc');
   const mobileTitle = document.getElementById('teacher-mobile-header-title');
-  const welcomeDesc = document.getElementById('teacher-welcome-desc');
 
   if (tab === 'dashboard') {
     if (sidebarTitle) sidebarTitle.textContent = 'Dashboard';
-    if (sidebarDesc) sidebarDesc.textContent = 'Today\'s attendance at a glance.';
     if (mobileTitle) mobileTitle.textContent = 'Dashboard';
-    if (welcomeDesc) welcomeDesc.textContent = "Welcome back! Here's what's happening with your classes today.";
     loadTeacherDashboardData();
     stopTeacherAutoRefresh();
   } else if (tab === 'schedule' || tab === 'classes') {
     const isSchedule = tab === 'schedule';
     if (sidebarTitle) sidebarTitle.textContent = isSchedule ? 'Schedule' : 'Classes';
-    if (sidebarDesc) sidebarDesc.textContent = isSchedule ? 'Your weekly timetable, including upcoming substitutions.' : "Your grades, sections and subjects, with each section's student list.";
     if (mobileTitle) mobileTitle.textContent = isSchedule ? 'Schedule' : 'Classes';
-    if (welcomeDesc) welcomeDesc.textContent = isSchedule ? 'When and where you teach this week.' : 'Open a section to see its enrolled students.';
     loadTeacherWeek();
     stopTeacherAutoRefresh();
   } else if (tab === 'attendance') {
     if (sidebarTitle) sidebarTitle.textContent = 'Attendance';
-    if (sidebarDesc) sidebarDesc.textContent = 'Pick a date to see each class roster and override individual records.';
     if (mobileTitle) mobileTitle.textContent = 'Attendance';
-    if (welcomeDesc) welcomeDesc.textContent = 'Live roster per class period with manual status override.';
     loadTeacherAttendance();
     startTeacherAutoRefresh();
   } else if (tab === 'export') {
     if (sidebarTitle) sidebarTitle.textContent = 'Export Attendance';
-    if (sidebarDesc) sidebarDesc.textContent = 'Generate official Department of Education attendance log sheets.';
     if (mobileTitle) mobileTitle.textContent = 'Export Attendance';
-    if (welcomeDesc) welcomeDesc.textContent = 'Download CSV or print daily attendance rosters.';
     generateTeacherExportPreview();
     stopTeacherAutoRefresh();
   } else if (tab === 'leave') {
     if (sidebarTitle) sidebarTitle.textContent = 'Student Leave Requests';
-    if (sidebarDesc) sidebarDesc.textContent = 'Review student medical, emergency, and excuse submissions.';
     if (mobileTitle) mobileTitle.textContent = 'Student Leave Requests';
-    if (welcomeDesc) welcomeDesc.textContent = 'Review submitted excuse requests with supporting proof documents.';
     loadTeacherLeaveRequests();
     stopTeacherAutoRefresh();
   } else if (tab === 'settings') {
-    openSettingsTab('teacher', 'tch', [sidebarTitle, sidebarDesc, mobileTitle, welcomeDesc]);
+    openSettingsTab('teacher', 'tch', [sidebarTitle, mobileTitle]);
     stopTeacherAutoRefresh();
   }
 }
