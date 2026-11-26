@@ -104,8 +104,9 @@ const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
   keyGenerator: req => {
     const b = req.body || {};
-    const id = req.path === '/student' ? b.student_id || b.lrn || b.username : req.path === '/teacher' ? b.email : b.username || b.full_name;
-    return `${ipKeyGenerator(req.ip)}|${req.path}|${String(id || '').trim().toLowerCase()}`;
+    const p = req.path.toLowerCase().replace(/\/+$/, ''); // routing ignores case and a trailing slash, so the key must too
+    const id = p === '/student' ? b.student_id || b.lrn || b.username : p === '/teacher' ? b.email : b.username || b.full_name;
+    return `${ipKeyGenerator(req.ip)}|${p}|${String(id || '').trim().toLowerCase()}`;
   },
   message: loginMessage,
 });

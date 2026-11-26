@@ -91,7 +91,7 @@ router.post('/change-password', passwordLimiter, async (req, res) => {
       ok = await verifyPassword(current, data[col]);
       write = hash => supabase.from(table).update({ [col]: hash, ...extra }).eq('id', id);
     }
-    if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
+    if (!ok) return res.status(400).json({ error: 'Current password is incorrect' }); // not 401: the portal treats 401 as an expired session
 
     const { error: wErr } = await write(await hashPassword(next));
     if (wErr) throw wErr;

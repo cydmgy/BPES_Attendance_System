@@ -183,7 +183,7 @@ router.delete('/:id', auth, adminOnly, async (req, res) => {
       if (!done?.length) return res.status(404).json({ error: 'Teacher not found' });
       // An archived teacher must not stay named as a future substitute; past rows remain as history.
       const { error: subErr } = await supabase.from('schedule_overrides')
-        .delete().eq('sub_teacher_id', id).gte('override_date', localDateStr());
+        .delete().eq('sub_teacher_id', id).gt('override_date', localDateStr()); // today's may already have been taught
       if (subErr) throw subErr;
       await logAudit(req, { action: 'archive', entity: 'teacher', entityId: id, summary: `Archived teacher "${done[0].full_name}"` });
       return res.json({ success: true, archived: true, message: 'Teacher archived (they have class history)' });

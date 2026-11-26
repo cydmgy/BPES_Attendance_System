@@ -240,7 +240,8 @@ router.put('/:id', async (req, res) => {
       if (mapped) return res.status(mapped.status).json(mapped.body);
       throw error;
     }
-    if (u.status === 'archived' || moved) await cancelPending(req.params.id);
+    // only a day move strands today's session; a pending one reads its times from this row
+    if (u.status === 'archived' || changed('day_of_week')) await cancelPending(req.params.id);
     if (u.status === 'active') await revivePending(req.params.id, u.day_of_week || cur.day_of_week);
     await logAudit(req, { action: 'update', entity: 'schedule', entityId: req.params.id, summary: `Changed schedule ${Object.keys(u).join(", ")}` });
     return res.json({ schedule: await fetchOne(req.params.id) });
