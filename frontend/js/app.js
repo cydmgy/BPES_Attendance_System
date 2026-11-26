@@ -523,8 +523,9 @@ axios.interceptors.response.use(r => r, error => {
 // ── Idle sign-out and sliding refresh ─────────────────────────
 // Only real input counts as activity: polling timers never call onActivity, so they cannot keep a session alive.
 const IDLE_MS = 30 * 60 * 1000;
-const REFRESH_AFTER_SECONDS = 10 * 60;
-const REFRESH_RETRY_MS = 60 * 1000; // also keeps a refresh failing past the 12 h cap from firing on every keystroke
+// Tokens last 35 min (idle + this step), so refreshing at most every 5 min on activity always lands in time.
+// Measured on this browser's own clock only, so a PC with a wrong clock is not signed out while working.
+const REFRESH_EVERY_MS = 5 * 60 * 1000;
 let idleTimer = null;
 let nextRefreshAt = 0;
 
@@ -535,23 +536,20 @@ function restartIdleTimer() {
   }, IDLE_MS) : null;
 }
 
-function tokenAgeSeconds(token) {
-  try { return Date.now() / 1000 - JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).iat; } catch (e) { return 0; }
-}
-
 function onActivity() {
   const token = getAuthToken();
   if (!token) return; // login and welcome pages have no session to keep
   restartIdleTimer();
-  if (Date.now() < nextRefreshAt || tokenAgeSeconds(token) < REFRESH_AFTER_SECONDS) return;
-  nextRefreshAt = Date.now() + REFRESH_RETRY_MS;
+  if (Date.now() < nextRefreshAt) return;
+  nextRefreshAt = Date.now() + REFRESH_EVERY_MS;
   axios.post(`${API_BASE}/api/auth/refresh`).then(res => {
     if (getAuthToken() !== token || !res.data.token) return; // signed out or in as someone else meanwhile
     sessionStorage.setItem('auth_token', res.data.token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
   }).catch(() => { /* the 401 interceptor signs out on the next real call */ });
 }
-['pointerdown', 'keydown', 'wheel', 'scroll', 'touchstart'].forEach(ev => document.addEventListener(ev, onActivity, { passive: true, capture: true })); // capture: scroll does not bubble
+// no 'scroll': re-renders by the polling timers can fire it and would fake activity
+['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev => document.addEventListener(ev, onActivity, { passive: true, capture: true }));
 
 // ── Mobile Drawer Global Controls ─────────────────────────────
 

@@ -18,10 +18,10 @@ const getSecret = () => {
 /**
  * Generate a cryptographically signed HMAC-SHA256 session token
  * @param {Object} payload - Data to embed in the token (e.g., id, role, student_id, email)
- * @param {number} expiresInSeconds - Expiration time in seconds (default: 30 minutes; /api/auth/refresh slides it)
+ * @param {number} expiresInSeconds - Expiration time in seconds (default: 35 minutes = 30 min idle + the portal's 5 min refresh step; /api/auth/refresh slides it)
  * @returns {string} Signed token: att.<b64Payload>.<b64Sig>
  */
-function generateToken(payload, expiresInSeconds = 30 * 60) {
+function generateToken(payload, expiresInSeconds = 35 * 60) {
   const issuedAt = Math.floor(Date.now() / 1000);
   const expiresAt = issuedAt + expiresInSeconds;
 

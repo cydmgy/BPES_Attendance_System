@@ -233,7 +233,7 @@ router.post('/admin', async (req, res) => {
 });
 
 // ── POST /api/auth/refresh ───────────────────────────────────────
-// Sliding session: a valid token buys a fresh 30 minutes, never past 12 h after the login (auth_time).
+// Sliding session: a valid token buys a fresh 35 minutes, never past 12 h after the login (auth_time).
 // A token from before auth_time existed is capped from its iat (it was issued with up to 12 h left, so this never extends it).
 const SESSION_CAP_SECONDS = 12 * 3600;
 const BUILT_IN_ADMIN_ID = '00000000-0000-0000-0000-000000000000';
@@ -245,15 +245,17 @@ router.post('/refresh', auth, async (req, res) => {
     if (typeof authTime !== 'number' || Math.floor(Date.now() / 1000) - authTime > SESSION_CAP_SECONDS) return res.status(401).json(expired);
 
     // Cheap account re-check, so a removed or archived account stops at the next refresh instead of lasting its 12 h.
+    let role = u.role;
     if (u.id !== BUILT_IN_ADMIN_ID) {
       const isStudent = u.role === 'student';
       const { data: account, error } = await supabase.from(isStudent ? 'students' : 'instructors')
-        .select(isStudent ? 'id' : 'id, archived_at').eq('id', u.id).maybeSingle();
+        .select(isStudent ? 'id' : 'id, archived_at, role').eq('id', u.id).maybeSingle();
       if (error) throw error;
       if (!account || account.archived_at) return res.status(401).json(expired);
+      if (!isStudent) role = account.role || 'instructor'; // a demoted instructor-admin loses admin at the next refresh
     }
 
-    return res.json({ success: true, token: generateToken({ ...u, auth_time: authTime }) });
+    return res.json({ success: true, token: generateToken({ ...u, role, auth_time: authTime }) });
   } catch (err) {
     console.error('[POST /api/auth/refresh]', err);
     return res.status(500).json({ success: false, error: 'Server authentication error' });
