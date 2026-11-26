@@ -84,34 +84,34 @@ const scanLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute window
   max: 300,                 // per IP, and every reader shares the school's IP: ~10 rooms tapping at once is 60+/min
   skip: isLatestTap,
+  skipFailedRequests: true, // junk/no-key requests (401) must not 429 the real readers
   message: { error: 'Too many requests — slow down' },
 });
 const latestTapLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 300,
   skip: req => !isLatestTap(req),
+  skipFailedRequests: true,
   message: { error: 'Too many requests — slow down' },
 });
 
 // ── Rate limiters for logins: failed attempts only, so a busy class logging in is not blocked ──
-// Per IP + account stops guessing one account; the per-IP ceiling is higher because a class shares the school's IP.
+// Per IP + route + the account field that route reads, so a rotating unrelated field cannot buy a fresh bucket.
 const loginMessage = { success: false, error: 'Too many login attempts — try again in a few minutes' };
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   skipSuccessfulRequests: true,
-  keyGenerator: req => `${ipKeyGenerator(req.ip)}|${String(req.body?.student_id || req.body?.lrn || req.body?.email || req.body?.username || '').trim().toLowerCase()}`,
-  message: loginMessage,
-});
-const authIpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  skipSuccessfulRequests: true,
+  keyGenerator: req => {
+    const b = req.body || {};
+    const id = req.path === '/student' ? b.student_id || b.lrn || b.username : req.path === '/teacher' ? b.email : b.username || b.full_name;
+    return `${ipKeyGenerator(req.ip)}|${req.path}|${String(id || '').trim().toLowerCase()}`;
+  },
   message: loginMessage,
 });
 
 // ── Routes ─────────────────────────────────────────────────────
-app.use('/api/auth',       authLimiter, authIpLimiter, authRoutes);
+app.use('/api/auth',       authLimiter, authRoutes);
 app.use('/api/scan',       scanLimiter, latestTapLimiter, scanRoutes);
 app.use('/api/students',   studentRoutes);
 app.use('/api/attendance', attendanceRoutes);

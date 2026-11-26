@@ -1,5 +1,6 @@
 // Self-service account endpoints for every role (student, teacher, admin).
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const supabase = require('../supabase');
 const auth = require('../middleware/auth');
@@ -13,6 +14,15 @@ const isAdmin = req => req.user.role === 'admin' && !req.user.instructor_id;
 const entityOf = req => (req.user.role === 'student' ? 'student' : isAdmin(req) ? 'admin' : 'teacher');
 
 router.use(auth);
+
+// Wrong current passwords only count; keyed by user (this runs after auth) so a stolen token cannot brute-force the password.
+const passwordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  keyGenerator: req => req.user?.id ? `user:${req.user.id}` : rateLimit.ipKeyGenerator(req.ip),
+  message: { error: 'Too many attempts — try again in a few minutes' },
+});
 
 // Signed link to a stored picture. Fails open: a missing picture or a signing error is just "no picture".
 const signAvatar = async path => {
@@ -59,7 +69,7 @@ router.get('/me', async (req, res) => {
 });
 
 // POST /api/account/change-password
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', passwordLimiter, async (req, res) => {
   try {
     const { role, id } = req.user;
     const body = req.body || {};
@@ -100,6 +110,7 @@ router.put('/profile', async (req, res) => {
     if (role === 'student') return res.status(403).json({ error: 'Students cannot edit their profile' });
     const name = String((req.body || {}).full_name || '').trim();
     if (!name) return res.status(400).json({ error: 'full_name is required' });
+    if (name.length > 120) return res.status(400).json({ error: 'Name must be 120 characters or fewer' });
 
     const { data, error } = isAdmin(req)
       ? await supabase.from('admin_settings').upsert({ ...ADMIN_ROW, display_name: name, updated_at: new Date().toISOString() })

@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { promisify } = require('util');
 const supabase = require('../supabase');
 const { generateToken } = require('../utils/token');
-const { likeEscape } = require('../utils/filter');
 
 const pbkdf2 = promisify(crypto.pbkdf2); // async: a class logging in together must not stall card taps
 
@@ -131,7 +130,7 @@ router.post('/teacher', async (req, res) => {
     const { data: teacher, error } = await supabase
       .from('instructors')
       .select('id, full_name, email, role, password_hash, archived_at')
-      .ilike('email', likeEscape(email))
+      .eq('email', email.toLowerCase())
       .maybeSingle();
     if (error) throw error;
 
