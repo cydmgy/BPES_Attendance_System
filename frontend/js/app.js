@@ -375,7 +375,7 @@ async function handleUnifiedLogin(e) {
   if (!username || !password) {
     showAuthErrorPopup({
       title: 'Missing Credentials',
-      message: 'Please enter both your LRN (teachers: email) and password to sign in.',
+      message: 'Please enter both your LRN/Email and password to sign in.',
       type: 'warning',
       isNotFound: false
     });
